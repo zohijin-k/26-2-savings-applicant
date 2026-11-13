@@ -48,15 +48,10 @@ export interface ApplicationRow {
   self_check_json: Record<string, string>
   form5_json: Record<string, unknown>
   identity_json: Partial<Identity> | null
-  eligibility_blockers?: Blocker[]
 }
 
 export interface SelfCheckResult {
-  eligible: boolean
   completed: boolean
-  failed_item: number | null
-  reason: string
-  alternative: string
   /** 두배적금 자가진단 문항 수. */
   total_items: number
 }
@@ -74,10 +69,11 @@ export interface Finding {
   message: string
   how_to_fix: string
   link: string
-  severity: 'FAIL' | 'NEEDS_REVIEW'
+  /** 과거 저장 사유는 severity를 생략하며 기존 FAIL 기본값을 따른다. */
+  severity?: 'FAIL' | 'NEEDS_REVIEW'
 }
 
-export type DocStatus = 'PASS' | 'FAIL' | 'NEEDS_REVIEW'
+export type DocStatus = 'UPLOADED' | 'REUPLOAD_REQUIRED'
 
 export interface UploadedDocument {
   document_id: number
@@ -92,7 +88,6 @@ export interface UploadedDocument {
   status: DocStatus | null
   findings: Finding[]
   extracted: Record<string, string>
-  ocr_confidence: number | null
   elapsed_ms: number | null
   page_index: number | null
   uploaded_at: string

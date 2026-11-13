@@ -24,7 +24,7 @@ Flush before switching documents or requesting a written preview. Ordinary field
 
 | Condition | Required behavior |
 | --- | --- |
-| Current form incomplete | Allow document navigation; keep upload/eligibility validation unchanged |
+| Current form incomplete | Allow document navigation; validate required submission inputs at the upload/submit boundary |
 | Flush pending | Prevent conflicting transitions and edits to the outgoing snapshot |
 | Flush rejects | Keep the current document and values, display the error, allow retry |
 | Application/program changes or component unmounts | Ignore stale asynchronous UI completions |
@@ -42,13 +42,23 @@ Savings step 2 uses the application title/compact step strip above a document he
 
 The compact stage strip uses a connected horizontal line with circular markers and captions/names/statuses below. Keep current/passed/upcoming stages distinct through explicit status text, a current ring/dot and completed checks; do not replace this with per-stage cards or faint underline-only labels. Current styling and `aria-current` take precedence when a stage is also complete. A stage before the restored current stage is visually passed even if child-reported upload counts have not loaded yet; do not change actual upload completion or navigation/gating rules to implement this presentation. Preserve counts when available. Keep the track continuous and labels readable at narrow widths, wrapping text rather than overlapping it.
 
-In savings step 2, the progress area spans the right-hand PDF toolbar's width, excluding sidebar/gap. Share sidebar-width/gap variables between overview and workspace columns; title occupies the left overview column and progress fills the right column (do not subtract sidebar width again). At 800px the overview stacks and progress uses panel width. Marker 1/4 sit near the area's ends with safe insets, marker 2/3 at equal center gaps; edge captions align inward. Keep the non-interactive base rail bounded by `--stage-edge-center` on both sides, without tails. Completion connectors match marker centers and vertical midpoint. Do not restore a 700px cap or affect other stages. Sidebar draft text remains accent/heavier than neutral regular empty text, without badges.
+In savings step 2, the progress area spans the right-hand PDF toolbar's width, excluding sidebar/gap. Share sidebar-width/gap variables between overview and workspace columns; title occupies the left overview column and progress fills the right column (do not subtract sidebar width again). At 800px the overview stacks and progress uses panel width. Markers 1/3 sit near the area's ends with safe insets, marker 2 at the center; edge captions align inward. Keep the non-interactive base rail bounded by `--stage-edge-center` on both sides, without tails. Completion connectors match marker centers and vertical midpoint. Do not restore a 700px cap or affect other stages. Sidebar draft text remains accent/heavier than neutral regular empty text, without badges.
 
 Applicant visual polish is scoped to the applicant shell and workspace chrome: keep its light top bar and bounded inner alignment coordinated with the main flow, use separate application accent/surface styles, and keep backend and engine behavior unchanged. Do not change global `--brand`, document fonts, PDF field colors/coordinates or assets to restyle navigation. Keep primary save/continue actions distinguishable from secondary preview/download and quiet reset actions. Preserve the download menu's positioned header stacking context and right-edge anchoring when changing panel spacing or corners.
 
 The application title keeps the original `.flow__head h1` typography (22px and original tracking/inherited color/line height). Compact layout should not reintroduce separate 16px desktop/mobile title overrides.
 
 Balance-wrap the unchanged savings title within its left overview column. Stage 2 copy is left-aligned from its circle's left edge and stage 3 copy right-aligned to its circle's right edge; align only copy blocks/caption justification, never buttons/nodes. Narrow screens may use the full local text cell for safe wrapping, preserving alignment direction and all counts.
+
+## Three-step submission and reupload guidance
+
+The applicant flow has identity, forms, and upload/submission steps. Legacy `/apply/final` and `from=final` normalize to upload. Keep the preparation API `/final-check`; remove a separate final-confirmation screen. Internal eligibility results do not gate self-check navigation or display in identity/upload/MyPage; preserve answer completion and required consent/input checks.
+
+`DocumentUpload` requests checklist and readiness together, invalidates readiness before mutations, and ignores stale generations. Serialize upload/context/delete/submit operations and prevent conflicting parent navigation. Flush form saves before leaving forms and recheck preparation before submit; only the server's fresh checks authorize submission.
+
+Only the ten public reupload codes at FAIL severity appear in the grouped dialog; omitted historical severity retains FAIL semantics. UPLOADED means upload complete, not eligibility approval. Never display raw internal findings or confidence. The fixed guidance uses public checklist labels/periods and agency home-page links; do not interpolate another person's identity or guessed dates/page numbers.
+
+The shared Modal uses a body portal with preserved sibling inert/scroll states, title focus, Tab/Shift+Tab containment, Escape, labelled title/short description and focus restoration. If an automatic invocation control disappears, restore the guidance-reopen button; reupload actions then focus the actual target upload/date control. Keep all issue documents/reasons in one dialog and update the list without stacking duplicate dialogs.
 
 ## Verification
 

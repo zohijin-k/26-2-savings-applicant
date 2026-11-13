@@ -59,8 +59,7 @@ body {
   white-space: nowrap;
 }
 
-.status-badge--pass { color: var(--success); background: var(--success-tint); }
-.status-badge--fail { color: var(--fail); background: var(--fail-tint); }
-.status-badge--needs_review { color: #805d00; background: var(--warning-tint); }
+.status-badge--uploaded { color: var(--success); background: var(--success-tint); }
+.status-badge--reupload_required { color: var(--fail); background: var(--fail-tint); }
 .status-badge__icon { font-size: 13px; font-weight: 900; line-height: 1; }
 .status-badge--compact { gap: 4px; padding: 2px 7px; font-size: 11px; }

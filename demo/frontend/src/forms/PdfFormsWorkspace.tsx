@@ -14,7 +14,6 @@ import {
   type FormLayout,
   type Identity,
   type Program,
-  type SelfCheckResult,
 } from '../api.ts'
 import SignaturePad from '../components/SignaturePad.tsx'
 import type { ConsentValue } from './consent-model.ts'
@@ -36,7 +35,6 @@ interface Props {
   consent: ConsentValue
   form5: Form5Value
   signMode: SignMode
-  checkResult: SelfCheckResult | null
   onForm1: (value: Form1Value) => void
   onAnswers: (value: SelfCheckAnswers) => void
   onConsent: (value: ConsentValue) => void
@@ -153,7 +151,7 @@ function DownloadIcon() {
 
 export default function PdfFormsWorkspace({
   applicationId, program, identity, form1, answers, consent, form5, signMode,
-  checkResult, onForm1, onAnswers, onConsent, onForm5, onSignMode,
+  onForm1, onAnswers, onConsent, onForm5, onSignMode,
   onFlush, onPaperFormsChange, onContinue, continuing, error, readOnly = false, onProgress,
 }: Props) {
   const [formNos, setFormNos] = useState<string[]>([])
@@ -895,9 +893,6 @@ export default function PdfFormsWorkspace({
           </section>
         </div>
       </>
-      {checkResult && !checkResult.eligible && checkResult.failed_item && (
-        <p className="pdf-forms__error" role="alert">{checkResult.failed_item}번 문항: {checkResult.reason}</p>
-      )}
       <div className="flow__actions">
         <button type="button" className="btn" onClick={() => window.scrollTo({ top: 0 })}>서식 목록</button>
         {!readOnly && <button type="button" className="btn btn--primary" disabled={!allReady || continuing || saving} onClick={submitWorkspace}>

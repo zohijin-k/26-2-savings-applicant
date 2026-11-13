@@ -115,3 +115,15 @@
   padding: 0;
   overflow: hidden;
 }
+
+.modal--reupload { max-width: 900px; max-height: 90dvh; }
+.modal--reupload .modal__head h3 { font-size: 21px; line-height: 1.5; }
+.modal--reupload .modal__body { font-size: 15px; }
+.modal--reupload h3:focus { outline: none; }
+.reupload-doc { padding: 22px 0; border-top: 1px solid var(--border); }
+.reupload-doc h4 { margin: 0 0 12px; font-size: 18px; }
+.reupload-doc ol { padding-left: 24px; }
+.reupload-doc li { margin-bottom: 18px; }
+.reupload-doc li h5 { margin: 0; font-size: 16px; }
+.reupload-doc li p { margin: 6px 0; }
+.reupload-doc__actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }

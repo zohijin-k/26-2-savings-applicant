@@ -246,17 +246,13 @@
   --state: var(--border);
 }
 
-.dslot--pass {
+.dslot--uploaded {
   --state: var(--success);
 }
 
-.dslot--fail {
+.dslot--reupload_required {
   --state: var(--fail);
   border-color: var(--fail);
-}
-
-.dslot--needs_review {
-  --state: var(--warning);
 }
 
 .dslot__head {
@@ -418,16 +414,12 @@
   margin-top: 12px;
 }
 
-.dresult--pass {
+.dresult--uploaded {
   --accent: var(--success);
 }
 
-.dresult--fail {
+.dresult--reupload_required {
   --accent: var(--fail);
-}
-
-.dresult--needs_review {
-  --accent: var(--warning);
 }
 
 .dresult__file {
@@ -695,3 +687,12 @@
 .dslot__files-menu { display: inline-block; position: relative; margin: 4px 0; }
 .dslot__files-menu[open] { z-index: 3; }
 .dslot__files-menu > a, .dslot__files-menu > button { display: block; margin-top: 3px; }
+
+.dupload__submission { margin-top: 28px; padding: 22px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); }
+.dupload__submission h3 { margin: 0 0 12px; font-size: 19px; }
+.dupload__blockers { margin-top: 20px; }
+.dupload__blockers ul { padding: 0; list-style: none; }
+.dupload__blockers li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.dupload__blockers li > span { min-width: 0; }
+.dupload__blockers li > button { flex-shrink: 0; }
+@media (max-width: 580px) { .dupload__blockers li { align-items: flex-start; flex-direction: column; } }

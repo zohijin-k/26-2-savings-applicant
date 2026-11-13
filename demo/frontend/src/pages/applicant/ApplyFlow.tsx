@@ -1,4 +1,4 @@
-/** 두배적금: 본인인증 → 서식 작성 → 서류 업로드 → 확인 및 제출 → 마이페이지. */
+/** 두배적금: 본인인증 → 서식 작성 → 서류 업로드 및 제출 → 마이페이지. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -16,11 +16,9 @@ import {
   type ConsentPayload,
   type Identity,
   type Program,
-  type SelfCheckResult,
   type SubmitResult,
 } from '../../api.ts'
 import DocumentUpload from './DocumentUpload.tsx'
-import FinalCheck from './FinalCheck.tsx'
 import IdentityCheck from './IdentityCheck.tsx'
 import MyPage from './MyPage.tsx'
 import PdfFormsWorkspace, { ApplicantFormsBulkMenu } from '../../forms/PdfFormsWorkspace.tsx'
@@ -36,16 +34,15 @@ type Stage =
   | 'identity'
   | 'forms'
   | 'upload'
-  | 'final'
   | 'complete'
   | 'mypage'
 
 function savedPage(): { appId: number; stage: Stage; previous: Stage } | null {
   const params = currentParams()
   const route = /^\/apply\/([a-z]+)\/?$/.exec(window.location.pathname)
-  const stage = route?.[1] as Stage
-  const previous = params.get('from') as Stage
-  const stages: Stage[] = ['identity', 'forms', 'upload', 'final', 'complete', 'mypage']
+  const stage = (route?.[1] === 'final' ? 'upload' : route?.[1]) as Stage
+  const previous = (params.get('from') === 'final' ? 'upload' : params.get('from')) as Stage
+  const stages: Stage[] = ['identity', 'forms', 'upload', 'complete', 'mypage']
   try {
     const savedId = window.sessionStorage.getItem(ACTIVE_APPLICATION_KEY)
     if (!savedId || !/^[1-9]\d*$/.test(savedId)) return null
@@ -57,13 +54,12 @@ function savedPage(): { appId: number; stage: Stage; previous: Stage } | null {
   }
 }
 
-type Step = { key: 'identity' | 'forms' | 'upload' | 'final'; label: string }
+type Step = { key: 'identity' | 'forms' | 'upload'; label: string }
 type StepperProgress = { completed: number; total: number }
 const APPLY_STEPS: Step[] = [
   { key: 'identity', label: '본인인증' },
   { key: 'forms', label: '서식 작성' },
-  { key: 'upload', label: '서류 업로드' },
-  { key: 'final', label: '확인 및 제출' },
+  { key: 'upload', label: '서류 업로드 및 제출' },
 ]
 
 type ConsentType = ConsentPayload['consent_type']
@@ -119,7 +115,6 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
   const [identity, setIdentity] = useState<Identity | null>(null)
 
   const [answers, setAnswers] = useState<SelfCheckAnswers>({})
-  const [checkResult, setCheckResult] = useState<SelfCheckResult | null>(null)
 
   const [form1, setForm1] = useState<Form1Value>(EMPTY_FORM1)
 
@@ -132,6 +127,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
   const [formContinuing, setFormContinuing] = useState(false)
   const [formError, setFormError] = useState('')
   const [formProgress, setFormProgress] = useState<StepperProgress>({ completed: 0, total: 0 })
+  const [uploadBusy, setUploadBusy] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<StepperProgress>({ completed: 0, total: 0 })
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
 
@@ -184,7 +180,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
         })
       }
       const restoredStage = restored && initialPage ? initialPage.stage : 'identity'
-      setStage(restoredStage === 'complete' && status.status === 'draft' ? 'final' : restoredStage)
+      setStage(restoredStage === 'complete' && status.status === 'draft' ? 'upload' : restoredStage)
       setStageBeforeMypage(restored && initialPage ? initialPage.previous : 'identity')
     }
     // Defer the work so StrictMode's first cleanup happens before initialization.
@@ -209,6 +205,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
   const reportFormProgress = useCallback((completed: number, total: number) => {
     setFormProgress({ completed, total })
   }, [])
+  const reportUploadBusy = useCallback((busy: boolean) => setUploadBusy(busy), [])
   const reportUploadProgress = useCallback((completed: number, total: number) => {
     setUploadProgress({ completed, total })
   }, [])
@@ -217,7 +214,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
     if (appId === null) return Promise.resolve()
     const next = saveQueue.current.catch(() => undefined).then(() => patchApplication(appId, body)).then(() => undefined)
     saveQueue.current = next.catch(() => undefined)
-    return saveQueue.current
+    return next
   }
 
   const continueFromForms = async () => {
@@ -225,35 +222,18 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
     setFormContinuing(true)
     setFormError('')
     try {
+      await flushForms()
       const payload = Object.fromEntries(Object.entries(answers).filter(([, v]) => v)) as Record<string, string>
       const result = await postSelfCheck(appId, payload)
-      setCheckResult(result)
-      if (!result.eligible) return
+      if (!result.completed) {
+        setFormError('자가진단의 모든 문항에 답해 주세요.')
+        return
+      }
       if (!consentReady) {
         setFormError('필수 동의와 서명을 모두 마쳐 주세요.')
         return
       }
-    const types = consentTypesOf()
-    const values: Record<ConsentType, ConsentPayload> = {
-      privacy: { consent_type: 'privacy', agreed: consent.privacy === '동의함' },
-      unique_id: { consent_type: 'unique_id', agreed: consent.uniqueId === '동의함' },
-      third_party: {
-        consent_type: 'third_party',
-        agreed: consent.thirdParty === '동의함',
-      },
-      admin_info: {
-        consent_type: 'admin_info',
-        agreed: form5.agree === '동의함',
-        signature_data_url: signMode === '화면에 서명' ? form5.signature : undefined,
-        signature_kind: signMode === '화면에 서명' ? 'electronic' : 'handwritten',
-      },
-    }
-      await postConsents(
-      appId,
-      types.filter((t) => !(t === 'admin_info' && paperForms['서식5'])).map((t) => values[t]),
-    )
-    if (types.includes('admin_info')) save({ form5 })
-    setStage('upload')
+      setStage('upload')
     } catch (e: unknown) {
       setFormError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -261,7 +241,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
     }
   }
 
-  /** 최종 확인의 수정 링크는 이미 도달한 단계로만 돌아가게 한다. */
+  /** 제출 준비의 수정 링크는 이미 도달한 단계로만 돌아가게 한다. */
   const jumpTo = (next: Stage) => {
     if (next === stage) return
     if (next === 'identity' && identity !== null) return
@@ -289,16 +269,25 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
   const viewedStage = stage === 'mypage' && !submittedDone ? stageBeforeMypage : stage
   const currentIndex = viewedStage === 'identity' ? 0
     : viewedStage === 'forms' ? 1
-      : viewedStage === 'upload' ? 2 : 3
+      : 2
 
-  const openMyPage = () => {
+  const openMyPage = async () => {
+    if (formContinuing || uploadBusy) return
+    if (stage === 'forms') {
+      setFormContinuing(true)
+      setFormError('')
+      try { await flushForms() } catch (e: unknown) {
+        setFormError(e instanceof Error ? e.message : String(e))
+        return
+      } finally { setFormContinuing(false) }
+    }
     if (stage !== 'mypage') setStageBeforeMypage(stage)
     setStage('mypage')
     window.scrollTo({ top: 0 })
   }
 
   const stepStatus = (index: number): string => {
-    if (submittedDone) return index === 3 ? '접수 완료' : '완료'
+    if (submittedDone) return index === 2 ? '접수 완료' : '완료'
     const progress = index === 1 ? formProgress : index === 2 ? uploadProgress : null
     const count = progress && progress.total > 0 ? `${progress.completed} / ${progress.total}` : ''
     if (index < currentIndex) return index === 2 && count ? `완료 · ${count}` : '완료'
@@ -309,10 +298,18 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
     return count ? `현재 · ${count}` : '현재 단계'
   }
 
-  const stepperNavigate = (index: number) => {
+  const stepperNavigate = async (index: number) => {
     const previouslyReachedUpload = index === 2 && uploadProgress.total > 0
-    if (submittedDone || stage === 'mypage' || index === 0) return
+    if (submittedDone || stage === 'mypage' || index === 0 || formContinuing || uploadBusy) return
     if (index >= currentIndex && !previouslyReachedUpload) return
+    if (stage === 'forms') {
+      setFormContinuing(true)
+      setFormError('')
+      try { await flushForms() } catch (e: unknown) {
+        setFormError(e instanceof Error ? e.message : String(e))
+        return
+      } finally { setFormContinuing(false) }
+    }
     setStage(index === 1 ? 'forms' : 'upload')
     window.scrollTo({ top: 0 })
   }
@@ -321,7 +318,34 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
   const onForm1 = (next: Form1Value) => {
     const locked = lockIdentity(next, identity)
     setForm1(locked)
-    save({ form1: locked })
+    void save({ form1: locked }).catch((e: unknown) => setFormError(e instanceof Error ? e.message : String(e)))
+  }
+
+  const flushForms = async () => {
+    if (appId === null) return
+    await saveQueue.current
+    await patchApplication(appId, { form1, self_check: answers, form5 })
+    const values: Record<ConsentType, ConsentPayload> = {
+      privacy: { consent_type: 'privacy', agreed: consent.privacy === '동의함' },
+      unique_id: { consent_type: 'unique_id', agreed: consent.uniqueId === '동의함' },
+      third_party: { consent_type: 'third_party', agreed: consent.thirdParty === '동의함' },
+      admin_info: {
+        consent_type: 'admin_info',
+        agreed: form5.agree === '동의함',
+        signature_data_url: signMode === '화면에 서명' ? form5.signature : undefined,
+        signature_kind: signMode === '화면에 서명' ? 'electronic' : 'handwritten',
+      },
+    }
+    const selectedConsent: Record<ConsentType, string> = {
+      privacy: consent.privacy,
+      unique_id: consent.uniqueId,
+      third_party: consent.thirdParty,
+      admin_info: form5.agree,
+    }
+    await postConsents(appId, consentTypesOf()
+      .filter((type) => !(type === 'admin_info' && paperForms['서식5']))
+      .filter((type) => selectedConsent[type] === '동의함' || selectedConsent[type] === '동의하지 않음')
+      .map((type) => values[type]))
   }
 
   return (
@@ -329,7 +353,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
       {headerHost && appId !== null && createPortal(
         <div className="shell__application-controls">
           <span className="shell__application-number">신청번호 <strong>{appNo || '발급 중…'}</strong></span>
-          <button type="button" className="shell__mypage" onClick={openMyPage} disabled={stage === 'mypage'}>마이페이지</button>
+          <button type="button" className="shell__mypage" onClick={() => void openMyPage()} disabled={stage === 'mypage' || formContinuing || uploadBusy}>마이페이지</button>
         </div>, headerHost,
       )}
       <div className="flow__overview">
@@ -340,7 +364,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
           {APPLY_STEPS.map(({ key, label }, i) => {
             const complete = submittedDone || i < currentIndex || (i === 2 && uploadComplete)
             const current = i === currentIndex
-            const canNavigate = !submittedDone && stage !== 'mypage' && i !== 0 &&
+            const canNavigate = !submittedDone && !formContinuing && !uploadBusy && stage !== 'mypage' && i !== 0 &&
               (i < currentIndex || (i === 2 && uploadProgress.total > 0))
             const status = stepStatus(i)
             return (
@@ -353,7 +377,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
                 aria-current={current ? 'step' : undefined}
                 aria-disabled={!canNavigate}
                 title={i === 0 && identity ? '본인인증은 완료되었습니다' : undefined}
-                onClick={() => stepperNavigate(i)}
+                onClick={() => void stepperNavigate(i)}
               >
                 <span className="flow__stage-no" aria-hidden="true">
                   {complete && !current && <span className="flow__stage-check" aria-hidden="true">✓</span>}
@@ -381,7 +405,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
             setIdentity(verified)
             const locked = lockIdentity({ ...form1, mobile }, verified)
             setForm1(locked)
-            save({ form1: locked })
+            void save({ form1: locked }).catch((e: unknown) => setFormError(e instanceof Error ? e.message : String(e)))
             setStage('forms')
             window.scrollTo({ top: 0 })
           }}
@@ -401,38 +425,12 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
           consent={consent}
           form5={form5}
           signMode={signMode}
-          checkResult={checkResult}
           onForm1={onForm1}
-          onAnswers={(next) => { setAnswers(next); setCheckResult(null); save({ self_check: next }) }}
+          onAnswers={(next) => { setAnswers(next); void save({ self_check: next }).catch((e: unknown) => setFormError(e instanceof Error ? e.message : String(e))) }}
           onConsent={setConsent}
-          onForm5={(next) => { setForm5(next); save({ form5: next }) }}
+          onForm5={(next) => { setForm5(next); void save({ form5: next }).catch((e: unknown) => setFormError(e instanceof Error ? e.message : String(e))) }}
           onSignMode={setSignMode}
-          onFlush={async () => {
-            if (appId === null) return
-            await saveQueue.current
-            await patchApplication(appId, { form1, self_check: answers, form5 })
-            const values: Record<ConsentType, ConsentPayload> = {
-              privacy: { consent_type: 'privacy', agreed: consent.privacy === '동의함' },
-              unique_id: { consent_type: 'unique_id', agreed: consent.uniqueId === '동의함' },
-              third_party: { consent_type: 'third_party', agreed: consent.thirdParty === '동의함' },
-              admin_info: {
-                consent_type: 'admin_info',
-                agreed: form5.agree === '동의함',
-                signature_data_url: signMode === '화면에 서명' ? form5.signature : undefined,
-                signature_kind: signMode === '화면에 서명' ? 'electronic' : 'handwritten',
-              },
-            }
-            const selectedConsent: Record<ConsentType, string> = {
-              privacy: consent.privacy,
-              unique_id: consent.uniqueId,
-              third_party: consent.thirdParty,
-              admin_info: form5.agree,
-            }
-            await postConsents(appId, consentTypesOf()
-              .filter((type) => !(type === 'admin_info' && paperForms['서식5']))
-              .filter((type) => selectedConsent[type] === '동의함' || selectedConsent[type] === '동의하지 않음')
-              .map((type) => values[type]))
-          }}
+          onFlush={flushForms}
           onPaperFormsChange={setPaperForms}
           onContinue={() => void continueFromForms()}
           continuing={formContinuing}
@@ -456,34 +454,17 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
               </p>
             </div>
           )}
-          <DocumentUpload applicationId={appId} onProgress={reportUploadProgress} />
-          <div className="flow__actions">
-            <button
-              type="button"
-              className="btn"
-              onClick={() => setStage('forms')}
-            >
-              이전
-            </button>
-            <button type="button" className="btn btn--primary" onClick={() => setStage('final')}>
-              제출 전 최종 확인
-            </button>
-          </div>
-        </>
-      )}
-
-      {/* ── [6] 제출 전 최종 확인 ── */}
-      {stage === 'final' && appId !== null && (
-        <>
-          <FinalCheck
+          <DocumentUpload
             applicationId={appId}
+            onProgress={reportUploadProgress}
+            onBusyChange={reportUploadBusy}
+            onForms={() => jumpTo('forms')}
+            onBeforeSubmit={async () => { await saveQueue.current }}
             onSubmitted={(result) => {
               setSubmitted(result)
               setStage('complete')
               window.scrollTo({ top: 0 })
             }}
-            onBack={() => jumpTo('upload')}
-            onGoto={jumpTo}
           />
         </>
       )}
@@ -499,7 +480,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
             </ol>
             <p className="flow-alt">{submitted.notice}</p>
             <ApplicantFormsBulkMenu applicationId={appId} refreshKey={1} />
-            <button type="button" className="btn btn--primary" onClick={openMyPage}>마이페이지</button>
+            <button type="button" className="btn btn--primary" onClick={() => void openMyPage()}>마이페이지</button>
           </div>
         </>
       )}

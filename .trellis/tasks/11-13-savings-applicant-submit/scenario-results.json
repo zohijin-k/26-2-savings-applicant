@@ -1,0 +1,154 @@
+{
+  "modules": 18,
+  "counted_modules": 17,
+  "passed": 1955,
+  "failed": 0,
+  "baseline_passed": 1885,
+  "delta": 70,
+  "results": [
+    {
+      "module": "demo.backend.tests.run_p2_scenarios",
+      "exit_code": 0,
+      "passed": 53,
+      "failed": 0,
+      "baseline_passed": 53,
+      "log": "/tmp/savings-submit-scenarios/run_p2_scenarios.log"
+    },
+    {
+      "module": "demo.backend.tests.run_p3_scenarios",
+      "exit_code": 0,
+      "passed": 185,
+      "failed": 0,
+      "baseline_passed": 186,
+      "log": "/tmp/savings-submit-scenarios/run_p3_scenarios.log"
+    },
+    {
+      "module": "demo.backend.tests.run_p4_scenarios",
+      "exit_code": 0,
+      "passed": 195,
+      "failed": 0,
+      "baseline_passed": 189,
+      "log": "/tmp/savings-submit-scenarios/run_p4_scenarios.log"
+    },
+    {
+      "module": "demo.backend.tests.run_p5_scenarios",
+      "exit_code": 0,
+      "passed": 161,
+      "failed": 0,
+      "baseline_passed": 152,
+      "log": "/tmp/savings-submit-scenarios/run_p5_scenarios.log"
+    },
+    {
+      "module": "demo.backend.tests.run_p6_scenarios",
+      "exit_code": 0,
+      "passed": 275,
+      "failed": 0,
+      "baseline_passed": 261,
+      "log": "/tmp/savings-submit-scenarios/run_p6_scenarios.log"
+    },
+    {
+      "module": "demo.backend.tests.run_p7_scenarios",
+      "exit_code": 0,
+      "passed": 255,
+      "failed": 0,
+      "baseline_passed": 253,
+      "log": "/tmp/savings-submit-scenarios/run_p7_scenarios.log"
+    },
+    {
+      "module": "demo.backend.tests.run_p8_localocr_scenarios",
+      "exit_code": 0,
+      "passed": 89,
+      "failed": 0,
+      "baseline_passed": 89,
+      "log": "/tmp/savings-submit-scenarios/run_p8_localocr_scenarios.log"
+    },
+    {
+      "module": "demo.backend.tests.run_p9_identity_scenarios",
+      "exit_code": 0,
+      "passed": 118,
+      "failed": 0,
+      "baseline_passed": 98,
+      "log": "/tmp/savings-submit-scenarios/run_p9_identity_scenarios.log"
+    },
+    {
+      "module": "demo.backend.tests.run_p11_criteria_scenarios",
+      "exit_code": 0,
+      "passed": 38,
+      "failed": 0,
+      "baseline_passed": 38,
+      "log": "/tmp/savings-submit-scenarios/run_p11_criteria_scenarios.log"
+    },
+    {
+      "module": "demo.backend.tests.run_p12_subsidy_criteria_scenarios",
+      "exit_code": 0,
+      "passed": 36,
+      "failed": 0,
+      "baseline_passed": 29,
+      "log": "/tmp/savings-submit-scenarios/run_p12_subsidy_criteria_scenarios.log"
+    },
+    {
+      "module": "demo.backend.tests.run_p13_household_scenarios",
+      "exit_code": 0,
+      "passed": 26,
+      "failed": 0,
+      "baseline_passed": 26,
+      "log": "/tmp/savings-submit-scenarios/run_p13_household_scenarios.log"
+    },
+    {
+      "module": "demo.backend.tests.run_p14_pdf_forms_scenarios",
+      "exit_code": 0,
+      "passed": null,
+      "failed": null,
+      "baseline_passed": null,
+      "log": "/tmp/savings-submit-scenarios/run_p14_pdf_forms_scenarios.log"
+    },
+    {
+      "module": "demo.backend.tests.run_p15_jbai_scenarios",
+      "exit_code": 0,
+      "passed": 131,
+      "failed": 0,
+      "baseline_passed": 129,
+      "log": "/tmp/savings-submit-scenarios/run_p15_jbai_scenarios.log"
+    },
+    {
+      "module": "demo.backend.tests.run_p16_job_docs_scenarios",
+      "exit_code": 0,
+      "passed": 101,
+      "failed": 0,
+      "baseline_passed": 96,
+      "log": "/tmp/savings-submit-scenarios/run_p16_job_docs_scenarios.log"
+    },
+    {
+      "module": "demo.backend.tests.run_p17_own_scenarios",
+      "exit_code": 0,
+      "passed": 76,
+      "failed": 0,
+      "baseline_passed": 75,
+      "log": "/tmp/savings-submit-scenarios/run_p17_own_scenarios.log"
+    },
+    {
+      "module": "demo.backend.tests.run_p18_applicant_precheck_scenarios",
+      "exit_code": 0,
+      "passed": 183,
+      "failed": 0,
+      "baseline_passed": 180,
+      "log": "/tmp/savings-submit-scenarios/run_p18_applicant_precheck_scenarios.log"
+    },
+    {
+      "module": "demo.backend.tests.run_p19_nhis_history_scenarios",
+      "exit_code": 0,
+      "passed": 26,
+      "failed": 0,
+      "baseline_passed": 24,
+      "log": "/tmp/savings-submit-scenarios/run_p19_nhis_history_scenarios.log"
+    },
+    {
+      "module": "demo.backend.tests.run_p20_nhis_continuation_scenarios",
+      "exit_code": 0,
+      "passed": 7,
+      "failed": 0,
+      "baseline_passed": 7,
+      "log": "/tmp/savings-submit-scenarios/run_p20_nhis_continuation_scenarios.log"
+    }
+  ]
+}

@@ -36,7 +36,7 @@ from typing import Any
 from sqlmodel import create_engine, select
 
 from .. import models
-from .scenario_support import complete_synthetic_work, seed_blocked_historical_review
+from .scenario_support import complete_synthetic_work
 from ..reset import ResetReport, reset as reset_demo
 from ..rules.programs import DOUBLE_SAVINGS, JOB_PACKAGE
 from ..rules.roles import ROLE_CITY, ROLE_PROVINCE
@@ -107,12 +107,6 @@ def load_expected(scenario: str) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"기대 결과 JSON이 없습니다: {path}")
     spec=json.loads(path.read_text(encoding="utf-8"))
-    if scenario=="S7":
-        # The published legacy script submits confirmed excess income. Current
-        # API blocks it; retain its engine/officer assertions via historical seed.
-        spec["expect"]["can_submit"]=False
-        spec["expect"].update({"submit_status_code":400,"eligibility_code":"OVER_LIMIT",
-                              "historical_review":True})
     return spec
 
 
@@ -153,6 +147,7 @@ BASE_FORM1: dict[str, Any] = {
     "gender": "남",
     "address": "전북특별자치도 전주시 완산구 효자동 123",
     "mobile": "010-0000-0000",
+    "email": "synthetic@example.com",
     "transferIn": {"y": "2020", "m": "11", "d": "20"},
     "householdType": "그 외 일반 가구",
     "householdSize": "4인",
@@ -348,6 +343,7 @@ def s1_self_check_blocks(client) -> dict[str, Any]:
     result = client.post(
         f"/api/applications/{app_id}/self-check", json={"answers": answers}
     ).json()
+    check("S1 자가진단 응답은 작성완료만", sorted(result), ["completed", "total_items"])
     blocked = client.post(f"/api/applications/{app_id}/submit")
     app = client.get(f"/api/applications/{app_id}").json()
     officer = client.get(
@@ -356,12 +352,12 @@ def s1_self_check_blocks(client) -> dict[str, Any]:
 
     return {
         "application_no": app["application_no"],
-        "eligible": result["eligible"],
+        "eligible": result.get("eligible"),
         "completed": result["completed"],
-        "failed_item": result["failed_item"],
+        "failed_item": result.get("failed_item"),
         "total_items": result["total_items"],
-        "reason": result["reason"],
-        "alternative": result["alternative"],
+        "reason": result.get("reason"),
+        "alternative": result.get("alternative"),
         "submit_status_code": blocked.status_code,
         "status": app["status"],
         "officer_sees_draft": officer["total"],
@@ -447,6 +443,10 @@ def s5_declared_mismatch(client, app_id: int) -> dict[str, Any]:
     doc = _upload(
         client, app_id, "resident_abstract", "S5_주민등록초본_발급일불일치.pdf", "2026-03-05"
     )
+    with models.get_session() as session:
+        stored = session.get(models.Document, doc["document_id"])
+    check("S5 발급일 불일치 원판정 보존", stored.stage1_status, "FAIL")
+    check("S5 발급일 불일치 원사유 보존", [finding["code"] for finding in stored.findings_json], ["DECLARED_DATE_MISMATCH"])
     return {
         "status": doc["status"],
         "codes": _codes(doc),
@@ -460,11 +460,14 @@ def s5_declared_mismatch(client, app_id: int) -> dict[str, Any]:
 def s6_encrypted(client, app_id: int) -> dict[str, Any]:
     """암호가 걸린 PDF."""
     doc = _upload(client, app_id, "resident_abstract", "S6_주민등록초본_암호.pdf", "2026-03-05")
+    with models.get_session() as session:
+        stored = session.get(models.Document, doc["document_id"])
+    check("S6 원래 판독 신뢰도 보존", stored.ocr_json.get("confidence"), 0.0)
     return {
         "status": doc["status"],
         "codes": _codes(doc),
         "detected_doc_type": doc["detected_doc_type"],
-        "ocr_confidence": doc["ocr_confidence"],
+        "ocr_confidence": doc.get("ocr_confidence"),
         "message": _finding(doc, "message"),
         "how_to_fix": _finding(doc, "how_to_fix"),
     }
@@ -477,19 +480,19 @@ def s7_income_over(client) -> dict[str, Any]:
 
     final = client.get(f"/api/applications/{app_id}/final-check").json()
     submitted=client.post(f"/api/applications/{app_id}/submit")
-    check("S7 확정 소득 초과 현재 제출 차단",submitted.status_code,400)
-    income=next(item for item in final["blockers"] if item.get("code")=="OVER_LIMIT")
-    check_true("S7 차단 숫자 근거",all(value in income["message"] for value in ("4명","311,031","340,000","140%")))
+    check("S7 확정 소득 초과도 정상 제출", submitted.status_code, 200)
+    check("S7 신청자 자격 차단 비노출", [item for item in final["blockers"] if item.get("kind") == "eligibility"], [])
     with models.get_session() as session:
-        check("S7 차단 요청은 Review 미생성",session.exec(select(models.Review).where(models.Review.application_id==app_id)).first(),None)
-    review=seed_blocked_historical_review(app_id,submitted)
+        review = session.exec(select(models.Review).where(models.Review.application_id == app_id)).first()
+    check_true("S7 실제 제출로 Review 생성", review is not None)
+    assert review is not None
     status = client.get(f"/api/applications/{app_id}/status").json()
 
     return {
-        "documents_all_pass": all(d["status"] == "PASS" for d in final["documents"]),
+        "documents_all_pass": all(d["status"] == "UPLOADED" for d in final["documents"]),
         "submit_status_code":submitted.status_code,
-        "eligibility_code":income["code"],
-        "historical_review":review.review_payload_json.get("synthetic_historical_fixture") is True,
+        "eligibility_code": next((item.get("code") for item in final["blockers"] if item.get("kind") == "eligibility"), None),
+        "historical_review": review.review_payload_json.get("synthetic_historical_fixture") is True,
         "can_submit": final["can_submit"],
         "final_status": review.final_status,
         "stage1_status": review.stage1_status,
@@ -508,6 +511,11 @@ def s8_needs_review(client) -> dict[str, Any]:
     app_id = _create_ds(client, name="박철수", uploads=uploads)
     documents = client.get(f"/api/applications/{app_id}/documents").json()
     abstract = next(d for d in documents if d["slot_key"] == "resident_abstract")
+    with models.get_session() as session:
+        stored = session.get(models.Document, abstract["document_id"])
+    check("S8 원래 판독 신뢰도 보존", stored.ocr_json.get("confidence"), 0.6)
+    check("S8 원래 판정 보존", stored.stage1_status, "NEEDS_REVIEW")
+    check_true("S8 원래 판독 사유 보존", any(finding["code"] == "LOW_OCR_CONFIDENCE" for finding in stored.findings_json))
 
     final = client.get(f"/api/applications/{app_id}/final-check").json()
     client.post(f"/api/applications/{app_id}/submit")
@@ -534,7 +542,7 @@ def s8_needs_review(client) -> dict[str, Any]:
     return {
         "upload_status": abstract["status"],
         "upload_codes": _codes(abstract),
-        "ocr_confidence": abstract["ocr_confidence"],
+        "ocr_confidence": abstract.get("ocr_confidence"),
         "how_to_fix": _finding(abstract, "how_to_fix"),
         "can_submit": final["can_submit"],
         "final_status": review.final_status,
@@ -810,7 +818,11 @@ def main(argv: list[str] | None = None) -> int:
 
         print("\n[멱등성] 1회차와 2회차의 결과가 글자 하나까지 같은가")
         for scenario in SCENARIOS:
-            same = rounds[0][scenario] == rounds[1][scenario]
+            # Wall-clock latency is checked independently against the same upper bound
+            # in each round; it is not a deterministic reset outcome.
+            first = {key: value for key, value in rounds[0][scenario].items() if key != "slowest_upload_ms"}
+            second = {key: value for key, value in rounds[1][scenario].items() if key != "slowest_upload_ms"}
+            same = first == second
             check(f"{scenario} 재현", same, True)
             if not same:
                 for key in rounds[0][scenario]:

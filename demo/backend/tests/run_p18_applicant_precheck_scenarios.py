@@ -199,7 +199,10 @@ def test_api(tmp):
                     patch.dict(v2ocr.ENGINES, {"p18-synthetic": lambda png, size: resident_words(marker)}), path.open("rb") as stream:
                 response = client.post(f"/api/applications/{app_id}/documents", files={"file": (path.name, stream, "application/pdf")}, data={"slot_key": "resident_abstract", "declared_issue_date": "2026-11-10"})
             check("쪽 API HTTP " + marker, response.status_code, 200)
-            check("쪽 API 판정 " + marker, response.json().get("status"), status)
+            check("쪽 API 판정 " + marker, response.json().get("status"), "REUPLOAD_REQUIRED" if status == "FAIL" else "UPLOADED")
+            with models.get_session() as session:
+                stored = session.get(models.Document, response.json()["document_id"])
+            check("쪽 원판정 보존 " + marker, stored.stage1_status, status)
             final = client.get(f"/api/applications/{app_id}/final-check").json()
             blockers = [b for b in final["blockers"] if b.get("kind") == "document" and b.get("target") == "resident_abstract"]
             check("서류 제출 차단 " + marker, bool(blockers), status == "FAIL")
@@ -207,7 +210,7 @@ def test_api(tmp):
         with patch.dict(os.environ, {ENGINE_ENV: "p18-synthetic"}), \
                 patch.dict(v2ocr.ENGINES, {"p18-synthetic": lambda png, size: resident_words(name=OTHER_NAME, birth=OTHER_BIRTH)}), path.open("rb") as stream:
             response = client.post(f"/api/applications/{app_id}/documents", files={"file": ("synthetic-other.pdf", stream, "application/pdf")}, data={"slot_key": "resident_abstract", "declared_issue_date": "2026-11-10"})
-        check("타인 초본 업로드", (response.status_code, response.json().get("status")), (200, "FAIL"))
+        check("타인 초본 업로드", (response.status_code, response.json().get("status")), (200, "REUPLOAD_REQUIRED"))
         outputs = [("업로드", response)] + [(label, client.get(f"/api/applications/{app_id}/{suffix}")) for label, suffix in (
             ("목록", "documents"), ("체크리스트", "required-documents"), ("최종확인", "final-check"))]
         forbidden = (OTHER_NAME, OTHER_BIRTH, "engine", "fallback_reason", "quality_note", "classification_evidence", "쪽표기자료", "판독검증", "p18-synthetic", "pdftext", "easyocr", "own")

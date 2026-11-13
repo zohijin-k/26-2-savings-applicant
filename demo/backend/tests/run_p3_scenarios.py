@@ -26,7 +26,7 @@ from pathlib import Path
 from sqlmodel import create_engine, select
 
 from .. import models
-from .scenario_support import complete_synthetic_work, seed_blocked_historical_review
+from .scenario_support import complete_synthetic_work
 from ..rules.facts import build_facts, extract_region, parse_ymd
 from ..rules.doc_types import DocType
 from ..rules.programs import DOUBLE_SAVINGS, PROGRAMS
@@ -329,6 +329,7 @@ S2_FORM1 = {
     "gender": "남",
     "address": "전북특별자치도 전주시 완산구 효자동 123",
     "mobile": "010-0000-0000",
+    "email": "synthetic@example.com",
     "transferIn": {"y": "2020", "m": "11", "d": "20"},
     "householdType": "그 외 일반 가구",
     "householdSize": "4인",
@@ -370,6 +371,7 @@ S2_UPLOADS = {
 def _create_and_fill(client, uploads: dict[str, str]) -> int:
     app_id = client.post("/api/applications", json={"program_code": DOUBLE_SAVINGS}).json()["id"]
     client.patch(f"/api/applications/{app_id}", json={"form1": S2_FORM1})
+    client.post(f"/api/applications/{app_id}/self-check", json={"answers": {str(i): "예" for i in range(1, 9)}})
     client.post(f"/api/applications/{app_id}/consents", json={"consents": CONSENTS})
     client.put(
         f"/api/applications/{app_id}/doc-context",
@@ -394,7 +396,7 @@ def test_e2e(client) -> None:
     empty_id = client.post("/api/applications", json={"program_code": DOUBLE_SAVINGS}).json()["id"]
     empty = client.get(f"/api/applications/{empty_id}/final-check").json()
     check("빈 신청 건은 제출 불가", empty["can_submit"], False)
-    check("막는 항목 수", len(empty["blockers"]), 18)
+    check("막는 항목 수", len(empty["blockers"]), 28)
     check(
         "이동 위치가 붙어 있음",
         sorted({b["goto"] for b in empty["blockers"]}),
@@ -486,18 +488,15 @@ def test_e2e_s7(client) -> None:
     app_id = _create_and_fill(client, uploads)
 
     final = client.get(f"/api/applications/{app_id}/final-check").json()
-    check("서류 자체가 적합해도 확정 소득 초과는 제출 차단", final["can_submit"], False)
-    blocked=client.post(f"/api/applications/{app_id}/submit")
-    check("확정 소득 초과 제출 → 400", blocked.status_code, 400)
-    income=next(item for item in final["blockers"] if item.get("code")=="OVER_LIMIT")
-    check("자격 차단 종류",income["kind"],"eligibility")
-    check_true("차단 근거에 가구·기준·본인 금액",all(value in income["message"] for value in ("4명","311,031","340,000","140%")))
+    check("확정 소득 초과만으로 제출을 막지 않음", final["can_submit"], True)
+    submitted = client.post(f"/api/applications/{app_id}/submit")
+    check("확정 소득 초과도 정상 접수", submitted.status_code, 200)
+    check("신청자 자격 차단 비노출", [item for item in final["blockers"] if item.get("kind") == "eligibility"], [])
     with models.get_session() as session:
-        check("차단 요청은 Review를 만들지 않음",session.exec(select(models.Review).where(models.Review.application_id==app_id)).first(),None)
-    # Retain legacy engine/scoring checks on a clearly labeled historical
-    # officer fixture, after proving the applicant submission was rejected.
-    review=seed_blocked_historical_review(app_id,blocked)
-    check("과거 심사 fixture 엔진 최종 판정", review.final_status, "FAIL")
+        review = session.exec(select(models.Review).where(models.Review.application_id == app_id)).first()
+    check_true("실제 제출이 Review 생성", review is not None)
+    assert review is not None
+    check("실제 접수 후 엔진 최종 판정 보존", review.final_status, "FAIL")
     check("1단계(서류)는 통과", review.stage1_status, "PASS")
     check("2단계(자격) 부적합", review.stage2_status, "FAIL")
     codes = [r["code"] for r in review.review_payload_json["reasons"]]

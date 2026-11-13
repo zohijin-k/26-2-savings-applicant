@@ -54,6 +54,15 @@ def check(name: str, actual: object, expected: object) -> None:
         print(f"  [FAIL] {name}: 기대={expected!r} 실제={actual!r}")
 
 
+def check_document_status(name: str, document: dict, original_status: str) -> None:
+    with models.get_session() as session:
+        row = session.get(models.Document, document["document_id"])
+    assert row is not None
+    check(name + " (저장 원판정)", row.stage1_status, original_status)
+    check(name + " (신청자 표시)", document["status"],
+          "REUPLOAD_REQUIRED" if document["findings"] else "UPLOADED")
+
+
 def check_true(name: str, value: object) -> None:
     check(name, bool(value), True)
 
@@ -207,16 +216,16 @@ def test_self_check(client) -> None:
         f"/api/applications/{job_id}/self-check", json={"answers": {"1": "예", "2": "예"}}
     ).json()
     check("2문항만 답해도 완료", result["completed"], True)
-    check("자격 있음", result["eligible"], True)
+    check("자가진단 자격 결과 비노출", "eligible" in result, False)
     check("물은 문항 수", result["total_items"], 2)
 
     denied = client.post(
         f"/api/applications/{job_id}/self-check", json={"answers": {"1": "예", "2": "아니오"}}
     ).json()
-    check("연령 미달 → 부적격", denied["eligible"], False)
-    check("막힌 문항", denied["failed_item"], 2)
-    check_true("취업패키지 연령 기준으로 안내", "1987. 1. 1." in denied["reason"])
-    check_true("2008년생까지 안내", "2008. 12. 31." in denied["reason"])
+    check("연령 답변에도 작성 완료", denied["completed"], True)
+    check("실패 문항 비노출", "failed_item" in denied, False)
+    check("부적격 사유 비노출", "reason" in denied, False)
+    check("대안 안내 비노출", "alternative" in denied, False)
 
     print("\n  -- 같은 답변을 두배적금에 넣으면 아직 미완료다 (8문항이므로)")
     ds_id = client.post(
@@ -395,36 +404,40 @@ def test_exam_date_required(client) -> None:
     )
 
     missing = _upload(client, app_id, "certificate_1_exam", "S10_응시확인서_응시일없음.pdf")
-    check("응시일 없는 응시확인서 판정", missing["status"], "FAIL")
+    check_document_status('응시일 없는 응시확인서 판정', missing, 'FAIL')
     codes = [f["code"] for f in missing["findings"]]
-    check("사유 코드", codes, ["MISSING_REQUIRED_FIELD"])
-    print(f"         사유: {missing['findings'][0]['message']}")
-    print(f"         해결: {missing['findings'][0]['how_to_fix']}")
-    check_true("해결 방법에 응시일 표기 안내", "응시일" in missing["findings"][0]["how_to_fix"])
+    check("허용 밖 사유 비노출", codes, [])
+    with models.get_session() as session:
+        stored = session.get(models.Document, missing["document_id"])
+    check("응시일 누락 원판정 보존", stored.stage1_status, "FAIL")
+    check_true("해결 방법 원문 보존", any("응시일" in finding.get("how_to_fix", "") for finding in stored.findings_json))
 
     ok = _upload(client, app_id, "certificate_1_exam", "S10_응시확인서_적합.pdf")
-    check("응시일 있는 응시확인서", ok["status"], "PASS")
+    check_document_status('응시일 있는 응시확인서', ok, 'PASS')
     check("응시일 판독", ok["extracted"].get("응시일"), "2026-03-22")
 
     transcript = _upload(client, app_id, "certificate_1_exam", "S10_성적표_적합.pdf")
-    check("성적표도 같은 자리에 인정된다 (택1)", transcript["status"], "PASS")
+    check_document_status('성적표도 같은 자리에 인정된다 (택1)', transcript, 'PASS')
     check("판독된 서류", transcript["detected_doc_type"], "성적표")
 
     wrong = _upload(client, app_id, "certificate_1_exam", "S10_면접확인서_1회차.pdf")
-    check("엉뚱한 서류는 여전히 부적합", wrong["status"], "FAIL")
+    check_document_status('엉뚱한 서류는 여전히 부적합', wrong, 'FAIL')
     check("사유", [f["code"] for f in wrong["findings"]], ["WRONG_DOCUMENT_TYPE"])
 
     print("\n  -- 결제영수증은 금액을 읽어 실비 계산의 근거로 남긴다")
     receipt = _upload(client, app_id, "certificate_1_receipt", "S10_결제영수증_응시료43000.pdf")
-    check("영수증 판정", receipt["status"], "PASS")
+    check_document_status('영수증 판정', receipt, 'PASS')
     check("판독된 결제금액", receipt["extracted"].get("결제금액"), "43000")
 
     mismatch_app = create_job_application(client, selections=[
         {"item_type": "photo", "count": 1, "receipts": [17000]},
     ])
     mismatch = _upload(client, mismatch_app, "photo_1_receipt", "S10_결제영수증_사진18000.pdf")
-    check("입력 금액과 판독 금액 불일치는 확인필요", mismatch["status"], "NEEDS_REVIEW")
-    check_true("금액 불일치 코드", any(f["code"] == "RECEIPT_AMOUNT_MISMATCH" for f in mismatch["findings"]))
+    check_document_status('입력 금액과 판독 금액 불일치는 확인필요', mismatch, 'NEEDS_REVIEW')
+    check("금액 불일치 사유 비노출", mismatch["findings"], [])
+    with models.get_session() as session:
+        stored = session.get(models.Document, mismatch["document_id"])
+    check_true("금액 불일치 코드 원본 보존", any(f["code"] == "RECEIPT_AMOUNT_MISMATCH" for f in stored.findings_json))
 
 
 # ---------------------------------------------------------------- 6. S10 e2e
@@ -514,7 +527,7 @@ def test_supplement_countdown(client) -> int:
     print("\n[7] 7일 보완 기한 카운트다운 (E12)")
 
     uploads = dict(S10_UPLOADS)
-    # 저해상도 초본 → 판독 신뢰도 0.6 → 확인필요. 제출은 되지만 보완 대상이다.
+    # 저해상도 초본의 내부 확인필요 판정·보완기한은 보존하고 신청자에게 숨긴다.
     uploads["resident_abstract"] = "S8_주민등록초본_저해상도.pdf"
     app_id = create_job_application(client, selections=S10_SELECTION, uploads=uploads)
 
@@ -524,17 +537,22 @@ def test_supplement_countdown(client) -> int:
     body = client.post(f"/api/applications/{app_id}/submit").json()
     check("두 번째 접수 순번", body["first_come"]["position"], 2)
 
-    supplement = body["supplement"]
-    check_true("보완 기한이 잡혔다", supplement)
-    check("보완 일수", supplement["days"], 7)
-    check("남은 일수", supplement["days_left"], 7)
-    check("기한 만료 아님", supplement["expired"], False)
-    check_true("보완 대상 서류가 지목된다", supplement["targets"])
-    check("보완 대상", supplement["targets"][0]["label"], "주민등록초본")
-    print(f"         기한: {supplement['deadline']} · {supplement['notice']}")
+    check("내부 확인필요만 있는 접수 응답은 보완 블록 비노출", body["supplement"], None)
+    with models.get_session() as session:
+        review = session.exec(select(models.Review).where(models.Review.application_id == app_id)).first()
+    check("내부 확인필요 원판정과 보완기한 보존", (review.final_status, bool(review.supplement_deadline)), ("NEEDS_REVIEW", True))
+    officer = client.get(
+        f"/api/officer/applications/{app_id}", params={"role": ROLE_PROVINCE}
+    ).json()
+    supplement = officer["supplement"]
+    check_true("담당자 보완 기한 보존", supplement)
+    check("담당자 보완 일수", supplement["days"], 7)
+    check("담당자 남은 일수", supplement["days_left"], 7)
+    check("담당자 기한 만료 아님", supplement["expired"], False)
+    check("담당자 보완 기한과 저장 기한 일치", supplement["deadline"], review.supplement_deadline.isoformat(timespec="seconds"))
 
     status = client.get(f"/api/applications/{app_id}/status").json()
-    check("마이페이지에도 카운트다운", status["supplement"]["days_left"], 7)
+    check("내부 확인필요만 있는 마이페이지는 보완 블록 비노출", status["supplement"], None)
 
     print("\n  -- 두배적금은 보완도 선착순도 없다")
     ds_id = client.post(

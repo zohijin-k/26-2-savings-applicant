@@ -320,7 +320,7 @@ def test_job_upload_privacy(tmp: Path) -> None:
                                       (TEXT_LAYER_MIN_CHARS, "FAIL"), (TEXT_LAYER_MIN_CHARS + 1, "FAIL"))]
         cases += [(tmp / "synthetic-exam.png", "image/png", "NEEDS_REVIEW"),
                   (tmp / "synthetic-complete.pdf", "application/pdf", "PASS")]
-        for path, content_type, expected in cases:
+        for path, content_type, original_status in cases:
             with patch.dict(os.environ, {ENGINE_ENV: "own"}), \
                     patch.dict(v2ocr.ENGINES, {"own": lambda png, size: scaled(admission_words(exam_date=""), (1000, 1400))}), \
                     path.open("rb") as stream:
@@ -328,7 +328,10 @@ def test_job_upload_privacy(tmp: Path) -> None:
                     files={"file": (path.name, stream, content_type)},
                     data={"slot_key": "certificate_1_exam", "declared_issue_date": "2026-04-30"})
             check(f"합성 업로드 {path.name} HTTP", response.status_code, 200)
-            check(f"합성 업로드 {path.name} 판정", response.json().get("status"), expected)
+            check(f"합성 업로드 {path.name} 신청자 표시", response.json().get("status"), "UPLOADED")
+            with models.get_session() as session:
+                row = session.get(models.Document, response.json()["document_id"])
+            check(f"합성 업로드 {path.name} 원판정 보존", row.stage1_status, original_status)
             for label, output in (("업로드", response),
                                   ("목록", client.get(f"/api/applications/{app_id}/documents")),
                                   ("체크리스트", client.get(f"/api/applications/{app_id}/required-documents"))):

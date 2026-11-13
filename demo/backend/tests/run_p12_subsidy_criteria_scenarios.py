@@ -30,6 +30,15 @@ def check(name: str, actual: object, expected: object) -> None:
         print(f"  [FAIL] {name}: 기대={expected!r} 실제={actual!r}")
 
 
+def check_document_status(name: str, document: dict, original_status: str) -> None:
+    with models.get_session() as session:
+        row = session.get(models.Document, document["document_id"])
+    assert row is not None
+    check(name + " (저장 원판정)", row.stage1_status, original_status)
+    check(name + " (신청자 표시)", document["status"],
+          "REUPLOAD_REQUIRED" if document["findings"] else "UPLOADED")
+
+
 def _current_body(client) -> dict:
     current = client.get(
         "/api/officer/programs/job_package/criteria", params={"role": "province"}
@@ -125,13 +134,11 @@ def test_receipt_amounts(client) -> None:
     match_app = client.post("/api/applications", json={"program_code": "job_package"}).json()["id"]
     _set_item(client, match_app, "photo", 1, receipts=[18000])
     match = p5._upload(client, match_app, "photo_1_receipt", "S10_결제영수증_사진18000.pdf", "2026-03-25")
-    check("입력 금액과 판독 금액이 같으면 통과", match["status"], "PASS")
-
+    check_document_status('입력 금액과 판독 금액이 같으면 통과', match, 'PASS')
     mismatch_app = client.post("/api/applications", json={"program_code": "job_package"}).json()["id"]
     _set_item(client, mismatch_app, "photo", 1, receipts=[17000])
     mismatch = p5._upload(client, mismatch_app, "photo_1_receipt", "S10_결제영수증_사진18000.pdf", "2026-03-25")
-    check("입력 금액과 판독 금액이 다르면 담당자 확인", mismatch["status"], "NEEDS_REVIEW")
-
+    check_document_status('입력 금액과 판독 금액이 다르면 담당자 확인', mismatch, 'NEEDS_REVIEW')
     missing_app = client.post("/api/applications", json={"program_code": "job_package"}).json()["id"]
     _set_item(client, missing_app, "photo", 1, receipts=[18000])
     unreadable_result = OcrResult(
@@ -140,16 +147,20 @@ def test_receipt_amounts(client) -> None:
     )
     with patch("demo.backend.api.documents.read_document", return_value=unreadable_result):
         unreadable = p5._upload(client, missing_app, "photo_1_receipt", "S10_결제영수증_사진18000.pdf", "2026-03-25")
-    check("금액 판독 실패는 담당자 확인", unreadable["status"], "NEEDS_REVIEW")
-    check("금액 판독 실패 사유", [f["code"] for f in unreadable["findings"]], ["RECEIPT_AMOUNT_UNREADABLE"])
+    check_document_status('금액 판독 실패는 담당자 확인', unreadable, 'NEEDS_REVIEW')
+    check("금액 판독 실패 사유", [f["code"] for f in unreadable["findings"]], [])
 
     no_ocr_app = client.post("/api/applications", json={"program_code": "job_package"}).json()["id"]
     _set_item(client, no_ocr_app, "photo", 1, receipts=[18000])
     unavailable = OcrResult(detected_doc_type=None, confidence=0.0, image_quality=1.0, fields={}, tier="none")
     with patch("demo.backend.api.documents.read_document", return_value=unavailable):
         no_ocr = p5._upload(client, no_ocr_app, "photo_1_receipt", "S10_결제영수증_사진18000.pdf", "2026-03-25")
-    check("OCR 엔진 결과가 없으면 담당자 확인", no_ocr["status"], "NEEDS_REVIEW")
-    check("OCR 엔진 없음 사유", [f["code"] for f in no_ocr["findings"]], ["RECEIPT_OCR_UNAVAILABLE"])
+    check_document_status('OCR 엔진 결과가 없으면 담당자 확인', no_ocr, 'NEEDS_REVIEW')
+    check("OCR 엔진 없음 사유", [f["code"] for f in no_ocr["findings"]], [])
+    for public, code in ((unreadable, "RECEIPT_AMOUNT_UNREADABLE"), (no_ocr, "RECEIPT_OCR_UNAVAILABLE")):
+        with models.get_session() as session:
+            row = session.get(models.Document, public["document_id"])
+        check("원래 영수증 사유 보존 " + code, [finding["code"] for finding in row.findings_json], [code])
 
 
 def test_payment_date_basis(client) -> None:
@@ -172,7 +183,7 @@ def test_payment_date_basis(client) -> None:
     )
     with patch("demo.backend.api.documents.read_document", return_value=ocr_result):
         result = p5._upload(client, app_id, "photo_1_receipt", "S10_결제영수증_사진18000.pdf", "2025-12-20")
-    check("지원연도 이전 결제일은 기준 위반", result["status"], "FAIL")
+    check_document_status('지원연도 이전 결제일은 기준 위반', result, 'FAIL')
     check("결제일 기준 위반 코드", any(f["code"] == "DOCUMENT_ISSUED_TOO_EARLY" for f in result["findings"]), True)
 
 

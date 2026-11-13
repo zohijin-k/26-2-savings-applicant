@@ -242,7 +242,7 @@ def test_real_upload(tmp: Path) -> None:
                 check("합성 서류의 부족한 이력·신청인 정보는 담당자 확인", decision.status, "NEEDS_REVIEW")
                 check_true("부족한 이력·신청인 정보를 채우지 않음", {"PAST_ADDRESS_OMISSION_SUSPECTED", "RESIDENT_APPLICANT_UNREADABLE"} <= set(decision.codes))
             body = response.json()
-            check("업로드 API도 기존 판정 적용", body.get("status"), "NEEDS_REVIEW")
+            check("신청자 업로드 완료 표시", body.get("status"), "UPLOADED")
             texts = [response.text,
                      client.get(f"/api/applications/{app_id}/documents").text,
                      client.get(f"/api/applications/{app_id}/required-documents").text]
@@ -250,6 +250,7 @@ def test_real_upload(tmp: Path) -> None:
                 check_true(f"신청자 {label}에 엔진 메타데이터 없음", all(token not in text for token in ('"own"', 'ocr_engine', 'fallback_reason', 'engine_decision')))
             rows = list_documents(app_id)
             check("저장한 합성 서류 한 건", len(rows), 1)
+            check("업로드 API 저장 원판정 보존", [row.stage1_status for row in rows], ["NEEDS_REVIEW"])
             if rows:
                 officer = _document_view(rows[0], {"resident_abstract": "주민등록초본"})
                 check("담당자 실제 엔진", officer.get("ocr_engine"), "own")

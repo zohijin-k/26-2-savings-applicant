@@ -41,6 +41,8 @@ Direct pure `ScoringFacts` with already established premium/type remains support
 
 `review._run_review` uses the existing demo payload/status override boundary. Required-income UNDETERMINED adds `INCOME_UNDETERMINED` with `detail_codes` and the income item's basis. It contributes NEEDS_REVIEW without lowering a definite FAIL. Age snapshot is `payload.age_eligibility`; its non-PASS reason enters the same stage2 reason list. Merge all contributions using `review._merge_statuses`: FAIL > NEEDS_REVIEW > PASS, with absent stages contributing nothing. Final status merges engine final with household/income/age/overlap results; stage2 separately merges engine stage2 with those same additional results, never with engine final or stage1. Preserve every reason. When overlap reopens an existing review, merge with its own stored final/stage2 and retain FAIL while clearing the existing officer decision as before. Do not overwrite either status after overlap linking. Keep persisted final/stage2 status, payload final_status, recommended_action, supplement deadline and officer checklists consistent. Programs without an income requirement get no income result/checklist/override. Engine files need no changes.
 
+Applicant submission does not expose or block on these internal eligibility results; see [Applicant submission](./applicant-submission.md). Persist the same outcomes when such applications are submitted.
+
 The officer income row uses `income_status == MET` and exactly the income item's basis. The age row uses `assess_age` and its basis. Age scoring points remain separate from eligibility.
 
 ## 5. Good, base and bad cases

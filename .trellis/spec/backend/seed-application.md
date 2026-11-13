@@ -28,7 +28,7 @@ There is no `--work-category`: `DocumentUpload` selects `doc_context_json.work_c
 | Stage-two handler failure | Roll back composed DB writes and restore affected signature files; fixed error only |
 | Marker appears in an excluded projection | Stop implementation and report alternatives |
 | Eligible fresh savings application | Remaining blockers are only required-upload omissions and unselected work category |
-| Existing age/document eligibility failure | Preserve the rule and report the limitation |
+| Existing internal age/document outcome | Preserve the original outcome; only allowlisted FAIL findings block applicant submission |
 | Unmarked application during cleanup | Leave its rows and files unchanged |
 
 ## 5. Good / base / bad cases

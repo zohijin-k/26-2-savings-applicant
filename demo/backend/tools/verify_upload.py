@@ -251,7 +251,6 @@ def assess_document(args, program, category, criteria, checklist):
     from ..api.common import document_fact
     from ..api.review import document_blockers
     from ..rules.doc_types import DocType
-    from ..rules.eligibility_blockers import eligibility_blockers
     from ..rules.identity import identity_of
     from ..rules.work_continuity import assess_work
     from ..upload_assessment import assess_upload
@@ -278,9 +277,7 @@ def assess_document(args, program, category, criteria, checklist):
         result = refreshed[0][1]
     rows = [document_fact(row)]
     blocked = any(item["target"] == req.slot_key for item in document_blockers(checklist, [row]))
-    eligibility = eligibility_blockers(program, {}, identity, rows, category, criteria)
     work = None
-    blocked |= any(item["target"] == "work" for item in eligibility)
     work_types = {DocType.INSURANCE_4, DocType.DAILY_WORK_RECORD,
                   DocType.NHIS_ACQUISITION_LOSS, DocType.BIZ_REG_PROOF}
     if program.has_work_requirement and (req.slot_key.startswith("work_proof") or ocr.detected_doc_type in work_types):
@@ -322,7 +319,6 @@ def _document(args, program, category, criteria, checklist):
 def assess_income(args, program, category, criteria, checklist):
     from ..api.common import document_fact
     from ..api.review import document_blockers
-    from ..rules.eligibility_blockers import eligibility_blockers
     from ..rules.facts import build_facts
     from ..rules.identity import identity_of
     from ..rules.scoring import score_income
@@ -352,9 +348,7 @@ def assess_income(args, program, category, criteria, checklist):
     facts_rows = [document_fact(row) for row in documents]
     facts = build_facts({}, facts_rows, criteria["nhis_payment_months"])
     income = score_income(facts)
-    eligibility = eligibility_blockers(program, {}, identity, facts_rows, category, criteria)
-    blocked = (any(item["target"] in slots for item in document_blockers(checklist, documents))
-               or any(item["target"] == "income" for item in eligibility))
+    blocked = any(item["target"] in slots for item in document_blockers(checklist, documents))
     return Assessment(
         [(req, ocr, row, result) for (req, path, ocr, result), row in zip(reads, documents)],
         identity, blocked, facts=facts, income=income,

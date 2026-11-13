@@ -50,10 +50,9 @@ def test_projection_uses_same_document_findings_not_status_or_code(status):
     before = deepcopy(source)
     shown = common.document_dict(row(source, status))
     assert [(f["code"], f["severity"]) for f in shown["findings"]] == [
-        ("MISSING_BILLING_MONTHS", "FAIL"), ("FAKE_REFERENCE", "INFO"),
-        ("LOW_IMAGE_QUALITY", "FAIL"), ("FAKE_OTHER_TIER", "WARNING"),
+        ("MISSING_BILLING_MONTHS", "FAIL"), ("LOW_IMAGE_QUALITY", "FAIL"),
     ]
-    assert shown["status"] == status
+    assert shown["status"] == "REUPLOAD_REQUIRED"
     assert all("detail" not in f for f in shown["findings"])
     assert source == before
     shown["findings"][0]["message"] = "changed response"
@@ -69,7 +68,7 @@ def test_historical_message_only_failure_hides_review_but_preserves_reference():
     source = [{"message": "가짜 과거 확정 부적합"}, None,
               finding("LOW_OCR_CONFIDENCE", "NEEDS_REVIEW"), finding("FAKE_REFERENCE", "INFO")]
     shown = common.applicant_findings(source)
-    assert shown == [source[0], {k: v for k, v in source[-1].items() if k != "detail"}]
+    assert shown == []
 
 
 def test_review_without_fail_and_other_documents_retain_existing_guidance():
@@ -78,7 +77,8 @@ def test_review_without_fail_and_other_documents_retain_existing_guidance():
     review = row(source, "NEEDS_REVIEW")
     failed = row([finding("LOW_IMAGE_QUALITY")])
     assert len(common.document_dict(failed)["findings"]) == 1
-    assert common.document_dict(review)["findings"][0]["how_to_fix"] == source[0]["how_to_fix"]
+    assert common.document_dict(review)["findings"] == []
+    assert common.document_dict(review)["status"] == "UPLOADED"
     requirement = DocRequirement("work_proof", DocType.INSURANCE_4, "가짜 서류")
     assert document_blockers([requirement], [review]) == []
 
@@ -109,14 +109,14 @@ def test_upload_list_final_and_officer_keep_reference_but_hide_only_review(
                      fields={"발급일": "2026-03-03"}, issue_date=date(2026, 3, 3))
     monkeypatch.setattr(documents, "assess_upload", lambda *a, **kw: (read, result))
     response, _ = upload(client, aid, path, "resident_abstract", filename="FAKE.png")
-    expected = [(f.code, f.severity) for f in source if not (failed and f.severity == "NEEDS_REVIEW")]
+    expected = [(f.code, f.severity) for f in source if f.severity == "FAIL" and f.code in common.REUPLOAD_CODES]
     assert [(f["code"], f["severity"]) for f in response["findings"]] == expected
-    assert response["status"] == result.status
+    assert response["status"] == ("REUPLOAD_REQUIRED" if failed else "UPLOADED")
     listed = client.get(f"/api/applications/{aid}/documents").json()
     assert listed[0]["findings"] == response["findings"]
     final = client.get(f"/api/applications/{aid}/final-check").json()
     assert final["documents"][0]["findings"] == response["findings"]
-    assert final["documents"][0]["status"] == result.status
+    assert final["documents"][0]["status"] == response["status"]
     doc_blockers = [b for b in final["blockers"] if b["kind"] == "document" and b["target"] == "resident_abstract"]
     assert bool(doc_blockers) is failed
     if failed:
@@ -127,10 +127,11 @@ def test_upload_list_final_and_officer_keep_reference_but_hide_only_review(
         assert submitted.status_code == 400
         assert all(f.message in submitted.json()["detail"] for f in source if f.severity == "FAIL")
     else:
-        assert response["findings"][0]["how_to_fix"] == source[0].how_to_fix
-        assert any("담당자 확인 예정 서류가 1건" in warning for warning in final["warnings"])
+        assert response["findings"] == []
+        assert not any("담당자 확인 예정" in warning for warning in final["warnings"])
     with models.get_session() as session:
         stored = session.get(models.Document, response["document_id"])
+        assert stored.stage1_status == result.status
         assert stored.findings_json == [f.as_dict() for f in source]
         officer_document = officer._document_view(stored, {})
         assert officer_document["findings"] == stored.findings_json

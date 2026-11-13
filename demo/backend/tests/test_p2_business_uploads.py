@@ -12,6 +12,7 @@ from demo.backend.rules.identity import Identity
 from demo.backend.rules.required_docs import DocRequirement
 from demo.backend.tests.test_p2_nhis_uploads import image_pdf, use_own_words
 from demo.backend.tests.test_portal_uploads import client, new_app, upload
+from demo.backend.tests.test_portal_uploads import assert_upload_status, stored_findings
 from engine_v2.tests import p2_business_samples as sample
 
 
@@ -39,7 +40,7 @@ def test_own_proof_upload_reads_complete_fields_and_matches_identity(client, tmp
     assert json.loads(direct.fields["업태"])[0] == "가상업종가"
     assert direct.issue_date == date(2026, 3, 3)
     response, saved = upload(client, business_app(client), path, "work_proof", filename="FAKE-renamed.pdf")
-    assert response["status"] == "PASS"
+    assert_upload_status(response, "PASS")
     assert response["findings"] == []
     assert saved["fields"] == direct.fields
     assert saved["engine"] == "own"
@@ -76,8 +77,9 @@ def test_incomplete_or_uncertain_proofs_are_reviewed_without_fail(client, tmp_pa
     aid = business_app(client, name="이합성" if defect == "wrong-name" else sample.NAME,
                        birth="1991-02-02" if defect == "wrong-birth" else sample.BIRTH)
     response, saved = upload(client, aid, path, "work_proof")
-    assert response["status"] == "NEEDS_REVIEW"
-    assert response["findings"]
+    assert_upload_status(response, "NEEDS_REVIEW")
+    assert response["findings"] == []
+    assert stored_findings(response)
     assert all(finding["severity"] != "FAIL" for finding in response["findings"])
     if defect not in {"wrong-name", "wrong-birth"}:
         assert saved["confidence"] <= .4
@@ -97,7 +99,7 @@ def test_text_layer_proof_uses_same_fields_under_arbitrary_names(client, tmp_pat
     assert direct.fields["양식판독상태"] == "완전"
     assert direct.fields["성명"] == sample.NAME
     response, saved = upload(client, business_app(client), path, "work_proof")
-    assert response["status"] == "PASS"
+    assert_upload_status(response, "PASS")
     assert not response["findings"]
     assert saved["fields"] == direct.fields
 
@@ -147,7 +149,7 @@ def test_wrong_slot_keeps_existing_document_type_failure(client, tmp_path, monke
     use_own_words(monkeypatch, cells, size)
     path = image_pdf(tmp_path / "FAKE-wrong-slot.pdf", size)
     response, _ = upload(client, business_app(client), path, "nhis_qualification")
-    assert response["status"] == "FAIL"
+    assert_upload_status(response, "FAIL")
     assert [finding["code"] for finding in response["findings"]] == ["WRONG_DOCUMENT_TYPE"]
 
 
@@ -157,7 +159,7 @@ def test_future_opening_metadata_does_not_add_an_employment_rule(client, tmp_pat
     use_own_words(monkeypatch, cells, size)
     path = image_pdf(tmp_path / "FAKE-future-opening.pdf", size)
     response, saved = upload(client, business_app(client), path, "work_proof")
-    assert response["status"] == "PASS"
+    assert_upload_status(response, "PASS")
     assert response["findings"] == []
     assert saved["fields"]["개업일"] == "2030-01-02"
 
@@ -189,7 +191,7 @@ def test_issuer_overlapping_date_evidence_stays_reviewed(client, tmp_path, monke
     use_own_words(monkeypatch, cells, size)
     path = image_pdf(tmp_path / "FAKE-overlapping-date.pdf", size)
     response, saved = upload(client, business_app(client), path, "work_proof")
-    assert response["status"] == "NEEDS_REVIEW"
+    assert_upload_status(response, "NEEDS_REVIEW")
     assert all(finding["severity"] != "FAIL" for finding in response["findings"])
     assert saved["confidence"] <= .4
     assert "발급일" not in saved["fields"]
@@ -203,7 +205,7 @@ def test_dense_joint_rows_survive_column_skew_in_actual_upload(client, tmp_path,
     monkeypatch.setitem(ocr.ENGINES, "own", lambda *_: sample.page(cells, size=size, jitter=3, skew=16)[1].words)
     path = image_pdf(tmp_path / "FAKE-dense-joint.pdf", size)
     response, saved = upload(client, business_app(client), path, "work_proof")
-    assert response["status"] == "PASS"
+    assert_upload_status(response, "PASS")
     assert response["findings"] == []
     assert saved["fields"]["공동사업자유무"] == "있음"
 
@@ -214,7 +216,7 @@ def test_last_category_continuation_is_retained_in_actual_upload(client, tmp_pat
     use_own_words(monkeypatch, cells, size)
     path = image_pdf(tmp_path / "FAKE-last-category.pdf", size)
     response, saved = upload(client, business_app(client), path, "work_proof")
-    assert response["status"] == "PASS"
+    assert_upload_status(response, "PASS")
     assert response["findings"] == []
     assert json.loads(saved["fields"]["종목"])[-1] == "추가누락가상품목"
 
@@ -231,7 +233,7 @@ def test_unreadable_grid_boundary_reaches_actual_upload_review(client, tmp_path,
     use_own_words(monkeypatch, cells, size)
     path = image_pdf(tmp_path / "FAKE-grid-boundary.pdf", size)
     response, saved = upload(client, business_app(client), path, "work_proof")
-    assert response["status"] == "NEEDS_REVIEW"
+    assert_upload_status(response, "NEEDS_REVIEW")
     assert all(finding["severity"] != "FAIL" for finding in response["findings"])
     assert saved["confidence"] <= .4
     assert saved["fields"]["양식판독상태"] == "불완전"
@@ -245,7 +247,7 @@ def test_joint_name_left_of_centered_header_reaches_correct_upload_verdict(clien
     use_own_words(monkeypatch, cells, size)
     path = image_pdf(tmp_path / "FAKE-left-joint-name.pdf", size)
     response, saved = upload(client, business_app(client), path, "work_proof")
-    assert response["status"] == ("NEEDS_REVIEW" if partial else "PASS")
+    assert_upload_status(response, "NEEDS_REVIEW" if partial else "PASS")
     if partial:
         assert all(finding["severity"] != "FAIL" for finding in response["findings"])
         assert saved["confidence"] <= .4
@@ -261,6 +263,6 @@ def test_joint_word_crossing_side_or_number_cell_stays_reviewed(client, tmp_path
     use_own_words(monkeypatch, cells, size)
     path = image_pdf(tmp_path / "FAKE-joint-cell-boundary.pdf", size)
     response, saved = upload(client, business_app(client), path, "work_proof")
-    assert response["status"] == "NEEDS_REVIEW"
+    assert_upload_status(response, "NEEDS_REVIEW")
     assert all(finding["severity"] != "FAIL" for finding in response["findings"])
     assert saved["fields"]["양식판독상태"] == "불완전"

@@ -8,6 +8,7 @@ import pytest
 from demo.backend.ocr import read_document
 from demo.backend.rules.doc_types import DocType
 from demo.backend.tests.test_portal_uploads import client, new_app, upload
+from demo.backend.tests.test_portal_uploads import assert_upload_status, stored_findings
 from demo.backend.tests.test_p2_resident_uploads import image_pdf, use_own_words
 from engine_v2.pipeline.preprocess import PageSource
 from engine_v2.tests import fail_case_samples as sample
@@ -100,7 +101,7 @@ def test_four_page_text_pdf_renaming_and_wrong_expected_preserve_daily_results(c
     for filename in ("FAKE-opaque.pdf","FAKE-other-document-name.pdf"):
         response,stored=upload(client,aid,path,"work_proof",filename=filename)
         assert response["detected_doc_type"]==str(DocType.DAILY_WORK_RECORD)
-        assert response["status"]=="PASS"
+        assert_upload_status(response, "PASS")
         assert all(finding["severity"]!="FAIL" for finding in response["findings"])
         assert stored["fields"]==direct.fields
         assert stored["engine"]=="pdftext"
@@ -118,7 +119,7 @@ def test_four_page_image_pdf_uses_mocked_own_words_through_upload(client,tmp_pat
     assert_complete_fields(direct.fields,two_digit)
     use_own_words(monkeypatch,shaped(two_digit=two_digit,image=True))
     response,stored=upload(client,new_daily_app(client),path,"work_proof")
-    assert response["status"]=="PASS"
+    assert_upload_status(response, "PASS")
     assert stored["fields"]==direct.fields
     assert stored["engine"]=="own"
     assert_complete_fields(stored["fields"],two_digit)
@@ -146,7 +147,7 @@ def test_incomplete_period_or_disagreeing_copies_remain_upload_review(client,tmp
         use_own_words(monkeypatch,shaped(defect=defect,image=True))
     response,stored=upload(client,new_daily_app(client),path,"work_proof")
     assert response["detected_doc_type"]==str(DocType.DAILY_WORK_RECORD)
-    assert response["status"]=="NEEDS_REVIEW"
+    assert_upload_status(response, "NEEDS_REVIEW")
     assert all(finding["severity"]!="FAIL" for finding in response["findings"])
     assert stored["confidence"]<=.4
     assert stored["fields"]["양식판독상태"]=="불완전"
@@ -179,8 +180,9 @@ def test_split_title_written_out_of_order_uses_coordinate_daily_fallback(tmp_pat
 def test_two_digit_birth_not_matching_verified_identity_stays_review(client,tmp_path,birth):
     path=text_pdf(tmp_path/"FAKE-two-digit-other.pdf",shaped(two_digit=True))
     response,stored=upload(client,new_daily_app(client,birth=birth),path,"work_proof")
-    assert response["status"]=="NEEDS_REVIEW"
-    assert "IDENTITY_UNCERTAIN" in {finding["code"] for finding in response["findings"]}
+    assert_upload_status(response, "NEEDS_REVIEW")
+    assert response["findings"] == []
+    assert "IDENTITY_UNCERTAIN" in {finding["code"] for finding in stored_findings(response)}
     assert all(finding["severity"]!="FAIL" for finding in response["findings"])
     assert "생년월일" not in stored["fields"]
     assert json.loads(stored["fields"]["생년월일후보"])==["1990-01-01","2090-01-01"]

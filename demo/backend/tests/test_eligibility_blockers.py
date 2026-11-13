@@ -19,9 +19,12 @@ def ready(app):
     with models.get_session() as session:
         stored=session.get(models.Application,app.id)
         stored.form1_json={**dict.fromkeys((key for key,_ in program.required_form_fields),"FAKE"),
-                           **stored.form1_json,"email":"fake@example.invalid"}
+                           **stored.form1_json,"email":"fake@example.invalid", "mobile":"01000000000",
+                           **dict.fromkeys(("savingPurpose","priorJoined","gender","householdType","workType","workplaceRegion","accountHolder"), "FAKE")}
+        stored.self_check_json=dict.fromkeys(map(str,range(1,9)),"예")
+        stored.form5_json={"agree":"동의함","signature":'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAKCAIAAAA7N+mxAAAAD0lEQVR4nGNgGAWjgJYAAAJiAAHFL8rUAAAAAElFTkSuQmCC'}
         for consent in program.consent_types:
-            session.add(models.Consent(application_id=app.id,consent_type=consent,agreed=True))
+            session.add(models.Consent(application_id=app.id,consent_type=consent,agreed=True, signature_path="FAKE-signature.png" if consent=="admin_info" else None))
         session.add(stored)
         session.commit()
         session.refresh(stored)
@@ -39,15 +42,20 @@ def blockers(app):
 def test_confirmed_regional_excess_includes_numeric_evidence_without_scores(client):
     app=ready(make_application(premium=MEDIAN_INCOME_140[1]["지역"]+1))
     data=client.get(f"/api/applications/{app.id}/final-check").json()
-    item=next(item for item in data["blockers"] if item["kind"]=="eligibility" and item["target"]=="income")
-    assert not data["can_submit"]
+    item=next(item for item in blockers(app) if item["target"]=="income")
+    assert data["can_submit"]
+    assert not any(item["kind"]=="eligibility" for item in data["blockers"])
     assert item["code"]=="OVER_LIMIT" and item["goto"]=="upload"
     assert item["evidence"]["limits_140"]=={"지역":46072}
     assert item["evidence"]["household_size"]==1 and item["evidence"]["monthly_premium"]==46073
     assert all(word in item["message"] for word in ["1명","지역","46,072","46,073","140%","2025년 10월~12월","콜센터","다시 올려"])
     assert not any(word in json.dumps(item,ensure_ascii=False) for word in ["총점","배점","tiebreak","income_percent"])
     response=client.post(f"/api/applications/{app.id}/submit")
-    assert response.status_code==400
+    assert response.status_code==200
+    with models.get_session() as session:
+        reviewed=session.exec(select(models.Review).where(models.Review.application_id==app.id)).one()
+        assert reviewed.score_json["income_status"]=="OVER_LIMIT"
+        assert reviewed.final_status=="FAIL"
 
 
 def test_submit_rechecks_income_after_a_previously_clear_final_check(client):
@@ -62,11 +70,12 @@ def test_submit_rechecks_income_after_a_previously_clear_final_check(client):
         session.add(payment)
         session.commit()
     response=client.post(f"/api/applications/{app.id}/submit")
-    assert response.status_code==400
-    assert "소득" in response.json()["detail"]
+    assert response.status_code==200
     with models.get_session() as session:
-        assert session.get(models.Application,app.id).status==models.STATUS_DRAFT
-        assert session.exec(select(models.Review).where(models.Review.application_id==app.id)).first() is None
+        assert session.get(models.Application,app.id).status==models.STATUS_SUBMITTED
+        reviewed=session.exec(select(models.Review).where(models.Review.application_id==app.id)).one()
+        assert reviewed.final_status=="FAIL"
+        assert reviewed.score_json["income_status"]=="OVER_LIMIT"
 
 
 def test_age_outside_range_has_same_early_reason_and_final_blocker(client):
@@ -76,14 +85,17 @@ def test_age_outside_range_has_same_early_reason_and_final_blocker(client):
              "signature_data_url":"data:image/png;base64,aW52ZW50ZWQtc2lnbmF0dXJl"}
     response=client.post(f"/api/applications/{aid}/identity",json=payload)
     assert response.status_code==200
-    item=response.json()["eligibility_blockers"][0]
+    from demo.backend.rules.eligibility_blockers import age_blockers
+    item=age_blockers(PROGRAMS[DOUBLE_SAVINGS],{"birth":birth}, {"birth":birth})[0]
+    assert "eligibility_blockers" not in response.json()
     assert item["code"]=="AGE_OUT_OF_RANGE"
     assert birth in item["message"]
     assert all(value.isoformat() in item["message"] for value in PROGRAMS[DOUBLE_SAVINGS].birth_range)
-    assert client.get(f"/api/applications/{aid}").json()["eligibility_blockers"]==[item]
-    assert client.get(f"/api/applications/{aid}/status").json()["eligibility_blockers"]==[item]
+    assert "eligibility_blockers" not in client.get(f"/api/applications/{aid}").json()
+    assert "eligibility_blockers" not in client.get(f"/api/applications/{aid}/status").json()
     final=client.get(f"/api/applications/{aid}/final-check").json()
-    assert item in final["blockers"] and not final["can_submit"]
+    assert item not in final["blockers"] and not final["can_submit"]
+    assert not any(blocker["kind"]=="eligibility" for blocker in final["blockers"])
     assert client.post(f"/api/applications/{aid}/submit").status_code==400
 
 
@@ -102,11 +114,18 @@ def test_work_not_met_blocks_final_and_direct_submit(client):
         session.add(doc)
         session.commit()
     data=client.get(f"/api/applications/{app.id}/final-check").json()
-    item=next(item for item in data["blockers"] if item["kind"]=="eligibility" and item["target"]=="work")
-    assert not data["can_submit"]
+    with models.get_session() as session:
+        latest=session.get(models.Application,app.id)
+    item=next(item for item in blockers(latest) if item["target"]=="work")
+    assert data["can_submit"]
+    assert not any(item["kind"]=="eligibility" for item in data["blockers"])
     assert item["evidence"]["status"]=="NOT_MET"
     assert all(value in item["message"] for value in ["2025-10-03","2026-03-03","2026-01-01","콜센터"])
-    assert client.post(f"/api/applications/{app.id}/submit").status_code==400
+    assert client.post(f"/api/applications/{app.id}/submit").status_code==200
+    with models.get_session() as session:
+        reviewed=session.exec(select(models.Review).where(models.Review.application_id==app.id)).one()
+        assert reviewed.final_status=="FAIL"
+        assert reviewed.review_payload_json["work_continuity"]["status"]=="NOT_MET"
 
 
 @pytest.mark.parametrize("problem",["untrusted","missing-month","no-household"])
@@ -165,8 +184,14 @@ def test_submit_rechecks_other_eligibility_after_clear_final_check(client,kind):
             session.add(stored)
         session.commit()
     response=client.post(f"/api/applications/{app.id}/submit")
-    assert response.status_code==400
-    assert ("연령" if kind=="age" else "근로") in response.json()["detail"]
+    assert response.status_code==200
+    with models.get_session() as session:
+        reviewed=session.exec(select(models.Review).where(models.Review.application_id==app.id)).one()
+        assert reviewed.final_status=="FAIL"
+        if kind=="work":
+            assert reviewed.review_payload_json["work_continuity"]["status"]=="NOT_MET"
+        else:
+            assert any(reason["code"]=="AGE_OUT_OF_RANGE" for reason in reviewed.review_payload_json["reasons"])
 
 
 def test_program_without_configured_call_center_uses_public_contact_page(client):

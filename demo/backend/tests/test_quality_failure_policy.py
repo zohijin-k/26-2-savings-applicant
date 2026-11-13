@@ -16,6 +16,7 @@ from demo.backend.tests.test_address_resolution_failures import convert, req
 from demo.backend.tests.test_daily_work_uploads import text_pdf
 from demo.backend.tests.test_p2_resident_uploads import use_own_words
 from demo.backend.tests.test_portal_uploads import client, new_app, upload
+from demo.backend.tests.test_portal_uploads import assert_upload_status
 from demo.backend.tests.test_verify_upload import assert_safe, no_db, snapshot
 from demo.backend.tools import verify_upload as tool
 from engine_v2.tests.followup3_daily_samples import daily_notices
@@ -114,7 +115,7 @@ def test_source_daily_pdf_cli_preserves_selection_and_work_results(partial, tmp_
                       "--self-identity", str(path)]) == 0
     output = capfd.readouterr()
     assert output.err == ""
-    assert "blockers: O\n" in output.out and "identity: O\n" in output.out
+    assert "blockers: X\n" in output.out and "identity: O\n" in output.out
     assert f"document_status: {'FAIL' if partial else 'PASS'}\n" in output.out
     assert f"work_status: {'UNDETERMINED' if partial else 'NOT_MET'}\n" in output.out
     assert "reason: LOW_IMAGE_QUALITY" not in output.out
@@ -132,7 +133,7 @@ def test_actual_synthetic_image_upload_and_final_check_show_both_failures(client
     aid = new_app(client)
     response, stored = upload(client, aid, path, "resident_abstract", filename="FAKE.png")
     failures = [f for f in response["findings"] if f["severity"] == "FAIL"]
-    assert response["status"] == "FAIL"
+    assert_upload_status(response, "FAIL")
     assert {"LOW_IMAGE_QUALITY", "MISSING_ADDRESS_DATES"} <= {f["code"] for f in failures}
     final = client.get(f"/api/applications/{aid}/final-check").json()
     blocker = next(b for b in final["blockers"] if b["kind"] == "document" and b["target"] == "resident_abstract")

@@ -190,18 +190,24 @@ def list_consents(application_id: int) -> list[Consent]:
 APPLICANT_VISIBLE_FIELDS = ("발급일", "성명", "응시일", "결제금액", "동의여부", "서명잉크확인")
 
 
+# Applicant upload repair policy, independent from stored engine decisions.
+REUPLOAD_CODES = frozenset({
+    "DOCUMENT_ISSUED_TOO_EARLY", "DOCUMENT_ISSUED_AFTER_APPLICATION",
+    "IDENTITY_MISMATCH", "IMAGE_RESOLUTION_TOO_LOW", "LOW_IMAGE_QUALITY",
+    "PAGES_INCOMPLETE", "UNREADABLE_FILE", "MISSING_ADDRESS_DATES",
+    "MISSING_BILLING_MONTHS", "WRONG_DOCUMENT_TYPE",
+})
+
+
 def applicant_findings(findings: list[Any] | None) -> list[dict[str, Any]]:
-    """Hide review guidance for rejected documents; retain FAIL and reference findings."""
-    source = [finding for finding in (findings or []) if isinstance(finding, dict)]
-    has_failure = any(finding.get("severity", "FAIL") == "FAIL" for finding in source)
+    """Expose only confirmed, actionable reupload failures; never mutate evidence."""
     return [
-        {
-            key: finding[key]
-            for key in ("code", "message", "how_to_fix", "link", "severity")
-            if key in finding
-        }
-        for finding in source
-        if not (has_failure and finding.get("severity") == "NEEDS_REVIEW")
+        {key: finding[key] for key in ("code", "message", "how_to_fix", "link", "severity")
+         if key in finding}
+        for finding in (findings or [])
+        if isinstance(finding, dict) and isinstance(finding.get("code"), str)
+        and finding["code"] in REUPLOAD_CODES
+        and finding.get("severity", "FAIL") == "FAIL"
     ]
 
 
@@ -234,14 +240,13 @@ def document_dict(d: Document) -> dict[str, Any]:
         "declared_issue_date": (
             d.declared_issue_date.isoformat() if d.declared_issue_date else None
         ),
-        "status": d.stage1_status,
+        "status": "REUPLOAD_REQUIRED" if findings else "UPLOADED",
         "findings": findings,
         "extracted": {
             k: v
             for k, v in ((d.ocr_json or {}).get("fields") or {}).items()
             if k in visible_fields and not (nhis_subscriber_document and k == "성명")
         },
-        "ocr_confidence": (d.ocr_json or {}).get("confidence"),
         # 판독 계층·엔진·대체 사유는 담당자 화면에만 싣는다 (계층 이름이 곧 외부 엔진 이름이다).
         "elapsed_ms": (d.ocr_json or {}).get("elapsed_ms"),
         "page_index": d.page_index,

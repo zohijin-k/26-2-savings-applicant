@@ -1,7 +1,7 @@
 """서류 체크리스트 · 업로드 즉시 판정 (P2).
 
 두배적금은 **보완 요청이 없는 사업**이다. 제출 후에 미비를 알려주면 이미 늦다.
-그래서 업로드하는 순간 적합/부적합/확인필요를 돌려주는 것이 이 모듈의 존재 이유다.
+업로드 판정은 원래대로 저장하고, 신청자에게는 업로드 완료 또는 지정된 재업로드 사유만 돌려준다.
 
 판정 로직은 `rules/doc_check.py`(엔진 단건 검사 재사용)에, 판독은 `ocr/`의 3계층
 폴백 체인에 맡긴다. 여기서는 파일을 받아 저장하고 둘을 이어붙이는 일만 한다.
@@ -22,7 +22,7 @@ from ..ocr import read_document, split_pdf_pages
 from ..rules.identity import identity_of
 from ..ocr.base import OcrResult
 from engine_v2.pipeline.privacy import mask_data
-from ..rules.doc_check import THRESHOLD_NOTES, check_document
+from ..rules.doc_check import check_document
 from ..rules.doc_types import DocType
 from ..rules.criteria import for_application, read_criteria
 from ..rules.programs import get_program
@@ -134,8 +134,8 @@ def _checklist_response(app: Application) -> dict[str, Any]:
         "upload_total": len(upload_items),
         "upload_done": len(done),
         "unassigned": [_document_dict(d) for d in unassigned],
-        # 판정 컷라인은 TF 미확정 가정값이다. 화면에도 같은 라벨로 노출한다.
-        "assumption_notes": list(THRESHOLD_NOTES),
+        # Preserve response shape without exposing internal verdict thresholds.
+        "assumption_notes": [],
     }
 
 

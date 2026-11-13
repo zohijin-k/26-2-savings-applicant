@@ -14,6 +14,7 @@ from demo.backend.rules.identity import Identity
 from demo.backend.tests.test_nhis_form import requirement
 from demo.backend.tests.test_nhis_qualification import requirement as qualification_requirement
 from demo.backend.tests.test_portal_uploads import client, new_app, upload
+from demo.backend.tests.test_portal_uploads import assert_upload_status, stored_findings
 from engine_v2.extractors import nhis_acquisition_loss, nhis_qualification
 from engine_v2.pipeline import ocr as coordinate_ocr
 from engine_v2.schemas.models import DocType as V2DocType
@@ -57,7 +58,7 @@ def test_own_acquisition_upload_preserves_birth_and_matches_identity_without_war
     assert not direct.fields.get("판독검증실패")
     aid = new_app(client, name=sample.NAME, birth=sample.BIRTH)
     response, stored = upload(client, aid, path, "nhis_acquisition_loss")
-    assert response["status"] == "PASS"
+    assert_upload_status(response, "PASS")
     assert response["findings"] == []
     assert stored["fields"] == direct.fields
     assert stored["engine"] == "own"
@@ -77,8 +78,9 @@ def test_own_acquisition_upload_reviews_uncertain_or_overlapping_history(
     name = "가상다름" if defect == "wrong-identity" else sample.NAME
     response, stored = upload(client, new_app(client, name=name, birth=sample.BIRTH),
                               path, "nhis_acquisition_loss")
-    assert response["status"] == "NEEDS_REVIEW"
-    assert response["findings"]
+    assert_upload_status(response, "NEEDS_REVIEW")
+    assert response["findings"] == []
+    assert stored_findings(response)
     assert all(finding["severity"] != "FAIL" for finding in response["findings"])
     if defect != "wrong-identity":
         assert stored["fields"]["양식판독상태"] == "불완전"
@@ -111,7 +113,7 @@ def test_own_qualification_upload_with_one_member_has_no_identity_warning(
     assert not direct.fields.get("판독검증실패")
     aid = new_app(client, name=sample.NAME, birth=sample.BIRTH)
     response, stored = upload(client, aid, path, "nhis_qualification")
-    assert response["status"] == "PASS"
+    assert_upload_status(response, "PASS")
     assert response["findings"] == []
     assert stored["fields"] == direct.fields
     assert stored["engine"] == "own"
@@ -134,8 +136,9 @@ def test_own_qualification_upload_reviews_partial_members_or_ambiguous_issue(
     name = "가상다름" if defect == "wrong-identity" else sample.NAME
     response, stored = upload(client, new_app(client, name=name, birth=sample.BIRTH),
                               path, "nhis_qualification")
-    assert response["status"] == "NEEDS_REVIEW"
-    assert response["findings"]
+    assert_upload_status(response, "NEEDS_REVIEW")
+    assert response["findings"] == []
+    assert stored_findings(response)
     assert all(finding["severity"] != "FAIL" for finding in response["findings"])
     if defect != "wrong-identity":
         assert stored["fields"]["양식판독상태"] == "불완전"

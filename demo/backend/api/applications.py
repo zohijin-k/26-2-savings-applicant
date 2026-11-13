@@ -22,7 +22,6 @@ from ..forms.email import is_valid_email, normalize_email
 from ..rules.criteria import latest as latest_criteria
 from ..rules.programs import get_program
 from ..rules.self_check import evaluate
-from ..rules.eligibility_blockers import age_blockers
 
 router = APIRouter(prefix="/api/applications", tags=["applications"])
 
@@ -217,8 +216,7 @@ def create(body: CreateRequest, response: Response, request: Request) -> dict[st
 @router.get("/{application_id}")
 def read(application_id: int) -> dict[str, Any]:
     app = _load(application_id)
-    return {**app.model_dump(exclude={"applicant_access_hash", "written_forms_archive_path", "written_forms_archive_count"}),
-            "eligibility_blockers": age_blockers(get_program(app.program_code), app.form1_json or {}, app.identity_json)}
+    return app.model_dump(exclude={"applicant_access_hash", "written_forms_archive_path", "written_forms_archive_count"})
 
 
 @router.patch("/{application_id}")
@@ -314,13 +312,12 @@ def verify_identity(application_id: int, body: IdentityRequest) -> dict[str, Any
         s.add(app)
         s.commit()
         s.refresh(app)
-        return {"identity": app.identity_json, "form1": app.form1_json,
-                "eligibility_blockers": age_blockers(get_program(app.program_code), app.form1_json or {}, app.identity_json)}
+        return {"identity": app.identity_json, "form1": app.form1_json}
 
 
 @router.post("/{application_id}/self-check")
 def self_check(application_id: int, body: SelfCheckRequest) -> dict[str, Any]:
-    """자가진단 채점. 부적격이면 사유와 대안을 함께 돌려준다.
+    """자가진단을 평가·저장하고 신청자에게 작성 완료 여부만 돌려준다.
 
     문항 수는 사업에서 나온다 — 두배적금 8문항, 취업지원패키지 2문항(나이·거주지).
     """
@@ -336,11 +333,7 @@ def self_check(application_id: int, body: SelfCheckRequest) -> dict[str, Any]:
         s.add(row)
         s.commit()
     return {
-        "eligible": result.eligible,
         "completed": result.completed,
-        "failed_item": result.failed_item,
-        "reason": result.reason,
-        "alternative": result.alternative,
         "total_items": result.total_items,
     }
 

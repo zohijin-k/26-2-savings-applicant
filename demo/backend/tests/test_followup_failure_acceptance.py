@@ -34,7 +34,7 @@ def test_source_shaped_four_page_pdf_cli_rejects_missing_work_months(two_digit, 
     output = capfd.readouterr()
     assert output.err == ""
     for expected in ("identity: O", "document_status: PASS", "work_status: NOT_MET",
-                     "work_reason: WORK_CONTINUITY_NOT_MET", "blockers: O"):
+                     "work_reason: WORK_CONTINUITY_NOT_MET", "blockers: X"):
         assert expected + "\n" in output.out
     assert_safe(output.out)
     assert snapshot(tmp_path) == before

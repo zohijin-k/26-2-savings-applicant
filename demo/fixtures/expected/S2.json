@@ -3,15 +3,15 @@
   "title": "완전 적합 — 4인 직장가입자 건보료 200,000원 / 거주 5년 / 근로 3년 / 27세",
   "proves": "수기 0건으로 완주하고, 심사표 100점이 서식6 수기 검산과 일치한다 (40+25+25+9 = 99점)",
   "program": "double_savings",
-  "screen": "신청자 → 자가진단 → 신청서 → 동의 → 업로드 → 최종 확인 → 제출 → 마이페이지",
+  "screen": "신청자 → 본인인증 → 서식 작성 → 3단계 업로드·제출 → 마이페이지",
   "steps": [
     "자가진단 8문항 전부 '예'",
     "서식1 Step0~Step2 작성 (전입일 2020-11-20 입력 → 거주기간 '5년 이상'이 자동 체크됨)",
     "서식1 Step3 근로사항 (취업일 2023-01-02), Step4 계좌",
     "서식3·4 동의 체크, 서식5는 캔버스에 전자서명",
     "— 여기서 같은 건의 초본 슬롯으로 S3~S6(미비 4종)을 시연한다 —",
-    "초본을 올바른 파일로 교체하고 나머지 서류 4종 업로드 — 올리는 즉시 '적합' 배지",
-    "[제출 전 최종 확인] → [제출]"
+    "초본을 올바른 파일로 교체하고 나머지 서류 4종 업로드 — 업로드 완료 표시",
+    "3단계에서 필수 입력·동의·서류 확인 후 [제출]"
   ],
   "files": [
     "S2_주민등록초본_적합.pdf",
@@ -22,19 +22,40 @@
   ],
   "expect": {
     "application_no": "DS-2026-000002",
-    "document_statuses": ["PASS", "PASS", "PASS", "PASS", "PASS"],
-    "slowest_upload_ms": { "$lt": 5000 },
+    "document_statuses": [
+      "UPLOADED",
+      "UPLOADED",
+      "UPLOADED",
+      "UPLOADED",
+      "UPLOADED"
+    ],
+    "slowest_upload_ms": {
+      "$lt": 5000
+    },
     "can_submit": true,
     "blockers": [],
     "final_status": "PASS",
     "stage1_status": "PASS",
     "stage2_status": "PASS",
     "total_score": 99,
-    "item_scores": { "income": 40, "residence": 25, "work": 25, "age": 9 },
+    "item_scores": {
+      "income": 40,
+      "residence": 25,
+      "work": 25,
+      "age": 9
+    },
     "income_percent": 90.0,
-    "residence_basis": { "$contains": "전입" },
+    "residence_basis": {
+      "$contains": "전입"
+    },
     "file_refs": 5,
-    "mypage_progress": ["접수", "서류검토", "자격심사", "선정심사", "결과발표"],
+    "mypage_progress": [
+      "접수",
+      "서류검토",
+      "자격심사",
+      "선정심사",
+      "결과발표"
+    ],
     "mypage_score_leak": []
   },
   "talking_points": [

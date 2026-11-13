@@ -9,6 +9,7 @@ from demo.backend.ocr import read_document
 from demo.backend.ocr.localocr import LocalOcr
 from demo.backend.rules.doc_types import DocType
 from demo.backend.tests.test_portal_uploads import client, new_app, upload
+from demo.backend.tests.test_portal_uploads import assert_upload_status, stored_findings
 from engine_v2.pipeline import ocr as coordinate_ocr
 from engine_v2.tests import p2_resident_samples as sample
 
@@ -52,7 +53,7 @@ def test_resident_note_false_alarm_is_fixed_in_actual_upload(client, tmp_path, m
     assert not direct.fields.get("판독경고")
     use_own_words(monkeypatch, sample.resident(boundary=boundary))
     response, stored = upload(client, new_app(client, name=sample.NAME, birth=sample.BIRTH), path, "resident_abstract")
-    assert response["status"] == "PASS"
+    assert_upload_status(response, "PASS")
     assert response["findings"] == []
     assert stored["fields"] == direct.fields
     assert stored["fields"]["성명"] == sample.NAME
@@ -65,8 +66,9 @@ def test_resident_remaining_number_uncertainty_reaches_upload_review(client, tmp
     use_own_words(monkeypatch, pages)
     path = image_pdf(tmp_path / "FAKE-resident-missing-number.pdf", pages)
     response, stored = upload(client, new_app(client, name=sample.NAME, birth=sample.BIRTH), path, "resident_abstract")
-    assert response["status"] == "NEEDS_REVIEW"
-    assert response["findings"]
+    assert_upload_status(response, "NEEDS_REVIEW")
+    assert response["findings"] == []
+    assert stored_findings(response)
     assert all(finding["severity"] != "FAIL" for finding in response["findings"])
     assert stored["confidence"] <= .4
     assert "history_numbers_sequential" in stored["fields"]["판독검증실패"]

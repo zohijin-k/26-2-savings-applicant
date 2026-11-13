@@ -61,16 +61,16 @@
 .flow__stages { --stage-node-size: 20px; --stage-node-top: 3px; display: flex; width: 100%; margin: 0 auto; padding: 0; list-style: none; }
 .flow--forms .flow__stages { position: relative; width: 100%; margin: 0; }
 .flow--forms .flow__stages::before { position: absolute; z-index: 0; top: calc(var(--stage-node-top) + var(--stage-node-size) / 2 - 0.5px); right: var(--stage-edge-center); left: var(--stage-edge-center); height: 1px; background: #d8e0ea; content: ''; pointer-events: none; }
-.flow--forms .flow__stages { --stage-edge-inset: 16px; --stage-edge-center: calc(var(--stage-edge-inset) + var(--stage-node-size) / 2); --stage-edge-column: calc(100% / 6 + var(--stage-edge-center) * 2 / 3); display: grid; grid-template-columns: var(--stage-edge-column) minmax(0, 1fr) minmax(0, 1fr) var(--stage-edge-column); }
+.flow--forms .flow__stages { --stage-edge-inset: 16px; --stage-edge-center: calc(var(--stage-edge-inset) + var(--stage-node-size) / 2); --stage-edge-column: calc(25% + var(--stage-edge-center) / 2); display: grid; grid-template-columns: var(--stage-edge-column) minmax(0, 1fr) var(--stage-edge-column); }
 .flow--forms .flow__stages li:first-child button { align-items: flex-start; padding-left: var(--stage-edge-inset); padding-right: 0; }
 .flow--forms .flow__stages li:last-child button { align-items: flex-end; padding-left: 0; padding-right: var(--stage-edge-inset); }
 .flow--forms .flow__stages li:first-child .flow__stage-copy { text-align: left; }
 .flow--forms .flow__stages li:last-child .flow__stage-copy { text-align: right; }
 .flow--forms .flow__stages li:first-child .flow__stage-caption { justify-content: flex-start; }
 .flow--forms .flow__stages li:last-child .flow__stage-caption { justify-content: flex-end; }
-.flow--forms .flow__stages li:nth-child(2) .flow__stage-copy { align-self: flex-end; width: calc(50% + var(--stage-node-size) / 2); text-align: left; }
-.flow--forms .flow__stages li:nth-child(3) .flow__stage-copy { align-self: flex-start; width: calc(50% + var(--stage-node-size) / 2); text-align: right; }
-.flow--forms .flow__stages li:nth-child(2) .flow__stage-caption { justify-content: flex-start; }
+.flow--forms .flow__stages li:nth-child(2) .flow__stage-copy { width: 100%; text-align: center; }
+.flow--forms .flow__stages li:last-child .flow__stage-copy { align-self: flex-end; width: 100%; text-align: right; }
+.flow--forms .flow__stages li:nth-child(2) .flow__stage-caption { justify-content: center; }
 .flow--forms .flow__stages li:nth-child(3) .flow__stage-caption { justify-content: flex-end; }
 .flow--forms .flow__stages li:first-child::after { left: var(--stage-edge-center); width: calc(200% - var(--stage-node-size) - var(--stage-edge-inset) * 2); }
 .flow__stages li { position: relative; display: flex; flex: 1; min-width: 0; }

@@ -26,8 +26,11 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from sqlmodel import select
+from .. import models
+
 from . import run_p4_scenarios as p4
-from .scenario_support import complete_synthetic_work, seed_blocked_historical_review
+from .scenario_support import complete_synthetic_work
 from .run_p8_localocr_scenarios import (
     fake_abstract_words,
     install_fake_ocr,
@@ -48,6 +51,15 @@ def check(name: str, actual: object, expected: object) -> None:
     else:
         _failed.append(name)
         print(f"  [FAIL] {name}: 기대={expected!r} 실제={actual!r}")
+
+
+def check_document_status(name: str, document: dict, original_status: str) -> None:
+    with models.get_session() as session:
+        row = session.get(models.Document, document["document_id"])
+    assert row is not None
+    check(name + " (저장 원판정)", row.stage1_status, original_status)
+    check(name + " (신청자 표시)", document["status"],
+          "REUPLOAD_REQUIRED" if document["findings"] else "UPLOADED")
 
 
 def check_true(name: str, value: object) -> None:
@@ -73,6 +85,13 @@ def upload_abstract(client, app_id: int, tmp: Path, words: list, stem: str) -> d
             files={"file": (pdf.name, fh, "application/pdf")},
             data={"slot_key": "resident_abstract", "declared_issue_date": "2026-11-10"},
         ).json()
+
+
+def _stored_document(public: dict):
+    with models.get_session() as session:
+        row = session.get(models.Document, public["document_id"])
+    assert row is not None
+    return row
 
 
 def codes(doc: dict) -> list[str]:
@@ -114,25 +133,22 @@ def test_nhis_dependent_reconciliation(client, tmp: Path) -> None:
     own_doc = upload_fixture(
         client, own, tmp, "S2_건강보험료납부확인서_적합", "nhis_payment"
     )
-    check("본인 명의 납부확인서 → 통과", own_doc["status"], "PASS")
-
+    check_document_status('본인 명의 납부확인서 → 통과', own_doc, 'PASS')
     dependent = new_app(client)
     identify(client, dependent, "김전북", "1999-01-01")
     first = upload_fixture(
         client, dependent, tmp, "P9_건강보험료납부확인서_부모명의", "nhis_payment"
     )
-    check("부모 명의 납부확인서만 → 확인필요", first["status"], "NEEDS_REVIEW")
+    check_document_status('부모 명의 납부확인서만 → 확인필요', first, 'NEEDS_REVIEW')
     second = upload_fixture(
         client, dependent, tmp, "P9_건강보험자격확인서_부모명의_본인포함", "nhis_qualification"
     )
     docs = client.get(f"/api/applications/{dependent}/documents").json()
     by_slot = {doc["slot_key"]: doc for doc in docs}
-    check("같은 가입자 + 가구원 본인 → 납부확인서 통과",
-          by_slot["nhis_payment"]["status"], "PASS")
-    check("같은 가입자 + 가구원 본인 → 자격확인서 통과",
-          by_slot["nhis_qualification"]["status"], "PASS")
+    check_document_status('같은 가입자 + 가구원 본인 → 납부확인서 통과', by_slot['nhis_payment'], 'PASS')
+    check_document_status('같은 가입자 + 가구원 본인 → 자격확인서 통과', by_slot['nhis_qualification'], 'PASS')
     check_true("피부양자 판정 사유 코드 기록",
-               "NHIS_DEPENDENT_INSURED_PERSON" in codes(by_slot["nhis_payment"]))
+               "NHIS_DEPENDENT_INSURED_PERSON" in [finding["code"] for finding in _stored_document(by_slot["nhis_payment"]).findings_json])
     check_applicant_name_hidden(client, dependent, parent, [first, second])
 
     # 담당자 상세에는 같은 근거와 가입자 이름이 보인다.
@@ -151,13 +167,11 @@ def test_nhis_dependent_reconciliation(client, tmp: Path) -> None:
     complete_synthetic_work(dependent)
     final=client.get(f"/api/applications/{dependent}/final-check").json()
     submitted=client.post(f"/api/applications/{dependent}/submit")
-    check("부모 명의 관계 확인과 별개로 확정 소득 초과 제출 차단",submitted.status_code,400)
-    income=next(item for item in final["blockers"] if item.get("code")=="OVER_LIMIT")
-    check("자격 차단 종류",income["kind"],"eligibility")
-    check_true("부모 명의 소득 차단은 가구·평균 금액 근거 포함",all(value in income["message"] for value in ("2명","200,000","140%")))
-    # Officer cross-reference/privacy assertions below inspect a historical
-    # submitted fixture; the current applicant request remains rejected.
-    seed_blocked_historical_review(dependent,submitted)
+    check("부모 명의 관계 확인 뒤 정상 접수", submitted.status_code, 200)
+    check("신청자 소득 자격 차단 비노출", [item for item in final["blockers"] if item.get("kind") == "eligibility"], [])
+    with models.get_session() as session:
+        review = session.exec(select(models.Review).where(models.Review.application_id == dependent)).first()
+    check_true("실제 접수로 원판정 저장", review is not None and review.final_status == "FAIL")
     officer = client.get(
         f"/api/officer/applications/{dependent}", params={"role": p4.ROLE_CITY}
     ).json()
@@ -178,7 +192,7 @@ def test_nhis_dependent_reconciliation(client, tmp: Path) -> None:
     miss_upload = upload_fixture(
         client, missing_qual, tmp, "P9_건강보험료납부확인서_부모명의", "nhis_payment"
     )
-    check("자격확인서 없음 → 확인필요", miss_upload["status"], "NEEDS_REVIEW")
+    check_document_status('자격확인서 없음 → 확인필요', miss_upload, 'NEEDS_REVIEW')
     check_applicant_name_hidden(client, missing_qual, parent, [miss_upload])
 
     absent_member = new_app(client)
@@ -190,8 +204,7 @@ def test_nhis_dependent_reconciliation(client, tmp: Path) -> None:
         client, absent_member, tmp, "P9_건강보험자격확인서_부모명의_본인미포함", "nhis_qualification"
     )
     absent_docs = client.get(f"/api/applications/{absent_member}/documents").json()
-    check("가구원 목록에 본인 없음 → 확인필요",
-          absent_docs[0]["status"], "NEEDS_REVIEW")
+    check_document_status('가구원 목록에 본인 없음 → 확인필요', absent_docs[0], 'NEEDS_REVIEW')
     check_applicant_name_hidden(
         client, absent_member, parent, [absent_payment, absent_qualification]
     )
@@ -201,7 +214,7 @@ def test_nhis_dependent_reconciliation(client, tmp: Path) -> None:
     reverse_qualification = upload_fixture(
         client, reverse, tmp, "P9_건강보험자격확인서_부모명의_본인포함", "nhis_qualification"
     )
-    check("자격확인서 먼저 → 확인필요", reverse_qualification["status"], "NEEDS_REVIEW")
+    check_document_status('자격확인서 먼저 → 확인필요', reverse_qualification, 'NEEDS_REVIEW')
     reverse_payment = upload_fixture(
         client, reverse, tmp, "P9_건강보험료납부확인서_부모명의", "nhis_payment"
     )
@@ -209,14 +222,14 @@ def test_nhis_dependent_reconciliation(client, tmp: Path) -> None:
     reverse_by_slot = {doc["slot_key"]: doc for doc in reverse_docs}
     check("납부확인서 나중 → 두 서류 모두 통과",
           [reverse_by_slot[k]["status"] for k in ("nhis_payment", "nhis_qualification")],
-          ["PASS", "PASS"])
+          ["UPLOADED", "UPLOADED"])
+    check("대조 완료 뒤 원판정 보존", [_stored_document(reverse_by_slot[key]).stage1_status for key in ("nhis_payment", "nhis_qualification")], ["PASS", "PASS"])
     deleted = client.delete(
         f"/api/applications/{reverse}/documents/{reverse_by_slot['nhis_qualification']['document_id']}"
     )
     check("자격확인서 삭제", deleted.status_code, 200)
     remaining = client.get(f"/api/applications/{reverse}/documents").json()
-    check("자격확인서 삭제 뒤 납부확인서 → 확인필요",
-          remaining[0]["status"], "NEEDS_REVIEW")
+    check_document_status('자격확인서 삭제 뒤 납부확인서 → 확인필요', remaining[0], 'NEEDS_REVIEW')
     check_applicant_name_hidden(
         client, reverse, parent,
         [reverse_qualification, reverse_payment, deleted.json()],
@@ -225,8 +238,7 @@ def test_nhis_dependent_reconciliation(client, tmp: Path) -> None:
     parent_abstract = new_app(client)
     identify(client, parent_abstract, "이익산", "1998-05-05")
     abstract = upload_abstract(client, parent_abstract, tmp, fake_abstract_words(), "부모명의초본")
-    check("부모 명의 초본 → 기존과 같은 부적합", abstract["status"], "FAIL")
-
+    check_document_status('부모 명의 초본 → 기존과 같은 부적합', abstract, 'FAIL')
 
 # ------------------------------------------------------------------ 시나리오
 
@@ -267,8 +279,7 @@ def test_matching(client, tmp: Path) -> None:
     own = new_app(client)
     identify(client, own, "김전북", "1999-01-01")
     doc = upload_abstract(client, own, tmp, fake_abstract_words(), "본인초본")
-    check("본인 초본 → 판정", doc["status"], "PASS")
-
+    check_document_status('본인 초본 → 판정', doc, 'PASS')
     print("\n[3-1] 올린 서류 다시 보기")
     check_true("신청자 응답에 파일 주소", doc["file_url"].startswith("/api/files/"))
     res = client.get(doc["file_url"])
@@ -281,7 +292,7 @@ def test_matching(client, tmp: Path) -> None:
     other = new_app(client)
     identify(client, other, "이익산", "1998-05-05")
     doc = upload_abstract(client, other, tmp, fake_abstract_words(), "타인초본")
-    check("타인 초본 → 판정", doc["status"], "FAIL")
+    check_document_status('타인 초본 → 판정', doc, 'FAIL')
     check_true("사유: IDENTITY_MISMATCH", "IDENTITY_MISMATCH" in codes(doc))
     msg = " ".join(f["message"] + f["how_to_fix"] for f in doc["findings"])
     check_true("안내에 서류 속 이름 미노출", "김전북" not in msg)
@@ -291,7 +302,7 @@ def test_matching(client, tmp: Path) -> None:
     namesake = new_app(client)
     identify(client, namesake, "김전북", "2000-02-02")
     doc = upload_abstract(client, namesake, tmp, fake_abstract_words(), "동명이인")
-    check("동명이인(생년월일 다름) → 판정", doc["status"], "FAIL")
+    check_document_status('동명이인(생년월일 다름) → 판정', doc, 'FAIL')
     check_true("생년월일이 다른 신청인 안내",
                any(f["message"] == "본인이 직접 발급받은 초본이 아닙니다. 본인 명의로 발급받아 다시 올려 주세요."
                    for f in doc["findings"]))
@@ -305,8 +316,8 @@ def test_matching(client, tmp: Path) -> None:
             if w.text == "김전북":
                 w.text = "김전복"
     doc = upload_abstract(client, shaky, tmp, words, "오독초본")
-    check("판정", doc["status"], "NEEDS_REVIEW")
-    check_true("사유: IDENTITY_UNCERTAIN", "IDENTITY_UNCERTAIN" in codes(doc))
+    check_document_status('판정', doc, 'NEEDS_REVIEW')
+    check_true("사유: IDENTITY_UNCERTAIN", "IDENTITY_UNCERTAIN" in [finding["code"] for finding in _stored_document(doc).findings_json])
     check_true("본인 서류 아님으로 단정 안 함", "IDENTITY_MISMATCH" not in codes(doc))
 
 
@@ -325,7 +336,7 @@ def test_samples_and_no_identity(client, tmp: Path) -> None:
                 files={"file": (filename, fh, "application/pdf")},
                 data={"slot_key": slot, "declared_issue_date": "2026-03-05"},
             ).json()
-        check(f"{slot} (홍길동 샘플) → 판정", doc["status"], "PASS")
+        check_document_status(f"{slot} (홍길동 샘플) → 판정", doc, "PASS")
 
     print("\n[5-1] 본인인증 이름이 시연 샘플과 다름 — 샘플도 본인 대조 대상")
     different = new_app(client)
@@ -338,14 +349,14 @@ def test_samples_and_no_identity(client, tmp: Path) -> None:
     )
     sample_docs = client.get(f"/api/applications/{different}/documents").json()
     check("시연 샘플의 명의가 인증 정보와 다르면 확인필요",
-          [doc["status"] for doc in sample_docs], ["NEEDS_REVIEW", "NEEDS_REVIEW"])
+          [doc["status"] for doc in sample_docs], ["UPLOADED", "UPLOADED"])
+    check("시연 샘플 원래 관계 확인 판정 보존", [_stored_document(doc).stage1_status for doc in sample_docs], ["NEEDS_REVIEW", "NEEDS_REVIEW"])
     check_applicant_name_hidden(client, different, "홍길동", [payment, qualification])
 
     print("\n[6] 본인인증 없이 → 대조하지 않음")
     bare = new_app(client)
     doc = upload_abstract(client, bare, tmp, fake_abstract_words(), "미인증")
-    check("판정", doc["status"], "PASS")
-
+    check_document_status('판정', doc, 'PASS')
 
 def test_officer_view(client, tmp: Path) -> None:
     print("\n[7] 담당자 화면")

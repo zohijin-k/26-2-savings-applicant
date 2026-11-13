@@ -36,6 +36,7 @@ from .run_p8_localocr_scenarios import (
     make_text_pdf,
 )
 from .run_p9_identity_scenarios import identify, new_app
+from .. import models
 from ..engine_adapter import apply_runtime_overrides
 from ..ocr import read_document
 from ..ocr import jbai as jbai_adapter
@@ -67,6 +68,15 @@ def check(name: str, actual: object, expected: object) -> None:
     else:
         _failed.append(name)
         print(f"  [FAIL] {name}: 기대={expected!r} 실제={actual!r}")
+
+
+def check_document_status(name: str, document: dict, original_status: str) -> None:
+    with models.get_session() as session:
+        row = session.get(models.Document, document["document_id"])
+    assert row is not None
+    check(name + " (저장 원판정)", row.stage1_status, original_status)
+    check(name + " (신청자 표시)", document["status"],
+          "REUPLOAD_REQUIRED" if document["findings"] else "UPLOADED")
 
 
 def check_true(name: str, value: object) -> None:
@@ -434,8 +444,7 @@ def test_api_privacy_cache_and_views(client, tmp: Path) -> None:
         check("(마) 같은 파일 두 번 → 전북AI 호출 횟수", counts, [2 * len(pages), 0])
         check("업로드 응답", [r.status_code for r in responses], [200, 200])
         doc = responses[-1].json()
-        check("판정(캐시 결과로도 같은 규칙)", doc["status"], "PASS")
-
+        check_document_status('판정(캐시 결과로도 같은 규칙)', doc, 'PASS')
         listed = client.get(f"/api/applications/{app_id}/documents").text
         checklist = client.get(f"/api/applications/{app_id}/required-documents").text
         rows = list_documents(app_id)
@@ -525,7 +534,7 @@ def test_api_privacy_cache_and_views(client, tmp: Path) -> None:
                               files={"file": (pdf.name, fh, "application/pdf")},
                               data={"slot_key": "resident_abstract", "declared_issue_date": "2026-11-10"})
         check("네트워크 끊김에도 업로드 응답", res.status_code, 200)
-        check("로컬 OCR 결과로 판정", res.json()["status"], "PASS")
+        check_document_status('로컬 OCR 결과로 판정', res.json(), 'PASS')
         check_true("신청자 응답에 대체 사유 없음", "전북AI" not in res.text and "jbai" not in res.text)
         view = _document_view(list_documents(other)[0], {"resident_abstract": "주민등록초본"})
         check("담당자 화면 엔진·대체 사유",

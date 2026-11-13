@@ -6,6 +6,7 @@ import pymupdf
 from demo.backend.ocr import read_document
 from demo.backend.rules.doc_types import DocType
 from demo.backend.tests.test_portal_uploads import client,new_app,upload
+from demo.backend.tests.test_portal_uploads import assert_upload_status
 from engine_v2.tests.nhis_form_samples import insurance_portal_cells,text_pdf
 
 
@@ -35,11 +36,11 @@ def test_main_form_is_complete_with_unreadable_attachment_pages(client,tmp_path)
     assert read.fields["양식판독상태"]=="완전"
     assert json.loads(read.fields["추가첨부쪽"])==[2,3]
     data,stored=upload(client,new_app(client),path,"work_proof")
-    assert data["status"]=="PASS"
+    assert_upload_status(data, "PASS")
     assert stored["fields"]["추가첨부쪽"]==read.fields["추가첨부쪽"]
 
 
 def test_incomplete_main_form_remains_review(client,tmp_path):
     data,stored=upload(client,new_app(client),mixed_pdf(tmp_path,damage=True),"work_proof")
-    assert data["status"]=="NEEDS_REVIEW"
+    assert_upload_status(data, "NEEDS_REVIEW")
     assert stored["fields"]["양식판독상태"]=="불완전"

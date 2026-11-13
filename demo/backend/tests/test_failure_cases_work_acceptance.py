@@ -59,6 +59,10 @@ def test_source_shaped_work_failure_reaches_all_consumers(client,case):
     officer=next(row for row in _eligibility(Entry(app,review),{}) if row["key"]=="work")
     assert officer["ok"] is False and officer["basis"]==work["basis"]
     final=client.get(f"/api/applications/{app.id}/final-check").json()
-    item=next(item for item in final["blockers"] if item["kind"]=="eligibility" and item["target"]=="work")
-    assert not final["can_submit"] and item["code"]=="WORK_CONTINUITY_NOT_MET"
-    assert client.post(f"/api/applications/{app.id}/submit").status_code==400
+    assert final["can_submit"]
+    assert not any(item["kind"]=="eligibility" for item in final["blockers"])
+    assert client.post(f"/api/applications/{app.id}/submit").status_code==200
+    with models.get_session() as session:
+        saved=session.exec(select(models.Review).where(models.Review.application_id==app.id)).one()
+        assert saved.final_status=="FAIL"
+        assert saved.review_payload_json["work_continuity"]==work

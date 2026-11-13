@@ -1,8 +1,8 @@
-"""제출 전 최종 확인 · 최종 제출 · 마이페이지 (P3).
+"""3단계 제출 준비 · 최종 제출 · 마이페이지 (P3).
 
 여기서 세 가지가 이어진다.
 
-  1. `GET  /final-check` — 아직 남은 부적합·누락을 한 화면에 모은다. 두배적금은
+  1. `GET  /final-check` — 필수 입력·업로드·재업로드 항목을 모은다. 두배적금은
      **보완 요청이 없는 사업**이라, 제출 버튼을 누르기 전이 마지막 기회다.
   2. `POST /submit`       — 엔진 전체 파이프라인 + 심사표 100점 채점 → `review` 저장.
   3. `GET  /status`       — 마이페이지. **점수는 절대 싣지 않는다** (R5.3).
@@ -43,16 +43,18 @@ from ..models import (
 )
 from ..rules.facts import build_facts, extract_region, parse_ymd
 from ..rules.age_eligibility import assess_age
-from ..rules.eligibility_blockers import age_blockers, eligibility_blockers
 from ..rules.work_continuity import assess_work
 from ..rules.household import overlap_members, qualification_members
 from ..rules.doc_types import DocType
 from ..rules.criteria import for_application, read_criteria, supplement_for_application
 from ..rules.programs import DOUBLE_SAVINGS, JOB_PACKAGE, ProgramConfig, get_program
-from ..rules.required_docs import DocRequirement, upload_slots
+from ..rules.self_check import item_numbers
+from ..forms import coords as form_coords
+from ..rules.required_docs import DocRequirement, WorkCategory, upload_slots
 from ..rules.scoring import ScoreSheet, score_application
 from ..rules.subsidy import get_limit
 from .common import (
+    applicant_findings,
     checklist_for,
     document_dict,
     document_fact,
@@ -107,9 +109,9 @@ DATE_FIELDS = {"birth", "transferIn", "employedAt"}
 
 def _has_value(value: Any) -> bool:
     if isinstance(value, dict):
-        return all(str(v).strip() for v in value.values())
+        return bool(value) and all(str(value.get(k) or "").strip() for k in ("y", "m", "d"))
     if isinstance(value, list):
-        return len(value) > 0
+        return False
     return bool(str(value or "").strip())
 
 
@@ -134,13 +136,14 @@ def document_blockers(
                     }
                 )
             continue
-        if doc.stage1_status == "FAIL":
+        findings = applicant_findings(doc.findings_json)
+        if findings:
             reasons = list(dict.fromkeys(
-                finding["message"] for finding in (doc.findings_json or [])
+                finding["message"] for finding in findings
                 if finding.get("severity", "FAIL") == "FAIL"
                 and isinstance(finding.get("message"), str) and finding["message"].strip()
             ))
-            reason = "\n".join(reasons) or "부적합 판정입니다."
+            reason = "\n".join(reasons) or "서류를 다시 올려 주세요."
             items.append(
                 {
                     "kind": "document",
@@ -164,9 +167,24 @@ def _blockers(app: Application) -> list[dict[str, Any]]:
     form1 = app.form1_json or {}
     email = form1.get("email")
     normalized_email = normalize_email(email) if isinstance(email, str) else ""
-    invalid_email = bool(normalized_email) and not is_valid_email(normalized_email)
+    invalid_email = _has_value(email) and not (isinstance(email, str) and is_valid_email(normalized_email))
 
-    for key, label in program.required_form_fields:
+    required_fields = list(program.required_form_fields)
+    if program.code == DOUBLE_SAVINGS:
+        required_fields.extend([
+            ("email", "이메일"), ("savingPurpose", "저축목적"), ("priorJoined", "이전 참여 여부"),
+            ("gender", "성별"), ("householdType", "가구 특성"), ("workType", "근로유형"),
+            ("workplaceRegion", "근무지역"), ("accountHolder", "예금주"),
+        ])
+        spec = form_coords.load("서식1")
+        for rule in (spec.requirements if spec else []) or []:
+            fields = rule.get("fields", [])
+            if rule.get("kind") == "all_or_none" and any(_has_value(form1.get(k)) for k in fields):
+                required_fields.extend((key, key) for key in fields)
+            elif rule.get("kind") == "when_choice" and form1.get(rule.get("field")) == rule.get("equals"):
+                required_fields.extend((key, key) for key in rule.get("required", []))
+
+    for key, label in dict(required_fields).items():
         value = form1.get(key)
         if key == "email" and invalid_email:
             items.append({
@@ -176,7 +194,7 @@ def _blockers(app: Application) -> list[dict[str, Any]]:
                 "message": "이메일 형식을 확인해 주세요.",
                 "goto": "form1",
             })
-        elif not _has_value(value):
+        elif not _has_value(value) or (key not in DATE_FIELDS and isinstance(value, dict)):
             # 서식 안에서 첨부하는 서류(통장 사본 등)는 '입력'이 아니라 '첨부'다.
             verb = "첨부" if key.endswith("FileName") else "입력"
             items.append(
@@ -189,7 +207,7 @@ def _blockers(app: Application) -> list[dict[str, Any]]:
                 }
             )
 
-    if invalid_email and not any(key == "email" for key, _ in program.required_form_fields):
+    if invalid_email and not any(key == "email" for key, _ in required_fields):
         items.append({
             "kind": "form",
             "target": "email",
@@ -197,6 +215,24 @@ def _blockers(app: Application) -> list[dict[str, Any]]:
             "message": "이메일 형식을 확인해 주세요.",
             "goto": "form1",
         })
+
+    if program.code == DOUBLE_SAVINGS:
+        from .forms import _valid_phone
+        if _has_value(form1.get("mobile")) and not _valid_phone(form1.get("mobile")):
+            items.append({"kind": "form", "target": "mobile", "label": "휴대전화",
+                          "message": "010으로 시작하는 휴대전화 번호를 확인해 주세요.", "goto": "form1"})
+        answers = app.self_check_json or {}
+        if any(answers.get(str(index), answers.get(index)) not in ("예", "아니오")
+               for index in item_numbers(program.code)):
+            items.append({"kind": "form", "target": "self_check", "label": "자가진단",
+                          "message": "자가진단의 모든 문항에 답해 주세요.", "goto": "form1"})
+        spec = form_coords.load("서식1")
+        emergency_fields = next((rule.get("fields", []) for rule in (spec.requirements if spec else []) or []
+                                 if rule.get("kind") == "all_or_none" and "ecContact" in rule.get("fields", [])), [])
+        if emergency_fields and _has_value(form1.get("ecContact")):
+            if not _valid_phone(form1.get("ecContact")):
+                items.append({"kind": "form", "target": "ecContact", "label": "비상연락처",
+                              "message": "비상연락처 형식을 확인해 주세요.", "goto": "form1"})
 
     # 지원 항목을 고르는 사업은 항목 선택이 곧 신청 내용이다. 하나도 고르지
     # 않았으면 제출할 것이 없다.
@@ -246,17 +282,20 @@ def _blockers(app: Application) -> list[dict[str, Any]]:
                 }
             )
 
+    if program.code == DOUBLE_SAVINGS and not paper_admin_consent:
+        from .forms import _form_is_complete
+        if not _form_is_complete(app, "서식5"):
+            items.append({"kind": "consent", "target": "signature", "label": "서식5 서명",
+                          "message": "서식5에 서명해 주세요.", "goto": "consent"})
+
     checklist = checklist_for(app)
     documents = list_documents(app.id or 0)
-    criteria_version = for_application(app)
-    criteria = read_criteria(criteria_version)
     items.extend(document_blockers(checklist, documents))
 
     # 근로확인서류가 있는 사업에서만 근로유형을 묻는다. 취업패키지는 근로요건이
     # 없으므로 이 항목 자체가 없다.
-    if program.has_work_requirement and not (app.doc_context_json or {}).get(
-        "work_category"
-    ):
+    selected_category = (app.doc_context_json or {}).get("work_category")
+    if program.has_work_requirement and selected_category not in tuple(str(category) for category in WorkCategory):
         items.append(
             {
                 "kind": "context",
@@ -267,9 +306,6 @@ def _blockers(app: Application) -> list[dict[str, Any]]:
             }
         )
 
-    rows = [document_fact(d) for d in documents if d.slot_key != UNASSIGNED_SLOT]
-    items.extend(eligibility_blockers(program, form1, app.identity_json, rows,
-                 (app.doc_context_json or {}).get("work_category"), criteria))
     return items
 
 
@@ -285,24 +321,6 @@ def _warnings(app: Application, documents: list[Any]) -> list[str]:
     else:
         notes.append(
             f"서류 미비 시 {supplement['days']}일 내 보완 안내가 발송됩니다."
-        )
-    if get_program(app.program_code).selection == "scored":
-        facts = build_facts(app.form1_json or {}, [document_fact(d) for d in documents])
-        if facts.household_size_form_mismatch:
-            notes.append("가구원 수는 건강보험 자격확인서 기준으로 판정합니다.")
-        elif facts.household_size_issue:
-            notes.append(facts.household_size_issue)
-    review_count = sum(1 for d in documents if d.stage1_status == "NEEDS_REVIEW")
-    if review_count:
-        notes.append(
-            f"담당자 확인 예정 서류가 {review_count}건 있습니다. 제출은 가능하지만 담당자가 원본을 "
-            "직접 확인합니다. 더 선명한 파일이 있다면 교체하는 편이 안전합니다."
-        )
-    unassigned = sum(1 for d in documents if d.slot_key == UNASSIGNED_SLOT)
-    if unassigned:
-        notes.append(
-            f"어느 서류인지 판별하지 못한 페이지가 {unassigned}건 있습니다. 필요 없는 "
-            "페이지라면 삭제해 주세요."
         )
     return notes
 
@@ -411,9 +429,14 @@ def _supplement(
         doc = by_slot.get(req.slot_key)
         if doc is None and req.required:
             targets.append({"label": req.label, "reason": "아직 올리지 않았습니다."})
-        elif doc is not None and doc.stage1_status != "PASS":
-            reason = (doc.findings_json or [{}])[0].get("message", "확인이 필요합니다.")
-            targets.append({"label": req.label, "reason": reason})
+        elif doc is not None:
+            for finding in applicant_findings(doc.findings_json):
+                targets.append({"label": req.label, "reason": finding.get("message", "서류를 다시 올려 주세요.")})
+
+    if not targets:
+        # A deadline derived only from hidden internal findings would reveal
+        # that judgment even when its reasons are absent from the response.
+        return None
 
     return {
         "days": policy["days"],
@@ -440,7 +463,7 @@ def _load_review(application_id: int) -> Review | None:
 
 @router.get("/{application_id}/final-check")
 def final_check(application_id: int) -> dict[str, Any]:
-    """제출 전 최종 확인 (계획서 3.1절 [5])."""
+    """3단계 제출 준비: 현재 저장 내용의 입력·업로드 완성도를 확인한다."""
     app = load_application(application_id)
     program = get_program(app.program_code)
     supplement = supplement_for_application(app)
@@ -757,7 +780,7 @@ def submit(application_id: int) -> dict[str, Any]:
 
     blockers = _blockers(app)
     if blockers:
-        rejection_messages = [item["message"] for item in blockers if item["kind"] in {"eligibility", "document"}]
+        rejection_messages = [item["message"] for item in blockers]
         raise HTTPException(
             400,
             f"아직 제출할 수 없습니다. 확인이 필요한 항목이 {len(blockers)}건 있습니다. "
@@ -853,7 +876,6 @@ def status(application_id: int) -> dict[str, Any]:
         "program_code": program.code,
         "program_name": program.name,
         "status": app.status,
-        "eligibility_blockers": age_blockers(program, app.form1_json or {}, app.identity_json),
         "submitted_at": (
             app.submitted_at.isoformat(timespec="seconds") if app.submitted_at else None
         ),

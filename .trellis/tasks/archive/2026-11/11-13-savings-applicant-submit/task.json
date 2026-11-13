@@ -3,7 +3,7 @@
   "name": "savings-applicant-submit",
   "title": "2단계 신청자 판정 표시와 3단계 제출",
   "description": "재업로드 대상만 신청자에게 표시하고 접근성 모달과 3단계 직접 제출을 구현한다. 엔진 판정과 저장 결과는 보존한다.",
-  "status": "planning",
+  "status": "completed",
   "dev_type": null,
   "scope": "savings-applicant",
   "package": null,
@@ -11,17 +11,24 @@
   "creator": "codex",
   "assignee": "codex",
   "createdAt": "2026-11-13",
-  "completedAt": null,
-  "branch": null,
+  "completedAt": "2026-11-13",
+  "branch": "feat/savings-applicant-submit",
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "a5c59d738a24b5fee7f4061900b81f80a614d828",
   "pr_url": null,
   "subtasks": [],
   "children": [],
   "parent": "11-13-savings-applicant-only",
-  "relatedFiles": [],
-  "notes": "Planning only. Implementation and commits require separate explicit approvals per stage. See parent PRD for officer queue boundary.",
+  "relatedFiles": [
+    "report.md",
+    "test-impact.md",
+    "decisions.md",
+    "modal-copy.md",
+    "verification.json",
+    "scenario-results.json"
+  ],
+  "notes": "Implemented and verified unattended. All four requested validation groups pass. Archived with no push/PR/merge/main changes. Browser/keyboard/screenreader interaction unavailable; see report.md and verification.json.",
   "meta": {
     "planned_branch": "feat/savings-applicant-submit"
   }

@@ -1,0 +1,546 @@
+{
+  "date": "2026-11-13",
+  "timezone": "Asia/Seoul",
+  "branch": "feat/savings-applicant-submit",
+  "base_main": "f5484ece3cda245f1e3ea16ae95eb32139eed1a0",
+  "engine_v2": {
+    "command": "PYTHONPATH=. .venv/bin/python -B -m pytest engine_v2/tests -q",
+    "exit_code": 0,
+    "passed": 1264,
+    "skipped": 3,
+    "warnings": 7,
+    "baseline_passed": 1264,
+    "baseline_skipped": 3,
+    "log": "/tmp/savings-submit-engine-final.log"
+  },
+  "backend": {
+    "command": "PYTHONPATH=. .venv/bin/python -B -m pytest demo/backend/tests -q",
+    "exit_code": 0,
+    "passed": 1339,
+    "warnings": 9,
+    "baseline_passed": 1227,
+    "added_cases": 112,
+    "log": "/tmp/savings-submit-backend-final.log"
+  },
+  "scenarios": {
+    "modules": 18,
+    "counted_modules": 17,
+    "passed": 1955,
+    "failed": 0,
+    "baseline_passed": 1885,
+    "delta": 70,
+    "all_exit_zero": true
+  },
+  "frontend": {
+    "lint_exit_code": 0,
+    "lint_warnings": 1,
+    "build_exit_code": 0,
+    "node_tests": 16,
+    "node_failed": 0,
+    "baseline_lint_warnings": 1,
+    "logs": [
+      "/tmp/savings-submit-lint-final.log",
+      "/tmp/savings-submit-build-final.log",
+      "/tmp/savings-submit-frontend-tests-final.log"
+    ]
+  },
+  "test_files": [
+    {
+      "status": "M",
+      "file": "demo/backend/tests/run_p12_subsidy_criteria_scenarios.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/run_p13_household_scenarios.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/run_p15_jbai_scenarios.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/run_p16_job_docs_scenarios.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/run_p17_own_scenarios.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/run_p18_applicant_precheck_scenarios.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/run_p19_nhis_history_scenarios.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/run_p3_scenarios.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/run_p4_scenarios.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/run_p5_scenarios.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/run_p6_scenarios.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/run_p7_scenarios.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/run_p9_identity_scenarios.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_address_resolution_failures.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_applicant_failure_findings.py"
+    },
+    {
+      "status": "A",
+      "file": "demo/backend/tests/test_applicant_submission_policy.py"
+    },
+    {
+      "status": "A",
+      "file": "demo/backend/tests/test_applicant_supplement_projection.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_daily_work_uploads.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_eligibility_blockers.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_failure_cases_work_acceptance.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_followup_failure_acceptance.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_mixed_attachments.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_nhis_recent_history.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_p2_business_uploads.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_p2_nhis_uploads.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_p2_payment_uploads.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_p2_resident_uploads.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_portal_uploads.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_quality_failure_policy.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_resident_number_privacy.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_review_regressions.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_verify_cases.py"
+    },
+    {
+      "status": "M",
+      "file": "demo/backend/tests/test_verify_upload.py"
+    },
+    {
+      "status": "A",
+      "file": "demo/frontend/tests/reupload-guidance.test.ts"
+    }
+  ],
+  "changed_existing_functions": [
+    {
+      "file": "demo/backend/tests/run_p12_subsidy_criteria_scenarios.py",
+      "function": "test_receipt_amounts"
+    },
+    {
+      "file": "demo/backend/tests/run_p12_subsidy_criteria_scenarios.py",
+      "function": "test_payment_date_basis"
+    },
+    {
+      "file": "demo/backend/tests/run_p13_household_scenarios.py",
+      "function": "test_overlapping_households_link_both_applications"
+    },
+    {
+      "file": "demo/backend/tests/run_p15_jbai_scenarios.py",
+      "function": "test_api_privacy_cache_and_views"
+    },
+    {
+      "file": "demo/backend/tests/run_p16_job_docs_scenarios.py",
+      "function": "test_job_upload_privacy"
+    },
+    {
+      "file": "demo/backend/tests/run_p17_own_scenarios.py",
+      "function": "test_real_upload"
+    },
+    {
+      "file": "demo/backend/tests/run_p18_applicant_precheck_scenarios.py",
+      "function": "test_api"
+    },
+    {
+      "file": "demo/backend/tests/run_p19_nhis_history_scenarios.py",
+      "function": "test_upload_read_decision"
+    },
+    {
+      "file": "demo/backend/tests/run_p3_scenarios.py",
+      "function": "_create_and_fill"
+    },
+    {
+      "file": "demo/backend/tests/run_p3_scenarios.py",
+      "function": "test_e2e"
+    },
+    {
+      "file": "demo/backend/tests/run_p3_scenarios.py",
+      "function": "test_e2e_s7"
+    },
+    {
+      "file": "demo/backend/tests/run_p4_scenarios.py",
+      "function": "_create"
+    },
+    {
+      "file": "demo/backend/tests/run_p5_scenarios.py",
+      "function": "test_self_check"
+    },
+    {
+      "file": "demo/backend/tests/run_p5_scenarios.py",
+      "function": "test_exam_date_required"
+    },
+    {
+      "file": "demo/backend/tests/run_p5_scenarios.py",
+      "function": "test_supplement_countdown"
+    },
+    {
+      "file": "demo/backend/tests/run_p6_scenarios.py",
+      "function": "load_expected"
+    },
+    {
+      "file": "demo/backend/tests/run_p6_scenarios.py",
+      "function": "s1_self_check_blocks"
+    },
+    {
+      "file": "demo/backend/tests/run_p6_scenarios.py",
+      "function": "s5_declared_mismatch"
+    },
+    {
+      "file": "demo/backend/tests/run_p6_scenarios.py",
+      "function": "s6_encrypted"
+    },
+    {
+      "file": "demo/backend/tests/run_p6_scenarios.py",
+      "function": "s7_income_over"
+    },
+    {
+      "file": "demo/backend/tests/run_p6_scenarios.py",
+      "function": "s8_needs_review"
+    },
+    {
+      "file": "demo/backend/tests/run_p6_scenarios.py",
+      "function": "main"
+    },
+    {
+      "file": "demo/backend/tests/run_p7_scenarios.py",
+      "function": "test_form_files_and_paper_flow"
+    },
+    {
+      "file": "demo/backend/tests/run_p9_identity_scenarios.py",
+      "function": "test_nhis_dependent_reconciliation"
+    },
+    {
+      "file": "demo/backend/tests/run_p9_identity_scenarios.py",
+      "function": "test_matching"
+    },
+    {
+      "file": "demo/backend/tests/run_p9_identity_scenarios.py",
+      "function": "test_samples_and_no_identity"
+    },
+    {
+      "file": "demo/backend/tests/test_address_resolution_failures.py",
+      "function": "test_actual_synthetic_image_upload_fails_with_certain_codes"
+    },
+    {
+      "file": "demo/backend/tests/test_applicant_failure_findings.py",
+      "function": "test_projection_uses_same_document_findings_not_status_or_code"
+    },
+    {
+      "file": "demo/backend/tests/test_applicant_failure_findings.py",
+      "function": "test_historical_message_only_failure_hides_review_but_preserves_reference"
+    },
+    {
+      "file": "demo/backend/tests/test_applicant_failure_findings.py",
+      "function": "test_review_without_fail_and_other_documents_retain_existing_guidance"
+    },
+    {
+      "file": "demo/backend/tests/test_applicant_failure_findings.py",
+      "function": "test_upload_list_final_and_officer_keep_reference_but_hide_only_review"
+    },
+    {
+      "file": "demo/backend/tests/test_daily_work_uploads.py",
+      "function": "test_four_page_text_pdf_renaming_and_wrong_expected_preserve_daily_results"
+    },
+    {
+      "file": "demo/backend/tests/test_daily_work_uploads.py",
+      "function": "test_four_page_image_pdf_uses_mocked_own_words_through_upload"
+    },
+    {
+      "file": "demo/backend/tests/test_daily_work_uploads.py",
+      "function": "test_incomplete_period_or_disagreeing_copies_remain_upload_review"
+    },
+    {
+      "file": "demo/backend/tests/test_daily_work_uploads.py",
+      "function": "test_two_digit_birth_not_matching_verified_identity_stays_review"
+    },
+    {
+      "file": "demo/backend/tests/test_eligibility_blockers.py",
+      "function": "ready"
+    },
+    {
+      "file": "demo/backend/tests/test_eligibility_blockers.py",
+      "function": "test_confirmed_regional_excess_includes_numeric_evidence_without_scores"
+    },
+    {
+      "file": "demo/backend/tests/test_eligibility_blockers.py",
+      "function": "test_submit_rechecks_income_after_a_previously_clear_final_check"
+    },
+    {
+      "file": "demo/backend/tests/test_eligibility_blockers.py",
+      "function": "test_age_outside_range_has_same_early_reason_and_final_blocker"
+    },
+    {
+      "file": "demo/backend/tests/test_eligibility_blockers.py",
+      "function": "test_work_not_met_blocks_final_and_direct_submit"
+    },
+    {
+      "file": "demo/backend/tests/test_eligibility_blockers.py",
+      "function": "test_submit_rechecks_other_eligibility_after_clear_final_check"
+    },
+    {
+      "file": "demo/backend/tests/test_failure_cases_work_acceptance.py",
+      "function": "test_source_shaped_work_failure_reaches_all_consumers"
+    },
+    {
+      "file": "demo/backend/tests/test_followup_failure_acceptance.py",
+      "function": "test_source_shaped_four_page_pdf_cli_rejects_missing_work_months"
+    },
+    {
+      "file": "demo/backend/tests/test_mixed_attachments.py",
+      "function": "test_main_form_is_complete_with_unreadable_attachment_pages"
+    },
+    {
+      "file": "demo/backend/tests/test_mixed_attachments.py",
+      "function": "test_incomplete_main_form_remains_review"
+    },
+    {
+      "file": "demo/backend/tests/test_nhis_recent_history.py",
+      "function": "test_actual_upload_preserves_three_states_and_applicant_guidance"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_business_uploads.py",
+      "function": "test_own_proof_upload_reads_complete_fields_and_matches_identity"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_business_uploads.py",
+      "function": "test_incomplete_or_uncertain_proofs_are_reviewed_without_fail"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_business_uploads.py",
+      "function": "test_text_layer_proof_uses_same_fields_under_arbitrary_names"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_business_uploads.py",
+      "function": "test_wrong_slot_keeps_existing_document_type_failure"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_business_uploads.py",
+      "function": "test_future_opening_metadata_does_not_add_an_employment_rule"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_business_uploads.py",
+      "function": "test_issuer_overlapping_date_evidence_stays_reviewed"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_business_uploads.py",
+      "function": "test_dense_joint_rows_survive_column_skew_in_actual_upload"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_business_uploads.py",
+      "function": "test_last_category_continuation_is_retained_in_actual_upload"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_business_uploads.py",
+      "function": "test_unreadable_grid_boundary_reaches_actual_upload_review"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_business_uploads.py",
+      "function": "test_joint_name_left_of_centered_header_reaches_correct_upload_verdict"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_business_uploads.py",
+      "function": "test_joint_word_crossing_side_or_number_cell_stays_reviewed"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_nhis_uploads.py",
+      "function": "test_own_acquisition_upload_preserves_birth_and_matches_identity_without_warnings"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_nhis_uploads.py",
+      "function": "test_own_acquisition_upload_reviews_uncertain_or_overlapping_history"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_nhis_uploads.py",
+      "function": "test_own_qualification_upload_with_one_member_has_no_identity_warning"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_nhis_uploads.py",
+      "function": "test_own_qualification_upload_reviews_partial_members_or_ambiguous_issue"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_payment_uploads.py",
+      "function": "test_payment_upload_matches_identity_and_persists_all_corrections"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_payment_uploads.py",
+      "function": "test_payment_upload_keeps_uncertain_numbers_and_partial_identity_in_review"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_payment_uploads.py",
+      "function": "test_payment_text_layer_upload_keeps_same_financial_field_contract"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_payment_uploads.py",
+      "function": "test_payment_with_multiple_damaged_component_headers_stays_reviewed"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_resident_uploads.py",
+      "function": "test_resident_note_false_alarm_is_fixed_in_actual_upload"
+    },
+    {
+      "file": "demo/backend/tests/test_p2_resident_uploads.py",
+      "function": "test_resident_remaining_number_uncertainty_reaches_upload_review"
+    },
+    {
+      "file": "demo/backend/tests/test_portal_uploads.py",
+      "function": "test_text_pdf_direct_expected_renaming_and_actual_upload_agree"
+    },
+    {
+      "file": "demo/backend/tests/test_portal_uploads.py",
+      "function": "test_multiple_portal_pages_are_reviewed_in_actual_upload"
+    },
+    {
+      "file": "demo/backend/tests/test_portal_uploads.py",
+      "function": "test_acquisition_still_cannot_replace_qualification"
+    },
+    {
+      "file": "demo/backend/tests/test_portal_uploads.py",
+      "function": "test_acquisition_identity_problem_is_review_in_actual_upload"
+    },
+    {
+      "file": "demo/backend/tests/test_portal_uploads.py",
+      "function": "test_qualification_member_upload_preserves_existing_pair_rule"
+    },
+    {
+      "file": "demo/backend/tests/test_quality_failure_policy.py",
+      "function": "test_source_daily_pdf_cli_preserves_selection_and_work_results"
+    },
+    {
+      "file": "demo/backend/tests/test_quality_failure_policy.py",
+      "function": "test_actual_synthetic_image_upload_and_final_check_show_both_failures"
+    },
+    {
+      "file": "demo/backend/tests/test_resident_number_privacy.py",
+      "function": "test_upload_persisted_results_responses_logs_and_birth"
+    },
+    {
+      "file": "demo/backend/tests/test_review_regressions.py",
+      "function": "test_ascii_prefixed_resident_text_is_safe_after_actual_upload"
+    },
+    {
+      "file": "demo/backend/tests/test_review_regressions.py",
+      "function": "test_payment_ambiguous_metadata_is_reviewed_in_actual_upload"
+    },
+    {
+      "file": "demo/backend/tests/test_review_regressions.py",
+      "function": "test_malformed_loss_never_becomes_employer_in_actual_upload"
+    },
+    {
+      "file": "demo/backend/tests/test_review_regressions.py",
+      "function": "test_legacy_payment_sum_failure_reaches_actual_text_layer_upload"
+    },
+    {
+      "file": "demo/backend/tests/test_review_regressions.py",
+      "function": "test_header_only_payment_values_reach_review_in_direct_read_and_upload"
+    },
+    {
+      "file": "demo/backend/tests/test_verify_cases.py",
+      "function": "test_noisy_dependency_and_unreviewed_findings_never_escape"
+    },
+    {
+      "file": "demo/backend/tests/test_verify_upload.py",
+      "function": "test_failure_case_cli"
+    },
+    {
+      "file": "demo/backend/tests/test_verify_upload.py",
+      "function": "test_short_birth_reference_requires_self_identity_and_unique_program_range"
+    },
+    {
+      "file": "demo/backend/tests/test_verify_upload.py",
+      "function": "test_work_history_in_nhis_slot_uses_actual_work_blocker"
+    }
+  ],
+  "deleted_existing_test_functions": [],
+  "engine_source_diff": [],
+  "ui_manual_verification": {
+    "performed": false,
+    "reason": "IAB browser host unavailable; native Chrome Computer Use permissions not granted",
+    "source_accessibility_review": true
+  },
+  "issuer_verification": {
+    "public_pages_returned": [
+      "https://www.gov.kr/mw/AA020InfoCappView.do?CappBizCD=13100000015",
+      "https://www.nhis.or.kr/nhis/index.do"
+    ],
+    "actual_authenticated_issuance_verified": false,
+    "modal_urls": [
+      "https://www.gov.kr",
+      "https://www.nhis.or.kr"
+    ]
+  },
+  "raw_summaries": {
+    "engine": "1264 passed, 3 skipped, 7 warnings in 30.04s",
+    "backend": "1339 passed, 9 warnings in 89.36s (0:01:29)",
+    "node": "ℹ tests 16\nℹ suites 0\nℹ pass 16\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 115.439917"
+  }
+}

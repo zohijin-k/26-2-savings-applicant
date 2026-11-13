@@ -10,17 +10,22 @@
  *   업로드 즉시 확인 안내 + 해결 방법 + 재업로드 (R2.1·R2.2)
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import {
   deleteDocument,
   fetchChecklist,
+  fetchFinalCheck,
+  submitApplication,
   putDocContext,
   uploadDocument,
   type Checklist,
   type DocContext,
   type DocRequirementRow,
   type UploadedDocument,
+  type SubmitResult,
+  type FinalCheck,
+  type Blocker,
 } from '../../api.ts'
 import FilePreview from '../../components/FilePreview.tsx'
 import { Skeleton, SkeletonBlock, SkeletonCard, SkeletonLine } from '../../components/Skeleton.tsx'
@@ -30,17 +35,11 @@ import PdfPages from '../../components/PdfPages.tsx'
 import StatusBadge from '../../components/StatusBadge.tsx'
 import { DateTriple } from '../../forms/FormSheet.tsx'
 import { EMPTY_YMD, isCompleteYMD, ymdToISO, type YMD } from '../../forms/ymd.ts'
+import { issuerLink, reuploadFindings, REUPLOAD_GUIDANCE } from './reupload-guidance.ts'
 import './document-upload.css'
 
 const WORKPLACE_COUNTS = ['1개', '2개', '3개'] as const
 
-/** 판독 계층·신뢰도·소요시간은 신청자에게 의미가 없다. 시연에서 보여줄 때만 `?debug=1`. */
-const SHOW_TECH = new URLSearchParams(window.location.search).has('debug')
-
-/**
- * 판정 도장. 서류 접수 때 찍는 도장처럼 결과를 한 번에 보여준다.
- * 슬롯 머리 오른쪽에 하나만 둔다 — 상태를 여러 곳에서 반복하지 않는다.
- */
 /** 파일 형식 표시 (PDF·JPG·PNG). */
 function fileKind(name: string): string {
   return (name.split('.').pop() ?? '').toUpperCase().slice(0, 4) || 'FILE'
@@ -97,7 +96,7 @@ function DocumentResult({
   onRetry: () => void
 }) {
   const [viewing, setViewing] = useState(false)
-  const status = doc.status ?? 'NEEDS_REVIEW'
+  const status = doc.status ?? 'UPLOADED'
   const extracted = Object.entries(doc.extracted)
   return (
     <div className={`dresult dresult--${status.toLowerCase()}`}>
@@ -118,13 +117,8 @@ function DocumentResult({
             </dl>
           )}
           {/* 확인이 필요한 경우에만 판독된 서류 종류를 함께 보여준다 */}
-          {status !== 'PASS' && doc.detected_doc_type && (
+          {status === 'REUPLOAD_REQUIRED' && doc.detected_doc_type && (
             <span className="dresult__detected">읽은 서류 종류: {doc.detected_doc_type}</span>
-          )}
-          {SHOW_TECH && (
-            <span className="dresult__meta">
-              신뢰도 {doc.ocr_confidence?.toFixed(2) ?? '-'} / {doc.elapsed_ms ?? 0}ms
-            </span>
           )}
         </div>
         <div className="dresult__actions">
@@ -145,16 +139,8 @@ function DocumentResult({
         />
       )}
 
-      {doc.findings.map((f) => (
-        <div key={f.code} className="dfinding">
-          <p className="dfinding__msg">{f.message}</p>
-          {f.how_to_fix && <p className="dfinding__fix">{f.how_to_fix}</p>}
-          {f.link && (
-            <a className="dfinding__link" href={f.link} target="_blank" rel="noreferrer">
-              발급처 바로가기 ↗
-            </a>
-          )}
-        </div>
+      {reuploadFindings(doc.findings).map((finding) => (
+        <p key={finding.code} className="dfinding__msg">{REUPLOAD_GUIDANCE[finding.code].title}</p>
       ))}
     </div>
   )
@@ -227,6 +213,7 @@ function SlotCard({
   onDeclaredChange,
   onPick,
   onRetry,
+  replacement,
 }: {
   item: DocRequirementRow
   busy: boolean
@@ -234,6 +221,7 @@ function SlotCard({
   onDeclaredChange: (v: YMD) => void
   onPick: (file: File) => void
   onRetry: (doc: UploadedDocument) => void
+  replacement: boolean
 }) {
   const input = useRef<HTMLInputElement>(null)
   const [infoOpen, setInfoOpen] = useState(false)
@@ -282,8 +270,8 @@ function SlotCard({
               읽는 중…
             </span>
           ) : null}
-          {!status && item.issuer_url && (
-            <a className="dslot__issuer" href={item.issuer_url} target="_blank" rel="noreferrer">
+          {!status && issuerLink(item) && (
+            <a className="dslot__issuer" href={issuerLink(item)} target="_blank" rel="noreferrer">
               {item.issuer}에서 발급받기 ↗
             </a>
           )}
@@ -293,7 +281,7 @@ function SlotCard({
       <p className="dslot__criteria">{item.issue_rule_label}{item.notes.filter((note) => note.startsWith('조회기간에 ') || note.startsWith('최근 ')).map((note) => ` · ${note}`).join('')}</p>
 
       {/* 올리기 전: 발급일 → 파일 업로드. 올린 뒤에는 결과만 남긴다. */}
-      {!doc && !busy && (
+      {(!doc || replacement) && !busy && (
         <div className="dslot__action">
           <input
             ref={input}
@@ -322,10 +310,11 @@ function SlotCard({
           <button
             type="button"
             className="btn btn--primary dslot__upload"
+            id={`upload-${item.slot_key}`}
             disabled={!dateReady}
             onClick={() => input.current?.click()}
           >
-            파일 업로드
+            {doc ? '새 파일로 교체' : '파일 업로드'}
           </button>
         </div>
       )}
@@ -358,86 +347,154 @@ function SlotCard({
   )
 }
 
-export default function DocumentUpload({
-  applicationId,
-  onProgress,
-}: {
+export default function DocumentUpload({ applicationId, onProgress, onBusyChange, onForms, onBeforeSubmit, onSubmitted }: {
   applicationId: number
   onProgress: (uploaded: number, total: number) => void
+  onBusyChange: (busy: boolean) => void
+  onForms: () => void
+  onBeforeSubmit: () => Promise<void>
+  onSubmitted: (result: SubmitResult) => void
 }) {
   const [checklist, setChecklist] = useState<Checklist | null>(null)
+  const [readiness, setReadiness] = useState<FinalCheck | null>(null)
   const [declared, setDeclared] = useState<Record<string, YMD>>({})
   const [busySlot, setBusySlot] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [editingSlot, setEditingSlot] = useState('')
+  const [reuploadOpen, setReuploadOpen] = useState(false)
+  const latestRequest = useRef(0)
+  const active = useRef(false)
+  const mutation = useRef(false)
+  const shownIssues = useRef('')
   const showChecklistSkeleton = useDelayedFlag(!checklist && !error)
 
-  useEffect(() => {
-    fetchChecklist(applicationId)
-      .then((next) => {
-        setChecklist(next)
-        onProgress(next.upload_done, next.upload_total)
-      })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
+  const refresh = useCallback(async () => {
+    const version = ++latestRequest.current
+    const [next, ready] = await Promise.all([fetchChecklist(applicationId), fetchFinalCheck(applicationId)])
+    if (active.current && version === latestRequest.current) {
+      setChecklist(next)
+      setReadiness(ready)
+      onProgress(next.upload_done, next.upload_total)
+    }
+    return ready
   }, [applicationId, onProgress])
 
-  const context = checklist?.context ?? {}
+  useEffect(() => {
+    active.current = true
+    mutation.current = false
+    void refresh().catch((e: unknown) => {
+      if (active.current) setError(e instanceof Error ? e.message : String(e))
+    })
+    return () => { active.current = false; latestRequest.current += 1 }
+  }, [refresh])
 
-  /** 근로유형 등이 바뀌면 서버가 다시 조립한 체크리스트로 통째로 갈아끼운다. */
-  const changeContext = async (patch: Partial<DocContext>) => {
-    const proofRows = checklist?.items.filter((item) =>
-      item.slot_key.startsWith('work_proof') || item.slot_key === 'labor_contract'
-    ) ?? []
-    const changesWorkTypeOrCount = (['work_category', 'workplace_count'] as const)
-      .some((key) => patch[key] !== undefined && patch[key] !== context[key])
-    const changesAdminContract = patch.admin_fixed_term !== undefined &&
-      patch.admin_fixed_term !== context.admin_fixed_term
-    const proofDocs = proofRows
-      .filter((item) => changesWorkTypeOrCount || (changesAdminContract && item.slot_key === 'labor_contract'))
-      .flatMap((item) => item.documents)
-    if (proofDocs.length > 0 &&
-      !window.confirm('올리신 근로확인서류가 빠집니다. 바꾸시겠어요?')) return
+  const issueItems = (checklist?.items ?? []).map((item) => ({
+    item,
+    findings: item.documents.flatMap((doc) => reuploadFindings(doc.findings))
+      .filter((finding, index, all) => all.findIndex((other) => other.code === finding.code) === index),
+  })).filter(({ findings }) => findings.length > 0)
+  const issueFingerprint = JSON.stringify(issueItems.map(({ item, findings }) => [item.slot_key, item.documents.map((doc) => doc.document_id), findings.map((finding) => finding.code)]))
 
-    setError('')
-    setBusySlot('work-context')
-    try {
-      if (proofDocs.length > 0) {
-        for (const doc of proofDocs) await deleteDocument(applicationId, doc.document_id)
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (issueFingerprint === '[]') { setReuploadOpen(false); shownIssues.current = ''; return }
+      if (!busySlot && !submitting && shownIssues.current !== issueFingerprint) {
+        shownIssues.current = issueFingerprint
+        setReuploadOpen(true)
       }
-      const next = await putDocContext(applicationId, { ...context, ...patch })
-      setChecklist(next)
-      onProgress(next.upload_done, next.upload_total)
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e))
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [issueFingerprint, busySlot, submitting])
+
+  useEffect(() => {
+    onBusyChange(!!busySlot || submitting)
+    return () => onBusyChange(false)
+  }, [busySlot, submitting, onBusyChange])
+
+  const context = checklist?.context ?? {}
+  const runMutation = async (slot: string, operation: () => Promise<void>) => {
+    if (mutation.current) return
+    mutation.current = true
+    ++latestRequest.current
+    setReadiness(null)
+    setBusySlot(slot)
+    setError('')
+    try {
+      await operation()
       await refresh()
+    } catch (e: unknown) {
+      if (active.current) {
+        setError(e instanceof Error ? e.message : String(e))
+        setReadiness(null)
+      }
+      // A failed upload/context update may still have changed the server. Re-read before enabling submit.
+      try { await refresh() } catch { /* Keep readiness unavailable; explicit retry remains visible. */ }
     } finally {
-      setBusySlot('')
+      mutation.current = false
+      if (active.current) setBusySlot('')
     }
   }
 
-  const refresh = () => fetchChecklist(applicationId).then((next) => {
-    setChecklist(next)
-    onProgress(next.upload_done, next.upload_total)
+  const changeContext = async (patch: Partial<DocContext>) => {
+    const proofRows = checklist?.items.filter((item) => item.slot_key.startsWith('work_proof') || item.slot_key === 'labor_contract') ?? []
+    const changedWork = (['work_category', 'workplace_count'] as const).some((key) => patch[key] !== undefined && patch[key] !== context[key])
+    const changedAdmin = patch.admin_fixed_term !== undefined && patch.admin_fixed_term !== context.admin_fixed_term
+    const proofDocs = proofRows.filter((item) => changedWork || (changedAdmin && item.slot_key === 'labor_contract')).flatMap((item) => item.documents)
+    if (proofDocs.length && !window.confirm('올리신 근로확인서류가 빠집니다. 바꾸시겠어요?')) return
+    await runMutation('work-context', async () => {
+      for (const doc of proofDocs) await deleteDocument(applicationId, doc.document_id)
+      await putDocContext(applicationId, { ...context, ...patch })
+    })
+  }
+
+  const upload = (item: DocRequirementRow, file: File) => runMutation(item.slot_key, async () => {
+    await uploadDocument(applicationId, item.slot_key, file, ymdToISO(declared[item.slot_key] ?? EMPTY_YMD))
+    if (active.current) setEditingSlot('')
   })
 
-  const upload = async (item: DocRequirementRow, file: File) => {
-    setBusySlot(item.slot_key)
+  const retry = (doc: UploadedDocument) => {
+    setEditingSlot(doc.slot_key)
+    const existingDate = doc.declared_issue_date?.split('-')
+    if (existingDate?.length === 3) setDeclared((value) => ({ ...value, [doc.slot_key]: { y: existingDate[0], m: String(Number(existingDate[1])), d: String(Number(existingDate[2])) } }))
+    requestAnimationFrame(() => {
+      const uploadControl = document.getElementById(`upload-${doc.slot_key}`) as HTMLButtonElement | null
+      const target = uploadControl && !uploadControl.disabled ? uploadControl : document.getElementById(`slot-${doc.slot_key}`)?.querySelector<HTMLElement>('input:not([type="file"])') ?? uploadControl
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      target?.focus()
+    })
+  }
+
+  const goToBlocker = (blocker: Blocker) => {
+    if (blocker.goto !== 'upload') { onForms(); return }
+    const target = document.getElementById(`slot-${blocker.target}`) ?? document.getElementById('work-context')
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    target?.querySelector<HTMLElement>('input:not([type="file"]),button,select')?.focus()
+  }
+
+  const submit = async () => {
+    if (mutation.current || !readiness?.can_submit) return
+    mutation.current = true
+    setSubmitting(true)
     setError('')
     try {
-      await uploadDocument(applicationId, item.slot_key, file, ymdToISO(declared[item.slot_key] ?? EMPTY_YMD))
-      await refresh()
+      await onBeforeSubmit()
+      if (!active.current) return
+      const latest = await refresh()
+      if (!active.current || !latest.can_submit) return
+      const result = await submitApplication(applicationId)
+      if (active.current) onSubmitted(result)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e))
+      if (active.current) setError(e instanceof Error ? e.message : String(e))
+      setReadiness(null)
+      try { await refresh() } catch { /* Block until retry succeeds. */ }
     } finally {
-      setBusySlot('')
+      mutation.current = false
+      if (active.current) setSubmitting(false)
     }
   }
 
-  const retry = async (doc: UploadedDocument) => {
-    await deleteDocument(applicationId, doc.document_id)
-    await refresh()
-  }
-
-  if (error && !checklist) return <p className="flow-error">{error}</p>
+  if (error && !checklist) return <div><p className="flow-error" role="alert">{error}</p><button type="button" className="btn" onClick={() => { setError(''); void refresh().catch((e: unknown) => setError(e instanceof Error ? e.message : String(e))) }}>다시 확인</button></div>
   if (!checklist) return showChecklistSkeleton ? (
     <Skeleton className="dupload__skeleton-list">
       {Array.from({ length: 5 }, (_, index) => (
@@ -455,10 +512,11 @@ export default function DocumentUpload({
   const hasAdminConsent = checklist.items.some((i) => i.slot_key === 'admin_info_consent')
 
   return (
-    <div className="dupload">
+    <div className="dupload" aria-busy={!!busySlot || submitting}>
+      <div inert={!!busySlot || submitting}>
       {/* 근로유형에 따라 필요한 근로확인서류를 정한다. */}
       {checklist.program.asks_work_category && (
-        <section className="dupload__context">
+        <section className="dupload__context" id="work-context">
           <h3>근로유형</h3>
           <p className="dupload__hint">
             근로확인서류는 5종 중 1종만 내면 됩니다. 아래에서 고르면 본인에게 필요한 서류만 남습니다.
@@ -533,10 +591,11 @@ export default function DocumentUpload({
             key={item.slot_key}
             item={item}
             busy={busySlot === item.slot_key}
+            replacement={editingSlot === item.slot_key}
             declared={declared[item.slot_key] ?? EMPTY_YMD}
             onDeclaredChange={(v) => setDeclared({ ...declared, [item.slot_key]: v })}
             onPick={(file) => void upload(item, file)}
-            onRetry={(doc) => void retry(doc)}
+            onRetry={retry}
           />
         ))}
       </ul>
@@ -572,7 +631,7 @@ export default function DocumentUpload({
                 <button
                   type="button"
                   className="btn btn--small"
-                  onClick={() => void retry(d)}
+                  onClick={() => void runMutation(d.slot_key, async () => { await deleteDocument(applicationId, d.document_id) })}
                 >
                   삭제
                 </button>
@@ -582,7 +641,50 @@ export default function DocumentUpload({
         </section>
       )}
 
-      {error && <p className="dupload__error">{error}</p>}
+      </div>
+      {busySlot && <p role="status">{busySlot === 'work-context' ? '필요 서류를 갱신하고 있습니다…' : '서류를 올리고 확인하고 있습니다…'}</p>}
+      {issueItems.length > 0 && <button type="button" id="reupload-guidance-trigger" className="btn" onClick={() => setReuploadOpen(true)}>다시 올릴 서류와 해결 방법 보기 ({issueItems.length}종)</button>}
+      <section className="dupload__submission" aria-labelledby="submission-heading">
+        <h3 id="submission-heading">신청 제출</h3>
+        <p>제출 후에는 신청 내용을 수정할 수 없습니다. 작성한 내용과 올린 파일을 확인해 주세요.</p>
+        {readiness?.blockers.length ? <div className="dupload__blockers">
+          <h4>제출 전에 채워 주세요 ({readiness.blockers.length}건)</h4>
+          <ul>{readiness.blockers.map((blocker) => <li key={`${blocker.kind}-${blocker.target}`}>
+            <span><strong>{blocker.label}</strong> {blocker.message}</span>
+            <button type="button" className="btn btn--small" disabled={!!busySlot || submitting} onClick={() => goToBlocker(blocker)}>수정하기</button>
+          </li>)}</ul>
+        </div> : null}
+        {!readiness && !busySlot && !submitting && <p role="status">제출에 필요한 항목을 확인하고 있습니다. 확인이 끝나면 제출할 수 있습니다.</p>}
+        {error && <p className="dupload__error" role="alert">{error}</p>}
+        {error && <button type="button" className="btn" disabled={!!busySlot || submitting} onClick={() => void runMutation('readiness', async () => {})}>제출 준비 다시 확인</button>}
+        <div className="flow__actions">
+          <button type="button" className="btn" disabled={!!busySlot || submitting} onClick={onForms}>서식 수정</button>
+          <button type="button" className="btn btn--primary" disabled={!readiness?.can_submit || !!busySlot || submitting || !!error} onClick={() => void submit()}>
+            {submitting ? '제출 중…' : readiness?.already_submitted ? '이미 제출된 신청입니다' : '신청 제출'}
+          </button>
+        </div>
+      </section>
+      {reuploadOpen && issueItems.length > 0 && <Modal
+        title="다시 올려야 할 서류를 확인해 주세요"
+        description="아래 서류의 안내를 확인하고 파일을 다시 올려 주세요. 모든 재업로드 항목이 해결되면 제출할 수 있습니다."
+        variant="reupload"
+        returnFocus={() => document.getElementById('reupload-guidance-trigger')}
+        onClose={() => setReuploadOpen(false)}
+        footer={<button type="button" className="btn" onClick={() => setReuploadOpen(false)}>닫기</button>}>
+        {issueItems.map(({ item, findings }) => <section key={item.slot_key} className="reupload-doc" aria-labelledby={`reupload-${item.slot_key}`}>
+          <h4 id={`reupload-${item.slot_key}`}>{item.label}</h4>
+          {item.issue_rule_label && <p>발급일 안내: {item.issue_rule_label}</p>}
+          {item.notes.filter((note) => note.startsWith('조회기간에 ') || note.startsWith('최근 ')).map((note) => <p key={note}>{note}</p>)}
+          <ol>{findings.map((finding) => {
+            const copy = REUPLOAD_GUIDANCE[finding.code]
+            return <li key={finding.code}><h5>{copy.title}</h5><p>{copy.reason}</p><p>{copy.fix}</p></li>
+          })}</ol>
+          <div className="reupload-doc__actions">
+            {issuerLink(item) && <a href={issuerLink(item)} target="_blank" rel="noreferrer">{item.issuer || '발급처'} 바로가기 (새 창)</a>}
+            <button type="button" className="btn btn--primary" onClick={() => { setReuploadOpen(false); retry(item.documents[0]) }}>{item.label} 다시 올리기</button>
+          </div>
+        </section>)}
+      </Modal>}
     </div>
   )
 }

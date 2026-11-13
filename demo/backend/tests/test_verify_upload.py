@@ -139,7 +139,7 @@ def test_failure_case_cli(case, slot, category, status, code, grade, attachments
     assert f"document_status: {status}\n" in output
     assert f"reason: {code} {grade}\n" in output if grade else f"work_reason: {code}\n" in output
     assert f"additional_pages: {attachments}\n" in output
-    assert "blockers: O\n" in output
+    assert f"blockers: {'X' if case in {'3a', '3b'} else 'O'}\n" in output
     if case in {"3a", "3b"}:
         assert "identity: O\n" in output
         assert "work_status: NOT_MET\n" in output
@@ -168,7 +168,7 @@ def test_short_birth_reference_requires_self_identity_and_unique_program_range(i
         assert "identity: O\n" in output
         assert "work_status: NOT_MET\n" in output
         assert "work_reason: WORK_CONTINUITY_NOT_MET\n" in output
-        assert "blockers: O\n" in output
+        assert "blockers: X\n" in output
     else:
         assert "identity: 본인정보 없음\n" in output
         assert "work_status: UNDETERMINED\n" in output
@@ -331,7 +331,7 @@ def test_standalone_cli_and_help_are_value_free_and_do_not_write(tmp_path):
 
 
 @pytest.mark.parametrize("outcome,status,blocked", [
-    ("normal", "MET", "X"), ("excess", "OVER_LIMIT", "O"),
+    ("normal", "MET", "X"), ("excess", "OVER_LIMIT", "X"),
     ("unreadable", "UNDETERMINED", "X"), ("pair-mismatch", "UNDETERMINED", "X"),
 ])
 def test_income_uses_three_real_synthetic_files(outcome, status, blocked, tmp_path, monkeypatch, capfd, no_db):
@@ -394,7 +394,7 @@ def test_work_history_in_nhis_slot_uses_actual_work_blocker(tmp_path, monkeypatc
     assert "document_status: PASS\n" in output
     assert "work_status: NOT_MET\n" in output
     assert "work_reason: WORK_HISTORY_START_NOT_COVERED\n" in output
-    assert "blockers: O\n" in output
+    assert "blockers: X\n" in output
     assert_safe(output)
 
 

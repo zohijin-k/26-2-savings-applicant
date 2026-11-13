@@ -25,7 +25,7 @@ from pathlib import Path
 from sqlmodel import create_engine, select
 
 from .. import models
-from .scenario_support import complete_synthetic_work, seed_blocked_historical_review
+from .scenario_support import complete_synthetic_work
 from ..rules.programs import DOUBLE_SAVINGS
 from ..rules.roles import ROLE_CITY, ROLE_PROVINCE, ROLE_TOWN
 
@@ -61,6 +61,7 @@ BASE_FORM1 = {
     "gender": "남",
     "address": "전북특별자치도 전주시 완산구 효자동 123",
     "mobile": "010-0000-0000",
+    "email": "synthetic@example.com",
     "transferIn": {"y": "2020", "m": "11", "d": "20"},
     "householdType": "그 외 일반 가구",
     "householdSize": "4인",
@@ -125,13 +126,9 @@ def _create(client, *, name: str, address: str, transfer_in: dict, uploads: dict
     complete_synthetic_work(app_id)
     final=client.get(f"/api/applications/{app_id}/final-check").json()
     submitted=client.post(f"/api/applications/{app_id}/submit")
-    if any(item.get("code")=="OVER_LIMIT" for item in final["blockers"]):
-        check("과거 부적합 fixture의 현재 제출은 차단",submitted.status_code,400)
-        check("확정 소득 초과 final-check 차단",final["can_submit"],False)
-        check_true("차단 응답에 기준·본인 금액",all(value in submitted.json()["detail"] for value in ("311,031","340,000")))
-        seed_blocked_historical_review(app_id,submitted)
-    else:
-        check("정상/확인필요 fixture 제출",submitted.status_code,200)
+    check("원판정과 무관하게 신청 요건 완료 fixture 제출", submitted.status_code, 200)
+    check("공개 제출 준비상태", final["can_submit"], True)
+    check("소득 자격 차단 비노출", [item for item in final["blockers"] if item.get("kind") == "eligibility"], [])
     return app_id
 
 

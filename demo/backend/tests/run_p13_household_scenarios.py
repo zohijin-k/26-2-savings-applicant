@@ -232,7 +232,7 @@ def test_overlapping_households_link_both_applications(tmp: Path) -> None:
             select(Document).where(Document.application_id == current.id)
         ).all())
     applicant_warnings = review_api._warnings(current, current_docs)
-    check_true("신청자에게는 공통 안내만 표시", "가구원 수는 건강보험 자격확인서 기준으로 판정합니다." in applicant_warnings)
+    check("신청자에게 내부 가구원 판단 안내 비노출", "가구원 수는 건강보험 자격확인서 기준으로 판정합니다." in applicant_warnings, False)
     check("신청자 안내에 가구원 이름 없음", any(member["성명"] in json.dumps(applicant_warnings, ensure_ascii=False) for member in second_members), False)
 
 

@@ -8,6 +8,7 @@ from demo.backend.ocr import read_document
 from demo.backend.rules.doc_types import DocType
 from demo.backend.tests.test_p2_nhis_uploads import image_pdf, use_own_words
 from demo.backend.tests.test_portal_uploads import client, new_app, upload
+from demo.backend.tests.test_portal_uploads import assert_upload_status, stored_findings
 from engine_v2.tests import p2_payment_samples as sample
 
 
@@ -24,7 +25,7 @@ def test_payment_upload_matches_identity_and_persists_all_corrections(
     assert not direct.fields.get("판독검증실패")
     assert not direct.fields.get("판독경고")
     response, stored = upload(client, new_app(client, name=sample.NAME, birth=sample.BIRTH), path, "nhis_payment")
-    assert response["status"] == "PASS"
+    assert_upload_status(response, "PASS")
     assert response["findings"] == []
     assert stored["fields"] == direct.fields
     assert stored["engine"] == "own"
@@ -55,8 +56,9 @@ def test_payment_upload_keeps_uncertain_numbers_and_partial_identity_in_review(
     path = image_pdf(tmp_path / "FAKE-payment-incomplete.pdf", size)
     name = "가상다름" if defect == "wrong-identity" else sample.NAME
     response, stored = upload(client, new_app(client, name=name, birth=sample.BIRTH), path, "nhis_payment")
-    assert response["status"] == "NEEDS_REVIEW"
-    assert response["findings"]
+    assert_upload_status(response, "NEEDS_REVIEW")
+    assert response["findings"] == []
+    assert stored_findings(response)
     assert all(finding["severity"] != "FAIL" for finding in response["findings"])
     if defect != "wrong-identity":
         assert stored["fields"]["양식판독상태"] == "불완전"
@@ -86,7 +88,7 @@ def test_payment_text_layer_upload_keeps_same_financial_field_contract(client, t
     assert "숫자형식교정" not in result.fields
     assert result.fields["건강보험료"] == "50000"
     response, stored = upload(client, new_app(client, name=sample.NAME, birth=sample.BIRTH), path, "nhis_payment")
-    assert response["status"] == "PASS"
+    assert_upload_status(response, "PASS")
     assert response["findings"] == []
     assert stored["fields"] == result.fields
 
@@ -105,6 +107,6 @@ def test_payment_with_multiple_damaged_component_headers_stays_reviewed(
     use_own_words(monkeypatch, remaining, size)
     path = image_pdf(tmp_path / "FAKE-payment-damaged-headers.pdf", size)
     response, stored = upload(client, new_app(client, name=sample.NAME, birth=sample.BIRTH), path, "nhis_payment")
-    assert response["status"] == "NEEDS_REVIEW"
+    assert_upload_status(response, "NEEDS_REVIEW")
     assert stored["confidence"] <= .4
     assert all(finding["severity"] != "FAIL" for finding in response["findings"])

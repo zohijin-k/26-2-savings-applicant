@@ -64,6 +64,23 @@ def upload(client, aid, path, slot, *, filename="FAKE-upload.pdf"):
         return data, dict(row.ocr_json)
 
 
+def stored_findings(data):
+    with models.get_session() as session:
+        return session.get(models.Document, data["document_id"]).findings_json
+
+
+def assert_upload_status(data, expected):
+    """Retain the original stored verdict assertion and test its public projection."""
+    from demo.backend.api.common import applicant_findings
+    with models.get_session() as session:
+        stored = session.get(models.Document, data["document_id"])
+        assert stored.stage1_status == expected
+        public = applicant_findings(stored.findings_json)
+        assert data["findings"] == public
+        assert data["status"] == ("REUPLOAD_REQUIRED" if public else "UPLOADED")
+        assert "ocr_confidence" not in data
+
+
 @pytest.mark.parametrize("kind", FORMS)
 def test_text_pdf_direct_expected_renaming_and_actual_upload_agree(kind, client, tmp_path):
     cells, slot, detected = FORMS[kind]
@@ -80,7 +97,7 @@ def test_text_pdf_direct_expected_renaming_and_actual_upload_agree(kind, client,
     for filename in ("FAKE-one.pdf", "FAKE-arbitrary-data.pdf"):
         data, raw = upload(client, aid, path, slot, filename=filename)
         assert data["detected_doc_type"] == str(detected)
-        assert data["status"] == "PASS"
+        assert_upload_status(data, "PASS")
         assert not data["findings"]
         assert (raw["tier"], raw["engine"]) == (direct.tier, direct.engine) == ("localocr", "pdftext")
         assert raw["fields"] == direct.fields
@@ -100,7 +117,7 @@ def test_multiple_portal_pages_are_reviewed_in_actual_upload(kind, client, tmp_p
         merged.save(path)
     data, raw = upload(client, new_app(client), path, slot)
     assert data["detected_doc_type"] == str(detected)
-    assert data["status"] == "NEEDS_REVIEW"
+    assert_upload_status(data, "NEEDS_REVIEW")
     assert raw["confidence"] < .85
     assert raw["fields"]["양식판독상태"] == "불완전"
     assert raw["fields"]["판독검증실패"]
@@ -110,7 +127,7 @@ def test_multiple_portal_pages_are_reviewed_in_actual_upload(kind, client, tmp_p
 def test_acquisition_still_cannot_replace_qualification(client, tmp_path):
     path = text_pdf(tmp_path / "FAKE-wrong-slot.pdf")
     data, _ = upload(client, new_app(client), path, "nhis_qualification")
-    assert data["status"] == "FAIL"
+    assert_upload_status(data, "FAIL")
     assert [finding["code"] for finding in data["findings"]] == ["WRONG_DOCUMENT_TYPE"]
 
 
@@ -120,7 +137,7 @@ def test_acquisition_identity_problem_is_review_in_actual_upload(kind, client, t
     aid = new_app(client, name="가짜다름" if kind == "different-name" else NAME,
                   birth="1991-01-01" if kind == "different-birth" else BIRTH)
     data, raw = upload(client, aid, path, "nhis_acquisition_loss")
-    assert data["status"] == "NEEDS_REVIEW"
+    assert_upload_status(data, "NEEDS_REVIEW")
     assert all(finding["severity"] != "FAIL" for finding in data["findings"])
     if kind == "missing-name":
         assert "성명" not in raw["fields"]
@@ -143,11 +160,12 @@ def test_qualification_member_upload_preserves_existing_pair_rule(pair, listed, 
             session.commit()
     path = text_pdf(tmp_path / "FAKE-members.pdf", qualification_cells())
     data, _ = upload(client, aid, path, "nhis_qualification")
-    codes = [finding["code"] for finding in data["findings"]]
+    assert data["findings"] == []
+    codes = [finding["code"] for finding in stored_findings(data)]
     if pair and listed:
-        assert data["status"] == "PASS"
+        assert_upload_status(data, "PASS")
         assert "NHIS_DEPENDENT_INSURED_PERSON" in codes
         assert "NHIS_SUBSCRIBER_IDENTITY_REVIEW" not in codes
     else:
-        assert data["status"] == "NEEDS_REVIEW"
+        assert_upload_status(data, "NEEDS_REVIEW")
         assert "NHIS_SUBSCRIBER_IDENTITY_REVIEW" in codes

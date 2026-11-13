@@ -14,6 +14,7 @@ from engine_v2.extractors import resident_abstract
 from engine_v2.schemas.models import DocType as V2Type
 from engine_v2.tests import fail_case_samples as sample
 from demo.backend.tests.test_portal_uploads import client, new_app, upload
+from demo.backend.tests.test_portal_uploads import assert_upload_status
 from demo.backend.tests.test_p2_resident_uploads import use_own_words
 
 
@@ -59,7 +60,7 @@ def test_actual_synthetic_image_upload_fails_with_certain_codes(client,tmp_path,
     path=tmp_path/"FAKE.png"
     Image.new("RGB",pages[0][0].pixel_size,"white").save(path)
     data,stored=upload(client,new_app(client),path,"resident_abstract",filename="FAKE.png")
-    assert data["status"] == "FAIL"
+    assert_upload_status(data, "FAIL")
     assert expected in {f["code"] for f in data["findings"] if f["severity"]=="FAIL"}
     if kind=="tiny":
         assert data["detected_doc_type"] is None

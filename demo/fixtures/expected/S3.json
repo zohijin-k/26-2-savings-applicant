@@ -6,13 +6,13 @@
   "screen": "신청자 → 서류 업로드 → [주민등록초본] 슬롯 (S2와 같은 신청 건)",
   "steps": [
     "주민등록초본 슬롯에 등본 파일을 올린다",
-    "즉시 '부적합' 배지 + 사유 + 해결 방법 + 발급처 링크를 읽는다"
+    "'다시 올려 주세요' 표시와 사유·해결 방법·발급처 안내 확인"
   ],
   "files": [
     "S3_주민등록등본_오제출.pdf"
   ],
   "expect": {
-    "status": "FAIL",
+    "status": "REUPLOAD_REQUIRED",
     "codes": [
       "WRONG_DOCUMENT_TYPE"
     ],

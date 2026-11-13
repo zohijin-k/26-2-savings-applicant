@@ -11,7 +11,7 @@ from demo.backend.rules.doc_types import DocType
 from demo.backend.rules.identity import Identity
 from demo.backend.tests.test_nhis_form import requirement
 from demo.backend.tests.test_p2_nhis_uploads import image_pdf, use_own_words
-from demo.backend.tests.test_portal_uploads import client, new_app
+from demo.backend.tests.test_portal_uploads import client, new_app, assert_upload_status, stored_findings
 from engine_v2.tests.nhis_form_samples import NAME, BIRTH, text_pdf
 from engine_v2.tests.nhis_recent_history_samples import ISSUE, cells_for, own_cells
 
@@ -50,8 +50,9 @@ def test_actual_upload_preserves_three_states_and_applicant_guidance(
         data={"slot_key": "nhis_acquisition_loss"})
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == status
-    assert [finding["code"] for finding in body["findings"]] == ([code] if code else [])
+    assert_upload_status(body, status)
+    assert body["findings"] == []
+    assert [finding["code"] for finding in stored_findings(body)] == ([code] if code else [])
     from demo.backend import models
     with models.get_session() as session:
         stored = session.get(models.Document, body["document_id"]).ocr_json

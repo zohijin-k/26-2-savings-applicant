@@ -5,17 +5,19 @@
   "program": "double_savings",
   "screen": "신청자 → 업로드 → 제출 / 담당자 → AI판정 '확인필요' 필터",
   "steps": [
-    "초본 자리에 저해상도 파일을 올린다 → '확인필요' 배지",
-    "확인필요는 제출을 막지 않는다. 그대로 제출",
+    "저해상도 초본을 올린다 → 업로드 완료 표시, 내부 판정은 담당자에게만 전달",
+    "업로드 완료 상태에서 정상 제출",
     "담당자 화면에서 AI판정 '확인필요'로 필터 → 이 건만 남는다",
     "원본을 눈으로 확인하고 [승인] + 메모"
   ],
-  "files": ["S8_주민등록초본_저해상도.pdf"],
+  "files": [
+    "S8_주민등록초본_저해상도.pdf"
+  ],
   "expect": {
-    "upload_status": "NEEDS_REVIEW",
-    "upload_codes": ["LOW_OCR_CONFIDENCE"],
-    "ocr_confidence": 0.6,
-    "how_to_fix": { "$contains": "담당자" },
+    "upload_status": "UPLOADED",
+    "upload_codes": [],
+    "ocr_confidence": null,
+    "how_to_fix": "",
     "can_submit": true,
     "final_status": "NEEDS_REVIEW",
     "queue_total": 1,
@@ -26,7 +28,7 @@
     "officer_memo_saved": true
   },
   "talking_points": [
-    "신뢰도 컷라인(0.85)은 엔진 config 값을 그대로 쓴다. 업로드 화면과 최종 심사가 같은 기준으로 판정해야 한다.",
+    "판독 신뢰도 0.6과 NEEDS_REVIEW 원판정은 저장·담당자 응답에 보존하며 신청자 응답에서는 숨긴다.",
     "'확인필요'는 반려가 아니다. 담당자 큐로 가고, 사람이 원본을 보고 결정한다 — 오탐으로 신청자가 억울해지는 것을 막는다.",
     "승인 기록에는 역할(도·청년허브센터)·메모·처리시각이 함께 남는다."
   ]

@@ -493,7 +493,7 @@ def test_noisy_dependency_and_unreviewed_findings_never_escape(synthetic, monkey
     assert captured.out == "case7 O\n1/1\ncase7 O\n1/1\n" and captured.err == ""
     record = load_expected(manifest)["cases"]["case7"]["documents"]["resident_abstract"]
     assert record["reason"] == [{"code": "UNKNOWN_CODE", "severity": "X"}]
-    assert record["applicant_reason"] == [{"code": "UNKNOWN_CODE", "severity": "X"}]
+    assert record["applicant_reason"] == []
     assert record["failed_validation"] == ["UNKNOWN_VALIDATION"]
     assert_private(expected_path(manifest).read_text(), [*paths, manifest])
     assert sink.read_bytes() == b""

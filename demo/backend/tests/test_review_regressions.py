@@ -21,6 +21,7 @@ from demo.backend.rules.scoring import score_application
 from demo.backend.tests.test_p2_nhis_uploads import image_pdf, use_own_words
 from demo.backend.tests.test_p2_payment_facts import payment_fact
 from demo.backend.tests.test_portal_uploads import client, new_app, upload
+from demo.backend.tests.test_portal_uploads import assert_upload_status, stored_findings
 from demo.backend.tests.test_resident_number_privacy import image_pdf as raster_pdf, privacy_cells
 from engine_v2.pipeline import ocr
 from engine_v2.extractors import nhis_payment
@@ -50,7 +51,7 @@ def test_ascii_prefixed_resident_text_is_safe_after_actual_upload(
 
         monkeypatch.setitem(ocr.ENGINES, "own", recognize)
     response, saved = upload(client, new_app(client), path, "nhis_acquisition_loss")
-    assert response["status"] == "PASS"
+    assert_upload_status(response, "PASS")
     assert saved["fields"]["생년월일"] == "1990-01-01"
     direct = read_document(str(path))
     result_file = tmp_path / "FAKE-review-result.json"
@@ -75,7 +76,7 @@ def test_payment_ambiguous_metadata_is_reviewed_in_actual_upload(kind, client, t
     use_own_words(monkeypatch, cells, size)
     path = image_pdf(tmp_path / "FAKE-ambiguous-payment.pdf", size)
     response, stored = upload(client, new_app(client, name=sample.NAME, birth=sample.BIRTH), path, "nhis_payment")
-    assert response["status"] == "NEEDS_REVIEW"
+    assert_upload_status(response, "NEEDS_REVIEW")
     assert stored["fields"]["양식판독상태"] == "불완전"
     assert stored["confidence"] <= .4
     assert all(finding["severity"] != "FAIL" for finding in response["findings"])
@@ -90,7 +91,7 @@ def test_malformed_loss_never_becomes_employer_in_actual_upload(corrupt, client,
     path = image_pdf(tmp_path / "FAKE-malformed-loss.pdf", size)
     response, stored = upload(client, new_app(client, name=sample.NAME, birth=sample.BIRTH),
                               path, "nhis_acquisition_loss")
-    assert response["status"] == "NEEDS_REVIEW"
+    assert_upload_status(response, "NEEDS_REVIEW")
     assert stored["fields"]["양식판독상태"] == "불완전"
     assert all(finding["severity"] != "FAIL" for finding in response["findings"])
 
@@ -173,12 +174,12 @@ def test_legacy_payment_sum_failure_reaches_actual_text_layer_upload(
                            files={"file": ("FAKE-quarter.pdf", path.read_bytes(), "application/pdf")},
                            data={"slot_key": "nhis_payment", "declared_issue_date": "2026-11-10"})
     assert response.status_code == 200
-    assert response.json()["status"] == ("NEEDS_REVIEW" if incorrect or kind == "legacy" else "PASS")
+    assert_upload_status(response.json(), "NEEDS_REVIEW" if incorrect or kind == "legacy" else "PASS")
     if kind == "legacy":
         # This fixture prints explicit month rows but no query period. A4 now
         # requires review when that independently printed range is unreadable.
         assert any(f["code"] == "MISSING_BILLING_MONTHS" and f["severity"] == "NEEDS_REVIEW"
-                   for f in response.json()["findings"])
+                   for f in stored_findings(response.json()))
     if incorrect:
         assert all(finding["severity"] != "FAIL" for finding in response.json()["findings"])
 
@@ -196,7 +197,7 @@ def test_header_only_payment_values_reach_review_in_direct_read_and_upload(
     assert direct.fields["양식판독상태"] == "불완전"
     assert direct.confidence <= .4
     response, stored = upload(client, new_app(client, name=sample.NAME, birth=sample.BIRTH), path, "nhis_payment")
-    assert response["status"] == "NEEDS_REVIEW"
+    assert_upload_status(response, "NEEDS_REVIEW")
     assert stored["fields"]["양식판독상태"] == "불완전"
     assert all(finding["severity"] != "FAIL" for finding in response["findings"])
 

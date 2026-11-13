@@ -6,18 +6,18 @@
   "screen": "신청자 → 서류 업로드 → [주민등록초본] 슬롯 (S2와 같은 신청 건)",
   "steps": [
     "암호가 걸린 초본 PDF를 올린다",
-    "'부적합 — 파일을 열 수 없음' + 암호 해제 안내를 읽는다"
+    "'다시 올려 주세요' 표시와 파일을 열 수 없는 사유·암호 해제 안내 확인"
   ],
   "files": [
     "S6_주민등록초본_암호.pdf"
   ],
   "expect": {
-    "status": "FAIL",
+    "status": "REUPLOAD_REQUIRED",
     "codes": [
       "UNREADABLE_FILE"
     ],
     "detected_doc_type": null,
-    "ocr_confidence": 0.0,
+    "ocr_confidence": null,
     "message": {
       "$not_empty": true
     },

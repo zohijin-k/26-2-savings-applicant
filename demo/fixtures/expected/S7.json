@@ -6,21 +6,28 @@
   "screen": "신청자 → 업로드 → 제출 → (담당자) 부적합 사유",
   "steps": [
     "S2와 같은 서류 5종을 올리되 납부확인서만 고지금액 340,000원짜리로 바꾼다",
-    "서류 5건 모두 '적합' → 제출이 막히지 않는다",
+    "서류 5건 업로드 완료 → 소득 자격 사유는 신청자에게 표시하지 않고 정상 제출",
     "제출 후 담당자 화면에서 '중위소득 140% 초과' 부적합 사유를 본다"
   ],
-  "files": ["S7_건강보험료납부확인서_소득초과.pdf"],
+  "files": [
+    "S7_건강보험료납부확인서_소득초과.pdf"
+  ],
   "expect": {
     "documents_all_pass": true,
     "can_submit": true,
     "final_status": "FAIL",
     "stage1_status": "PASS",
     "stage2_status": "FAIL",
-    "reason_codes": ["INCOME_OVER_THRESHOLD"],
+    "reason_codes": [
+      "INCOME_OVER_THRESHOLD"
+    ],
     "income_percent": 153.0,
     "income_over_limit": true,
     "total_score": 87,
-    "mypage_score_leak": []
+    "mypage_score_leak": [],
+    "submit_status_code": 200,
+    "eligibility_code": null,
+    "historical_review": false
   },
   "talking_points": [
     "판정 근거는 '25.10~12월 고지금액 평균과 건강보험 자격확인서상 가구원수다. 실납부액이 아니라 고지금액.",

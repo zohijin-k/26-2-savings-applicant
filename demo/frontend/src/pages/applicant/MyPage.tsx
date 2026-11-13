@@ -41,7 +41,7 @@ export default function MyPage({ applicationId }: { applicationId: number }) {
         {['접수', '서류검토', '자격심사', '선정심사', '결과발표'].map((label, index) => <li className="mpstep" key={label}><span className="mpstep__no">{index + 1}</span><span className="mpstep__label">{label}</span></li>)}
       </ol>
       <p className="mypage__notice"><SkeletonLine width="74%" /></p>
-      <section className="mypage__box"><h3>제출한 서류</h3><table className="mypage__docs"><thead><tr><th>파일</th><th>판독된 서류</th><th>판정</th><th>내용</th></tr></thead><tbody>{[0, 1, 2].map((row) => <tr key={row}>{[0, 1, 2, 3].map((col) => <td key={col}><SkeletonLine width={col === 3 ? '88%' : '64%'} /></td>)}</tr>)}</tbody></table></section>
+      <section className="mypage__box"><h3>제출한 서류</h3><table className="mypage__docs"><thead><tr><th>파일</th><th>판독된 서류</th><th>업로드 상태</th><th>내용</th></tr></thead><tbody>{[0, 1, 2].map((row) => <tr key={row}>{[0, 1, 2, 3].map((col) => <td key={col}><SkeletonLine width={col === 3 ? '88%' : '64%'} /></td>)}</tr>)}</tbody></table></section>
       <section className="mypage__box"><h3>동의 이력</h3><ul className="mypage__consents">{[0, 1, 2].map((row) => <li key={row}><SkeletonLine width="35%" /><SkeletonLine width="20%" /><SkeletonLine width="30%" /></li>)}</ul></section>
     </Skeleton>
   ) : null
@@ -108,13 +108,13 @@ export default function MyPage({ applicationId }: { applicationId: number }) {
             <tr>
               <th>파일</th>
               <th>판독된 서류</th>
-              <th>판정</th>
+              <th>업로드 상태</th>
               <th>내용</th>
             </tr>
           </thead>
           <tbody>
             {data.documents.map((d) => {
-              const status = d.status ?? 'NEEDS_REVIEW'
+              const status = d.status ?? 'UPLOADED'
               return (
                 <tr key={d.document_id}>
                   <td>

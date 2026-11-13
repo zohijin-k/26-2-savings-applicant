@@ -1,0 +1,29 @@
+{
+  "id": "savings-applicant-only",
+  "name": "savings-applicant-only",
+  "title": "두배적금 신청자 전용 저장소 정리",
+  "description": "두 단계로 신청자 프런트엔드 범위와 판정 표시·제출 정책을 정리하며 단계별 승인과 검증을 수행한다.",
+  "status": "planning",
+  "dev_type": null,
+  "scope": "savings-applicant",
+  "package": null,
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-11-13",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "11-13-savings-applicant-scope",
+    "11-13-savings-applicant-submit"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "Planning only. Implementation and commits require separate explicit approvals per stage. See parent PRD for officer queue boundary.",
+  "meta": {}
+}

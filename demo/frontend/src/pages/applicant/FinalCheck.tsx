@@ -28,11 +28,10 @@ import useDelayedFlag from '../../hooks/useDelayedFlag.ts'
 import './final-check.css'
 
 /** 남은 항목을 어느 화면에서 고치는지 기준으로 묶는다. 순서는 신청 순서대로. */
-type ApplicantStage = 'forms' | 'subsidy' | 'upload'
+type ApplicantStage = 'forms' | 'upload'
 
 const BLOCKER_GROUPS: { goto: ApplicantStage; title: string; action: string }[] = [
   { goto: 'forms', title: '신청 서식', action: '서식 작성으로' },
-  { goto: 'subsidy', title: '지원 항목', action: '지원 항목으로' },
   { goto: 'upload', title: '서류', action: '서류 업로드로' },
 ]
 
@@ -79,8 +78,7 @@ export default function FinalCheck({
   if (error && !data) return <p className="flow-error">{error}</p>
   if (!data) return showSkeleton ? (
     <Skeleton className="fcheck fcheck__skeleton">
-      <section className="fcheck__todo"><h3>제출 전에 채워야 할 항목 <span><SkeletonLine width="30px" /></span></h3><ul>{['신청 서식', '지원 항목', '서류'].map((label) => <li key={label}><span className="fcheck__todo-title">{label}</span><span className="fcheck__todo-items"><SkeletonLine width="74%" /></span><button type="button" className="btn btn--small" disabled aria-disabled="true">확인하기</button></li>)}</ul></section>
-      <section className="fcheck__box"><h3>신청하신 지원 항목과 지급 예정액</h3><table className="fcheck__docs"><thead><tr><th>항목</th><th>영수증 금액</th><th>지급 예정액</th><th>계산 근거</th></tr></thead><tbody>{[0, 1, 2].map((row) => <tr key={row}>{[0, 1, 2, 3].map((col) => <td key={col}><SkeletonLine width={col === 3 ? '88%' : '64%'} /></td>)}</tr>)}</tbody></table></section>
+      <section className="fcheck__todo"><h3>제출 전에 채워야 할 항목 <span><SkeletonLine width="30px" /></span></h3><ul>{['신청 서식', '서류'].map((label) => <li key={label}><span className="fcheck__todo-title">{label}</span><span className="fcheck__todo-items"><SkeletonLine width="74%" /></span><button type="button" className="btn btn--small" disabled aria-disabled="true">확인하기</button></li>)}</ul></section>
       <section className="fcheck__box"><h3>작성하신 내용</h3><dl className="fcheck__summary">{[0, 1, 2, 3, 4, 5].map((row) => <div key={row}><dt><SkeletonLine width="76%" /></dt><dd><SkeletonLine width="88%" /></dd></div>)}</dl></section>
       <section className="fcheck__box"><h3>제출 서류 판독 결과</h3><table className="fcheck__docs"><thead><tr><th>파일</th><th>판독된 서류</th><th>발급일 입력값</th><th>판정</th><th>사유</th></tr></thead><tbody>{[0, 1, 2, 3].map((row) => <tr key={row}>{[0, 1, 2, 3, 4].map((col) => <td key={col}><SkeletonLine width={col === 4 ? '84%' : '60%'} /></td>)}</tr>)}</tbody></table></section>
       <div className="flow__actions"><button type="button" className="btn" disabled aria-disabled="true">이전</button><button type="button" className="btn btn--primary" disabled aria-disabled="true">최종 제출</button></div>
@@ -89,16 +87,6 @@ export default function FinalCheck({
 
   return (
     <div className="fcheck">
-      {data.first_come && (
-        <section className="fcheck__queue">
-          <h3>이 사업은 선착순입니다</h3>
-          <p>
-            {data.first_come.notice} 지금 제출하시면{' '}
-            <strong>{data.first_come.position}번째</strong>로 접수됩니다.
-          </p>
-        </section>
-      )}
-
       {data.warnings.length > 0 && !data.already_submitted && (
         <div className="fcheck__warn">
           {data.warnings.map((w) => (
@@ -133,48 +121,6 @@ export default function FinalCheck({
               )
             })}
           </ul>
-        </section>
-      )}
-
-      {data.subsidy && data.subsidy.lines.length > 0 && (
-        <section className="fcheck__box">
-          <h3>신청하신 지원 항목과 지급 예정액</h3>
-          <table className="fcheck__docs">
-            <thead>
-              <tr>
-                <th>항목</th>
-                <th>영수증 금액</th>
-                <th>지급 예정액</th>
-                <th>계산 근거</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.subsidy.lines.map((line) => (
-                <tr key={`${line.item_type}-${line.index}`}>
-                  <td>{line.label}{line.linked_interview_index && <small className="subsidy__link-note">면접 {line.linked_interview_index}회차와 연결</small>}</td>
-                  <td>
-                    {line.actual_cost
-                      ? line.receipt_amount === null
-                        ? '미입력'
-                        : `${line.receipt_amount.toLocaleString('ko-KR')}원`
-                      : '불요'}
-                  </td>
-                  <td>
-                    <strong>{line.granted_amount.toLocaleString('ko-KR')}원</strong>
-                  </td>
-                  <td>{line.calculation}</td>
-                </tr>
-              ))}
-              <tr>
-                <th colSpan={2}>합계</th>
-                <td colSpan={2}>
-                  <strong>
-                    {data.subsidy.total_granted.toLocaleString('ko-KR')}원
-                  </strong>
-                </td>
-              </tr>
-            </tbody>
-          </table>
         </section>
       )}
 
@@ -216,7 +162,7 @@ export default function FinalCheck({
                     <td>{d.detected_doc_type ?? '미판별'}</td>
                     <td>{d.declared_issue_date ?? '-'}</td>
                     <td>
-                      <StatusBadge status={status} audience="applicant" />
+                      <StatusBadge status={status} />
                     </td>
                     <td className={d.findings.length ? 'fcheck__reason' : 'fcheck__none'}>
                       {d.findings.map((f) => f.message).join(' / ') || '-'}

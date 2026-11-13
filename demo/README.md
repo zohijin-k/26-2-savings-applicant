@@ -1,14 +1,13 @@
-# 데모 사이트 — 전북청년 두배적금 · 취업지원패키지 신청서류 자동 검토 시스템
+# 데모 사이트 — 전북청년 두배적금 신청자 화면
 
-신청자가 공고문 서식을 원본 PDF 위에서 온라인으로 작성·서명하고, 담당자가 원본 서류를
-화면에서 확인하며 심사하는 데모다. 두배적금 서식5는 스캔본 제출도 선택할 수
-있다. 사업 2종(두배적금 · 취업지원패키지)을 같은 파이프라인으로 처리한다.
+신청자가 두배적금 공고문 서식을 원본 PDF 위에서 온라인으로 작성·서명하고 서류를
+업로드하는 데모다. 두배적금 서식5는 스캔본 제출도 선택할 수 있다.
+담당자·취업지원패키지 화면은 제공하지 않으며, 관련 백엔드 API·판정 저장·DB 모델과 회귀 시험은 보존한다.
 
 - 요구사항: `.trellis/tasks/09-16-demo-site/prd.md`
 - 설계: `.trellis/tasks/09-16-demo-site/design.md`
 - 업무 규칙 관련 옛 기록: [보관 문서](../docs/archive/demo-site-dev-plan.md)
 - **시연 대본**: [`docs/demo-script.md`](docs/demo-script.md)
-- 담당자 화면 목업 데이터의 옛 기록: [보관 문서](../docs/archive/officer-mock-data.md)
 
 > ⚠️ **PC 전용**이다. 서식 원형을 지키기 위해 폭 940px 고정 레이아웃을 쓴다(R8.6).
 > 좁은 화면에서는 셀을 재배치하지 않고 가로 스크롤만 생긴다.
@@ -30,7 +29,7 @@ demo/
 │   ├── api/ ocr/ rules/    라우터 · 판독 3계층 · 업무 규칙
 │   ├── forms/          원본 PDF 위 입력·서명 렌더링 및 서식 응답
 │   └── tests/          P2\~P20 시나리오 검증 스크립트 (pytest 없이 실행)
-├── frontend/           React + Vite (신청자 화면 · 담당자 화면)
+├── frontend/           React + Vite (두배적금 신청자 화면)
 ├── fixtures/
 │   ├── make_samples.py 시연용 더미 서류 생성기
 │   ├── cut_templates.py     원본 공고 PDF에서 서식별 A4 쪽 템플릿 생성
@@ -93,8 +92,8 @@ cd demo/frontend
 npm run dev
 ```
 
-브라우저에서 <http://localhost:5173> 을 연다. 상단 탭으로 **신청자 / 담당자** 화면을
-오간다. Vite가 `/api` 요청을 8000 포트로 프록시하므로 별도 설정은 없다.
+브라우저에서 <http://localhost:5173>을 열면 두배적금 신청 1단계 **본인인증**으로 바로 이동한다.
+역할 탭과 사업 선택 화면은 없다. Vite가 `/api` 요청을 8000 포트로 프록시하므로 별도 설정은 없다.
 
 ### 서류 업로드 시험용 2단계 자동 입력
 
@@ -135,10 +134,6 @@ PYTHONPATH=. python -B -m demo.backend.tools.seed_application --clean --applicat
 `form1_json._seed_application`에 저장된다. 서식 내보내기·담당자 응답·검증 결과에는
 노출되지 않지만, 신청자용 원본 GET/PATCH 저장 응답은 기존 계약대로 JSON 전체를 반환한다.
 
-접수된 신청 건이 하나도 없으면 담당자 화면은 **목업 데이터**로 채워진다(상단에 노란
-배너가 뜬다). `?mock=1`로 강제로 켜고 `?mock=0`으로 끈다 —
-[보관된 담당자 화면 목업 기록](../docs/archive/officer-mock-data.md).
-
 확인용 엔드포인트:
 
 ```bash
@@ -151,8 +146,7 @@ API 문서는 <http://localhost:8000/docs> (FastAPI 자동 생성).
 신청자 흐름은 **본인인증 → 서식 작성 → 서류 업로드 → 확인 및 제출**이다. 서식 화면은
 공고문 원본 PDF 위에서 온라인 작성·서명하며, 마이페이지는 상단 신청번호 옆 버튼으로
 언제든 연다. 서식 목록 위의 **다운로드** 메뉴에서는 작성한 서식 PDF 한 파일과 원본 HWP를
-받을 수 있다. 담당자 화면은 업로드 원본을 브라우저 안에서만 보고, 원본 파일 저장 기능은
-제공하지 않는다.
+받을 수 있다.
 
 ---
 
@@ -203,6 +197,11 @@ PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python -m demo.backend.tests.run_p12_subsidy
 PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python -m demo.backend.tests.run_p13_household_scenarios
 PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python -m demo.backend.tests.run_p14_pdf_forms_scenarios
 PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python -m demo.backend.tests.run_p15_jbai_scenarios
+PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python -m demo.backend.tests.run_p16_job_docs_scenarios
+PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python -m demo.backend.tests.run_p17_own_scenarios
+PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python -m demo.backend.tests.run_p18_applicant_precheck_scenarios
+PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python -m demo.backend.tests.run_p19_nhis_history_scenarios
+PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python -m demo.backend.tests.run_p20_nhis_continuation_scenarios
 ```
 
 실패한 시나리오 뒤에도 나머지를 끝까지 실행하려면 아래 반복문을 쓴다. 파일 이름 순서상 P11\~P15가 P2\~P9보다 먼저라, 첫 실패에서 멈추면 뒤 시나리오 결과를 확인할 수 없다.
@@ -222,6 +221,8 @@ for f in demo/backend/tests/run_p*_scenarios.py; do echo "== $f"; python -m demo
 PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python -m demo.backend.tests.run_p6_scenarios --live
 ```
 
+검증 기준선은 engine_v2 1,264개 통과·3개 건너뜀, 백엔드 1,227개 통과, 시나리오 18개 모듈 1,885개 통과·실패 0이다. 17개 모듈이 통과 건수를 출력하며 나머지 1개는 종료 코드로 확인한다. 담당자·취업지원패키지 백엔드 시험도 계속 실행한다. 프런트 lint는 경고 1개·오류 0개이며 build는 통과했다.
+
 프론트엔드 점검:
 
 ```bash
@@ -233,14 +234,12 @@ npx tsc -b && npx oxlint && npx vite build
 
 ## 6. 신청 서식 온라인 작성·보관
 
-두배적금 서식1\~5와 취업지원패키지 신청서·동의서는 신청자가 원본 서식 PDF 위에서
-온라인으로 작성하고 서명한다. 회사가 작성하는 면접확인서도 같은 템플릿을 사용해
-화면에서 확인·인쇄할 수 있다. 화면 작성과 미리보기는 같은 서식 렌더링을 쓴다.
+두배적금 서식1\~5는 신청자가 원본 서식 PDF 위에서 온라인으로 작성하고 서명한다.
+화면 작성과 미리보기는 같은 서식 렌더링을 쓴다.
 
 서식 목록 위의 **다운로드** 메뉴에서 작성이 완료된 서식을 번호순으로 합친 PDF 한 파일과
 원본 HWP를 제공한다. 작성 PDF는 본인 보관용이고, 신청자 본인만 받을 수 있다. 제출 시
-작성값·서명·작성일을 고정하므로 제출 뒤에도 같은 서식 파일이 제공된다. 담당자 화면에는
-작성 서식과 업로드 원본을 브라우저 안에서 보여 주며, 원본 서류를 저장하는 경로는 없다.
+작성값·서명·작성일을 고정하므로 제출 뒤에도 같은 서식 파일이 제공된다.
 
 두배적금 서식5는 작성 방식을 온라인 작성과 스캔본 제출 중 고를 수 있다.
 스캔본 제출을 선택하면 상단 다운로드 메뉴에서 서식을 받을 수 있고, 서류 업로드 단계에
@@ -284,11 +283,10 @@ WOFF2, PDF 합성에는 TTF 서브셋을 사용하며, 각 글꼴 폴더에 SIL 
 - **서식 좌표는 손으로 적지 않았다.** 원본 PDF의 표 선(`get_drawings`)과 글자
   원점(`get_text("rawdict")`)에서 뽑는다. `run_p7_scenarios`가 좌표를 다시 뽑아
   커밋된 JSON과 대조하므로, 좌표를 손으로 고치면 검증이 깨진다.
-- 담당자는 신청자가 올린 원본 서류를 화면에서만 본다. 신청자는 본인이 작성한 서식만
-  내려받을 수 있다. P4 시나리오는 담당자 화면·API와 원본 파일 경로를 검사하고, 신청자용
-  서식 제공 파일만 명시적 허용 목록에 둔다.
+- 신청자는 본인이 작성한 서식만 내려받을 수 있다. 담당자 화면은 제거했으며, P4 시나리오는
+  보존된 담당자 API와 원본 파일 경로를 계속 검사한다. 신청자용 서식 제공 파일만 명시적 허용 목록에 둔다.
 
-## 8. 취업지원패키지 기준 확인 (2026 공고)
+## 8. 보존된 취업지원패키지 백엔드 기준 (2026 공고)
 
 - [2026년 전북청년 취업지원패키지 모집 공고](https://youth.wanju.go.kr/board/view.wanju?boardId=BBS_0000001&dataSid=77474&menuCd=DOM_000000114001000000&paging=ok&startPage=1)는 면접비·정장비 각 5만원 최대 2회, 사진비 2만원 1회, 응시료 5만원 최대 2회와 항목별 추가 서류를 안내한다. 공고 페이지는 한도 횟수가 신청서·연간·생애 중 어디에 누적되는지 명시하지 않는다. 현재 데모는 기준의 `count_scope`를 설정할 수 있게 하고 기본값은 기존 동작인 신청서 단위다. 운영 전 담당 기관 확인이 필요하다.
 - 공고는 면접비와 면접정장비 모두 면접확인서를 요구하지만, 정장 대여 회차를 특정 면접 회차와 연결하라고 정하지 않는다. 데모에서는 확인서 중복 업로드를 막도록 신청자가 연결 면접 회차를 고르게 하며, 이 연결 규칙은 접수서류 요구를 구현하기 위한 데모 가정이다.

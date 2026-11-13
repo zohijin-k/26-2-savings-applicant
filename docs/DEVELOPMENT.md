@@ -17,9 +17,9 @@ OCR은 서류 사진이나 PDF에서 글자를 읽는 기술입니다.
 
 ## 저장소와 브랜치
 
-저장소는 GitHub의 `zohijin-k/2026-2-capstone`입니다. 최종 통합본은 `main`이며, 다른 브랜치를 내려받을 필요는 없습니다. 기존 clone은 `git checkout main && git pull`로 갱신합니다. git을 쓰지 않으면 저장소 첫 화면에서 브랜치가 `main`인지 확인하고 Code → Download ZIP으로 받습니다.
+이 저장소는 GitHub의 `zohijin-k/26-2-savings-applicant`이며 두배적금 신청자 화면을 제공합니다. 최종 통합본은 `main`이며, 다른 브랜치를 내려받을 필요는 없습니다. 기존 clone은 `git checkout main && git pull`로 갱신합니다. git을 쓰지 않으면 저장소 첫 화면에서 브랜치가 `main`인지 확인하고 Code → Download ZIP으로 받습니다.
 
-브랜치 안내 (2026-11-12 기준, 원격 브랜치 및 `origin/main` 병합 여부):
+분리 전 안내 저장소의 브랜치 기록 (2026-11-12 당시 기준):
 
 | 브랜치 | 상태 | 알려진 내용 |
 |---|---|---|
@@ -33,7 +33,7 @@ OCR은 서류 사진이나 PDF에서 글자를 읽는 기술입니다.
 | `feat/own-fix` | 병합됨 | own 수정 작업 |
 | `feat/own-ocr` | 병합됨 | 자체 OCR 작업 |
 
-상태는 `git branch -r`과 `git branch -r --merged origin/main` 결과에 맞췄습니다. 원격에 없는 브랜치는 표에 넣지 않았습니다.
+위 표는 분리 전 기록이며 이 저장소의 현재 원격 브랜치 상태를 뜻하지 않습니다.
 ## 협업 규칙
 
 1. 작업 전 `main`을 최신으로 받습니다: `git checkout main && git pull`.
@@ -47,7 +47,7 @@ OCR은 서류 사진이나 PDF에서 글자를 읽는 기술입니다.
 
 | 경로 | 내용 |
 |---|---|
-| [`demo/`](../demo/README.md) | 신청자·담당자 데모, FastAPI(Python 웹 API 도구) 백엔드, React(화면 구성 라이브러리) 화면, 시나리오 확인 스크립트 |
+| [`demo/`](../demo/README.md) | 두배적금 신청자 화면, FastAPI(Python 웹 API 도구) 백엔드, React(화면 구성 라이브러리) 화면, 시나리오 확인 스크립트. 담당자·취업지원패키지 백엔드와 회귀 시험은 보존 |
 | [`engine/`](../engine/README.md) | 기존 규칙 판정 엔진. 데모가 서류·자격 판정 파이프라인으로 사용합니다. |
 | [`engine_v2/`](../engine_v2/README.md) | OCR 파이프라인·서류 추출기·분류기·평가 도구. `own` 모델 파일은 `models/`에 내려받으며 커밋하지 않습니다. |
 | [`engine_v2/pipeline/ocr/`](../engine_v2/pipeline/ocr/) | OCR 공통 인터페이스와 엔진별 모듈 (`own.py` 포함) |
@@ -95,7 +95,7 @@ cd demo/frontend
 npm run dev
 ```
 
-브라우저에서 <http://localhost:5173>을 엽니다. FastAPI 문서는 <http://localhost:8000/docs>입니다. 시연 전 데이터를 초기화할 때는 저장소 루트에서 `python -m demo.backend.reset`을 실행합니다.
+브라우저에서 <http://localhost:5173>을 열면 두배적금 본인인증으로 바로 이동합니다. 담당자·사업 선택 화면은 제공하지 않습니다. FastAPI 문서는 <http://localhost:8000/docs>입니다. 시연 전 데이터를 초기화할 때는 저장소 루트에서 `python -m demo.backend.reset`을 실행합니다.
 
 ## OCR 판독 설정
 
@@ -126,9 +126,10 @@ own의 현재 평가는 합성 서류 3종(주민등록초본·납부확인서·
 ```bash
 for f in demo/backend/tests/run_p*_scenarios.py; do echo "== $f"; python -m demo.backend.tests.$(basename "$f" .py) || echo "FAILED $f"; done
 python -m pytest engine_v2/tests -q
+python -m pytest demo/backend/tests -q
 ```
 
-현재 실행 확인 결과 `engine_v2/tests`는 260개 통과, 3개 건너뜀입니다. 맥에는 합성 글꼴이 없어 일부 글꼴 의존 테스트가 건너뛰어질 수 있습니다. 시나리오 스크립트 18개를 실행해 1,776개 확인이 통과했습니다. 위 반복문은 한 시나리오가 실패해도 나머지를 계속 실행합니다. 파일 이름 순서상 P11\~P15가 P2\~P9보다 먼저 실행되므로, 앞에서 멈추면 뒤 시나리오 결과를 확인할 수 없습니다.
+검증 기준선은 `engine_v2/tests` 1,264개 통과·3개 건너뜀, `demo/backend/tests` 1,227개 통과, 시나리오 18개 모듈 1,885개 통과·실패 0입니다. 시나리오 중 17개가 통과 건수를 출력하며 나머지 1개는 종료 코드로 확인합니다. 프런트 lint는 경고 1개·오류 0개이며 build는 통과했습니다. 위 반복문은 한 시나리오가 실패해도 나머지를 계속 실행합니다. 파일 이름 순서상 P11\~P15가 P2\~P9보다 먼저 실행되므로, 앞에서 멈추면 뒤 시나리오 결과를 확인할 수 없습니다.
 
 프론트엔드 타입 검사·린트·빌드는 다음과 같습니다.
 
@@ -147,7 +148,7 @@ npx tsc -b && npx oxlint && npx vite build
 - 판정은 공고문에 근거한 규칙으로 합니다. OCR·모델은 문서를 읽는 데 씁니다.
 - 신청자 화면에 배점·내부 판단 정보·서류 속 타인의 이름을 노출하지 않습니다.
 - 파일 이름이 아니라 서류 내용으로 종류와 판정 근거를 판단합니다.
-- 담당자는 신청자가 올린 원본 서류를 내려받지 않고 화면으로만 확인합니다. 신청자는 본인이 작성한 서식만 내려받을 수 있으며 P4 시나리오가 이 경계를 확인합니다.
+- 신청자는 본인이 작성한 서식만 내려받을 수 있습니다. 담당자 화면은 이 저장소에서 제거했으며, 보존된 담당자 API의 원본 서류 제공 경계는 P4 시나리오로 계속 확인합니다.
 - 값을 출력하는 점검 도구는 이름·주소·번호를 가립니다.
 - OCR 모델·글꼴·패키지의 제3자 출처와 라이선스는 [제3자 고지](../THIRD_PARTY_NOTICES.md)와 [own OCR 설명](../engine_v2/docs/own-ocr.md)에서 확인합니다.
 - API 키를 코드·로그·커밋에 넣지 않습니다.

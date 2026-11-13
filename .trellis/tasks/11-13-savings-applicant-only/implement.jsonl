@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend layer entry point"}
+{"file": ".trellis/spec/frontend/pdf-form-workspace.md", "reason": "Applicant forms and persistence contracts"}
+{"file": ".trellis/spec/backend/failure-filtering.md", "reason": "Existing findings, blocking and storage contracts; applicant changes require approval"}
+{"file": ".trellis/spec/backend/document-form-contracts.md", "reason": "Identity masking and shared document contracts"}
+{"file": ".trellis/tasks/11-13-savings-applicant-only/prd.md", "reason": "Cross-stage scope and approval gates"}
+{"file": ".trellis/tasks/11-13-savings-applicant-only/design.md", "reason": "Approved technical plan after review"}
+{"file": ".trellis/tasks/11-13-savings-applicant-only/implement.md", "reason": "Ordered implementation and verification gates"}
+{"file": ".trellis/tasks/11-13-savings-applicant-only/research.md", "reason": "Verified repository evidence and baseline limits"}
+{"file": ".trellis/tasks/11-13-savings-applicant-submit/reason-guidance.md", "reason": "Reupload allowlist and citizen guidance requiring approval"}
+{"file": ".trellis/tasks/11-13-savings-applicant-submit/test-impact.md", "reason": "Existing test expectation approval gate"}

@@ -1,0 +1,28 @@
+{
+  "id": "savings-applicant-submit",
+  "name": "savings-applicant-submit",
+  "title": "2단계 신청자 판정 표시와 3단계 제출",
+  "description": "재업로드 대상만 신청자에게 표시하고 접근성 모달과 3단계 직접 제출을 구현한다. 엔진 판정과 저장 결과는 보존한다.",
+  "status": "planning",
+  "dev_type": null,
+  "scope": "savings-applicant",
+  "package": null,
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-11-13",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "11-13-savings-applicant-only",
+  "relatedFiles": [],
+  "notes": "Planning only. Implementation and commits require separate explicit approvals per stage. See parent PRD for officer queue boundary.",
+  "meta": {
+    "planned_branch": "feat/savings-applicant-submit"
+  }
+}

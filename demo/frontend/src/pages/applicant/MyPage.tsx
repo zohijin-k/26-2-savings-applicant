@@ -41,7 +41,6 @@ export default function MyPage({ applicationId }: { applicationId: number }) {
         {['접수', '서류검토', '자격심사', '선정심사', '결과발표'].map((label, index) => <li className="mpstep" key={label}><span className="mpstep__no">{index + 1}</span><span className="mpstep__label">{label}</span></li>)}
       </ol>
       <p className="mypage__notice"><SkeletonLine width="74%" /></p>
-      <section className="mypage__box"><h3>신청한 지원 항목</h3><table className="mypage__docs"><thead><tr><th>항목</th><th>영수증 금액</th><th>지급 예정액</th><th>계산 근거</th></tr></thead><tbody>{[0, 1].map((row) => <tr key={row}>{[0, 1, 2, 3].map((col) => <td key={col}><SkeletonLine width={col === 3 ? '88%' : '64%'} /></td>)}</tr>)}</tbody></table></section>
       <section className="mypage__box"><h3>제출한 서류</h3><table className="mypage__docs"><thead><tr><th>파일</th><th>판독된 서류</th><th>판정</th><th>내용</th></tr></thead><tbody>{[0, 1, 2].map((row) => <tr key={row}>{[0, 1, 2, 3].map((col) => <td key={col}><SkeletonLine width={col === 3 ? '88%' : '64%'} /></td>)}</tr>)}</tbody></table></section>
       <section className="mypage__box"><h3>동의 이력</h3><ul className="mypage__consents">{[0, 1, 2].map((row) => <li key={row}><SkeletonLine width="35%" /><SkeletonLine width="20%" /><SkeletonLine width="30%" /></li>)}</ul></section>
     </Skeleton>
@@ -71,21 +70,7 @@ export default function MyPage({ applicationId }: { applicationId: number }) {
 
       <p className="mypage__notice">{data.result_notice}</p>
 
-      {/* 선착순 접수 순번 (R6). 점수제 사업에서는 서버가 null을 준다. */}
-      {data.first_come && (
-        <section className="mypage__queue">
-          <strong>접수 순번 {data.first_come.position}번</strong>
-          {data.first_come.quota !== null && (
-            <span>
-              총 지원규모 {data.first_come.quota.toLocaleString('ko-KR')}건 · 남은 규모{' '}
-              {(data.first_come.remaining ?? 0).toLocaleString('ko-KR')}건
-            </span>
-          )}
-          <span className="mypage__queue-note">{data.first_come.notice}</span>
-        </section>
-      )}
-
-      {/* 7일 보완 기한 카운트다운 (E12). 미보완 시 후순위자에게 자리가 넘어간다. */}
+      {/* 설정된 보완 기한과 확인할 서류를 안내한다. */}
       {data.supplement && (
         <section
           className={
@@ -116,47 +101,6 @@ export default function MyPage({ applicationId }: { applicationId: number }) {
         </section>
       )}
 
-      {/* 항목별 지급 예정액. 점수와 달리 이 값은 신청자에게 보여 주는 것이 맞다. */}
-      {data.subsidy && data.subsidy.lines.length > 0 && (
-        <section className="mypage__box">
-          <h3>신청한 지원 항목</h3>
-          <table className="mypage__docs">
-            <thead>
-              <tr>
-                <th>항목</th>
-                <th>영수증 금액</th>
-                <th>지급 예정액</th>
-                <th>계산 근거</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.subsidy.lines.map((line) => (
-                <tr key={`${line.item_type}-${line.index}`}>
-                  <td>{line.label}{line.linked_interview_index && <small className="subsidy__link-note">면접 {line.linked_interview_index}회차와 연결</small>}</td>
-                  <td>
-                    {line.actual_cost
-                      ? line.receipt_amount === null
-                        ? '미입력'
-                        : `${line.receipt_amount.toLocaleString('ko-KR')}원`
-                      : '불요'}
-                  </td>
-                  <td>
-                    <strong>{line.granted_amount.toLocaleString('ko-KR')}원</strong>
-                  </td>
-                  <td>{line.calculation}</td>
-                </tr>
-              ))}
-              <tr>
-                <th colSpan={2}>합계</th>
-                <td colSpan={2}>
-                  <strong>{data.subsidy.total_granted.toLocaleString('ko-KR')}원</strong>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
-      )}
-
       <section className="mypage__box">
         <h3>제출한 서류</h3>
         <table className="mypage__docs">
@@ -178,7 +122,7 @@ export default function MyPage({ applicationId }: { applicationId: number }) {
                   </td>
                   <td>{d.detected_doc_type ?? '미판별'}</td>
                   <td>
-                    <StatusBadge status={status} audience="applicant" />
+                    <StatusBadge status={status} />
                   </td>
                   <td className="mypage__extract">
                     {Object.entries(d.extracted)

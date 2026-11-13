@@ -65,7 +65,7 @@
 -    check("금액 판독 실패 사유", [f["code"] for f in unreadable["findings"]], ["RECEIPT_AMOUNT_UNREADABLE"])
 +    check_document_status('금액 판독 실패는 담당자 확인', unreadable, 'NEEDS_REVIEW')
 +    check("금액 판독 실패 사유", [f["code"] for f in unreadable["findings"]], [])
- 
+
      no_ocr_app = client.post("/api/applications", json={"program_code": "job_package"}).json()["id"]
 @@ -27,4 +25,8 @@
      with patch("demo.backend.api.documents.read_document", return_value=unavailable):
@@ -231,7 +231,7 @@
 -                           not any(finding.get("severity") == "FAIL" for finding in body.get("findings", [])
 +                           not any(finding.get("severity") == "FAIL" for finding in stored.findings_json
                                     if finding.get("code", "").startswith("NHIS_HISTORY_PERIOD")))
- 
+
 ```
 
 ### `run_p3_scenarios.py::_create_and_fill`
@@ -273,7 +273,7 @@
 --- before
 +++ after
 @@ -6,16 +6,13 @@
- 
+
      final = client.get(f"/api/applications/{app_id}/final-check").json()
 -    check("서류 자체가 적합해도 확정 소득 초과는 제출 차단", final["can_submit"], False)
 -    blocked=client.post(f"/api/applications/{app_id}/submit")
@@ -335,7 +335,7 @@
 -    check("자격 있음", result["eligible"], True)
 +    check("자가진단 자격 결과 비노출", "eligible" in result, False)
      check("물은 문항 수", result["total_items"], 2)
- 
+
 @@ -13,8 +13,8 @@
          f"/api/applications/{job_id}/self-check", json={"answers": {"1": "예", "2": "아니오"}}
      ).json()
@@ -347,7 +347,7 @@
 +    check("실패 문항 비노출", "failed_item" in denied, False)
 +    check("부적격 사유 비노출", "reason" in denied, False)
 +    check("대안 안내 비노출", "alternative" in denied, False)
- 
+
      print("\n  -- 같은 답변을 두배적금에 넣으면 아직 미완료다 (8문항이므로)")
 ```
 
@@ -359,7 +359,7 @@
 --- before
 +++ after
 @@ -7,26 +7,27 @@
- 
+
      missing = _upload(client, app_id, "certificate_1_exam", "S10_응시확인서_응시일없음.pdf")
 -    check("응시일 없는 응시확인서 판정", missing["status"], "FAIL")
 +    check_document_status('응시일 없는 응시확인서 판정', missing, 'FAIL')
@@ -373,28 +373,28 @@
 +        stored = session.get(models.Document, missing["document_id"])
 +    check("응시일 누락 원판정 보존", stored.stage1_status, "FAIL")
 +    check_true("해결 방법 원문 보존", any("응시일" in finding.get("how_to_fix", "") for finding in stored.findings_json))
- 
+
      ok = _upload(client, app_id, "certificate_1_exam", "S10_응시확인서_적합.pdf")
 -    check("응시일 있는 응시확인서", ok["status"], "PASS")
 +    check_document_status('응시일 있는 응시확인서', ok, 'PASS')
      check("응시일 판독", ok["extracted"].get("응시일"), "2026-03-22")
- 
+
      transcript = _upload(client, app_id, "certificate_1_exam", "S10_성적표_적합.pdf")
 -    check("성적표도 같은 자리에 인정된다 (택1)", transcript["status"], "PASS")
 +    check_document_status('성적표도 같은 자리에 인정된다 (택1)', transcript, 'PASS')
      check("판독된 서류", transcript["detected_doc_type"], "성적표")
- 
+
      wrong = _upload(client, app_id, "certificate_1_exam", "S10_면접확인서_1회차.pdf")
 -    check("엉뚱한 서류는 여전히 부적합", wrong["status"], "FAIL")
 +    check_document_status('엉뚱한 서류는 여전히 부적합', wrong, 'FAIL')
      check("사유", [f["code"] for f in wrong["findings"]], ["WRONG_DOCUMENT_TYPE"])
- 
+
      print("\n  -- 결제영수증은 금액을 읽어 실비 계산의 근거로 남긴다")
      receipt = _upload(client, app_id, "certificate_1_receipt", "S10_결제영수증_응시료43000.pdf")
 -    check("영수증 판정", receipt["status"], "PASS")
 +    check_document_status('영수증 판정', receipt, 'PASS')
      check("판독된 결제금액", receipt["extracted"].get("결제금액"), "43000")
- 
+
 @@ -35,4 +36,7 @@
      ])
      mismatch = _upload(client, mismatch_app, "photo_1_receipt", "S10_결제영수증_사진18000.pdf")
@@ -415,7 +415,7 @@
 --- before
 +++ after
 @@ -3,5 +3,5 @@
- 
+
      uploads = dict(S10_UPLOADS)
 -    # 저해상도 초본 → 판독 신뢰도 0.6 → 확인필요. 제출은 되지만 보완 대상이다.
 +    # 저해상도 초본의 내부 확인필요 판정·보완기한은 보존하고 신청자에게 숨긴다.
@@ -423,7 +423,7 @@
      app_id = create_job_application(client, selections=S10_SELECTION, uploads=uploads)
 @@ -13,15 +13,20 @@
      check("두 번째 접수 순번", body["first_come"]["position"], 2)
- 
+
 -    supplement = body["supplement"]
 -    check_true("보완 기한이 잡혔다", supplement)
 -    check("보완 일수", supplement["days"], 7)
@@ -445,11 +445,11 @@
 +    check("담당자 남은 일수", supplement["days_left"], 7)
 +    check("담당자 기한 만료 아님", supplement["expired"], False)
 +    check("담당자 보완 기한과 저장 기한 일치", supplement["deadline"], review.supplement_deadline.isoformat(timespec="seconds"))
- 
+
      status = client.get(f"/api/applications/{app_id}/status").json()
 -    check("마이페이지에도 카운트다운", status["supplement"]["days_left"], 7)
 +    check("내부 확인필요만 있는 마이페이지는 보완 블록 비노출", status["supplement"], None)
- 
+
      print("\n  -- 두배적금은 보완도 선착순도 없다")
 ```
 
@@ -565,7 +565,7 @@ S7 공개 can_submit=False/400/historical override 제거. 이제 JSON이 실제
 +    check_true("S7 실제 제출로 Review 생성", review is not None)
 +    assert review is not None
      status = client.get(f"/api/applications/{app_id}/status").json()
- 
+
      return {
 -        "documents_all_pass": all(d["status"] == "PASS" for d in final["documents"]),
 +        "documents_all_pass": all(d["status"] == "UPLOADED" for d in final["documents"]),
@@ -593,7 +593,7 @@ S7 공개 can_submit=False/400/historical override 제거. 이제 JSON이 실제
 +    check("S8 원래 판독 신뢰도 보존", stored.ocr_json.get("confidence"), 0.6)
 +    check("S8 원래 판정 보존", stored.stage1_status, "NEEDS_REVIEW")
 +    check_true("S8 원래 판독 사유 보존", any(finding["code"] == "LOW_OCR_CONFIDENCE" for finding in stored.findings_json))
- 
+
      final = client.get(f"/api/applications/{app_id}/final-check").json()
 @@ -31,5 +36,5 @@
          "upload_status": abstract["status"],
@@ -642,7 +642,7 @@ S7 공개 can_submit=False/400/historical override 제거. 이제 JSON이 실제
 +        unsigned_stored = session.get(models.Document, unsigned_response.json()["document_id"])
 +    check("서명 판독 불확실 원판정 보존", unsigned_stored.stage1_status, "NEEDS_REVIEW")
 +    check_true("서명 판독 불확실 원사유 보존", any(f.get("code") == "ADMIN_CONSENT_SIGNATURE_UNREADABLE" for f in unsigned_stored.findings_json))
- 
+
      flow_id, _ = seed(client, tmp)
 ```
 
@@ -681,7 +681,7 @@ S7 공개 can_submit=False/400/historical override 제거. 이제 JSON이 실제
 -               "NHIS_DEPENDENT_INSURED_PERSON" in codes(by_slot["nhis_payment"]))
 +               "NHIS_DEPENDENT_INSURED_PERSON" in [finding["code"] for finding in _stored_document(by_slot["nhis_payment"]).findings_json])
      check_applicant_name_hidden(client, dependent, parent, [first, second])
- 
+
 @@ -45,11 +42,9 @@
      final=client.get(f"/api/applications/{dependent}/final-check").json()
      submitted=client.post(f"/api/applications/{dependent}/submit")
@@ -705,7 +705,7 @@ S7 공개 can_submit=False/400/historical override 제거. 이제 JSON이 실제
 -    check("자격확인서 없음 → 확인필요", miss_upload["status"], "NEEDS_REVIEW")
 +    check_document_status('자격확인서 없음 → 확인필요', miss_upload, 'NEEDS_REVIEW')
      check_applicant_name_hidden(client, missing_qual, parent, [miss_upload])
- 
+
 @@ -84,6 +79,5 @@
      )
      absent_docs = client.get(f"/api/applications/{absent_member}/documents").json()
@@ -795,7 +795,7 @@ S7 공개 can_submit=False/400/historical override 제거. 이제 JSON이 실제
              ).json()
 -        check(f"{slot} (홍길동 샘플) → 판정", doc["status"], "PASS")
 +        check_document_status(f"{slot} (홍길동 샘플) → 판정", doc, "PASS")
- 
+
      print("\n[5-1] 본인인증 이름이 시연 샘플과 다름 — 샘플도 본인 대조 대상")
 @@ -27,5 +27,6 @@
      sample_docs = client.get(f"/api/applications/{different}/documents").json()
@@ -804,7 +804,7 @@ S7 공개 can_submit=False/400/historical override 제거. 이제 JSON이 실제
 +          [doc["status"] for doc in sample_docs], ["UPLOADED", "UPLOADED"])
 +    check("시연 샘플 원래 관계 확인 판정 보존", [_stored_document(doc).stage1_status for doc in sample_docs], ["NEEDS_REVIEW", "NEEDS_REVIEW"])
      check_applicant_name_hidden(client, different, "홍길동", [payment, qualification])
- 
+
 @@ -33,3 +34,3 @@
      bare = new_app(client)
      doc = upload_abstract(client, bare, tmp, fake_abstract_words(), "미인증")

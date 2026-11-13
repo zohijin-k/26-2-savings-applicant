@@ -1,0 +1,30 @@
+{
+  "id": "savings-applicant-scope",
+  "name": "savings-applicant-scope",
+  "title": "1단계 화면 정리와 README",
+  "description": "두배적금 신청자 화면만 남기고 안내 문서를 저장소 범위에 맞춘다. 백엔드는 보존한다.",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "savings-applicant",
+  "package": null,
+  "priority": "P2",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-11-13",
+  "completedAt": null,
+  "branch": "refactor/savings-applicant-scope",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "11-13-savings-applicant-only",
+  "relatedFiles": [],
+  "notes": "User approved stage 1 commit after preservation checks; clarified support item means savingPurpose. Main/current savings workspace comparison passed. Stage 2 remains deferred. No push/PR/merge authorized.",
+  "meta": {
+    "planned_branch": "refactor/savings-applicant-scope",
+    "awaiting_commit_approval": false,
+    "commit_approved": true
+  }
+}

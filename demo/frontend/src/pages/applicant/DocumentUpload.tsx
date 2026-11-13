@@ -15,7 +15,6 @@ import { useEffect, useRef, useState } from 'react'
 import {
   deleteDocument,
   fetchChecklist,
-  fetchInterviewFormFileOptions,
   putDocContext,
   uploadDocument,
   type Checklist,
@@ -223,7 +222,6 @@ function SlotInfoModal({ item, onClose }: { item: DocRequirementRow; onClose: ()
 
 function SlotCard({
   item,
-  applicationId,
   busy,
   declared,
   onDeclaredChange,
@@ -231,7 +229,6 @@ function SlotCard({
   onRetry,
 }: {
   item: DocRequirementRow
-  applicationId: number
   busy: boolean
   declared: YMD
   onDeclaredChange: (v: YMD) => void
@@ -240,9 +237,6 @@ function SlotCard({
 }) {
   const input = useRef<HTMLInputElement>(null)
   const [infoOpen, setInfoOpen] = useState(false)
-  const [interviewFormOpen, setInterviewFormOpen] = useState(false)
-  const [interviewPdfReady, setInterviewPdfReady] = useState(false)
-  const [interviewHwp, setInterviewHwp] = useState<string | null>(null)
   const [busyFileName, setBusyFileName] = useState('')
   const showBusySkeleton = useDelayedFlag(busy)
   const doc = item.documents[0]
@@ -258,15 +252,6 @@ function SlotCard({
     : issueISO && item.min_issue_date && issueISO < item.min_issue_date
       ? `이 사업은 ${item.min_issue_date.replaceAll('-', '.')} 이후 ${basisLabel}만 인정합니다. 서류를 확인해 주세요.`
       : ''
-
-  useEffect(() => {
-    if (!/^(interview|suit)_\d+_confirmation$/.test(item.slot_key)) return
-    let alive = true
-    fetchInterviewFormFileOptions(applicationId).then((options) => {
-      if (alive) setInterviewHwp(options.hwp)
-    }).catch(() => { if (alive) setInterviewHwp(null) })
-    return () => { alive = false }
-  }, [applicationId, item.slot_key])
 
   return (
     <li
@@ -290,7 +275,7 @@ function SlotCard({
         </div>
         <div className="dslot__head-meta">
           {status ? (
-            <StatusBadge status={status} audience="applicant" />
+            <StatusBadge status={status} />
           ) : showBusySkeleton ? (
             <span className="status-badge status-badge--loading" role="status" aria-live="polite">
               <span className="dslot__spinner" aria-hidden="true" />
@@ -306,14 +291,6 @@ function SlotCard({
       </div>
 
       <p className="dslot__criteria">{item.issue_rule_label}{item.notes.filter((note) => note.startsWith('조회기간에 ') || note.startsWith('최근 ')).map((note) => ` · ${note}`).join('')}</p>
-
-      {/^(interview|suit)_\d+_confirmation$/.test(item.slot_key) && (
-        <details className="dslot__files-menu"><summary className="btn btn--small">면접확인서 양식</summary>
-          <a href={`/api/applications/${applicationId}/forms/files/job_interview_confirmation/blank.pdf`}>빈 서식 PDF</a>
-          {interviewHwp && <a href={interviewHwp}>원본 HWP</a>}
-          <button type="button" className="btn btn--small" onClick={() => { setInterviewPdfReady(false); setInterviewFormOpen(true) }}>미리보기</button>
-        </details>
-      )}
 
       {/* 올리기 전: 발급일 → 파일 업로드. 올린 뒤에는 결과만 남긴다. */}
       {!doc && !busy && (
@@ -377,25 +354,6 @@ function SlotCard({
 
       {doc && <DocumentResult doc={doc} onRetry={() => onRetry(doc)} />}
       {infoOpen && <SlotInfoModal item={item} onClose={() => setInfoOpen(false)} />}
-      {interviewFormOpen && (
-        <Modal
-          title="면접확인서 양식 보기"
-          onClose={() => setInterviewFormOpen(false)}
-          variant="printable-viewer"
-          footer={<button type="button" className="btn btn--primary" disabled={!interviewPdfReady} onClick={() => window.print()}>인쇄</button>}
-        >
-          <div className="dupload__form-preview">
-            <p>신청자 정보가 미리 들어 있습니다. 회사에서 면접 내용과 확인 서명을 작성합니다.</p>
-            <img
-              className="dupload__form-page"
-              src={`/api/applications/${applicationId}/forms/job_interview_confirmation/pages/1.png?preview=true`}
-              alt="면접확인서 양식"
-              onLoad={() => setInterviewPdfReady(true)}
-              onError={() => setInterviewPdfReady(false)}
-            />
-          </div>
-        </Modal>
-      )}
     </li>
   )
 }
@@ -498,8 +456,7 @@ export default function DocumentUpload({
 
   return (
     <div className="dupload">
-      {/* 근로확인서류가 있는 사업에서만 근로유형을 묻는다. 취업패키지는 근로요건이
-          없어 이 구획 자체가 뜨지 않는다. */}
+      {/* 근로유형에 따라 필요한 근로확인서류를 정한다. */}
       {checklist.program.asks_work_category && (
         <section className="dupload__context">
           <h3>근로유형</h3>
@@ -560,11 +517,6 @@ export default function DocumentUpload({
         {checklist.program.asks_work_category && !context.work_category && (
           <span className="dupload__progress-hint">근로유형을 고르면 서류가 1종 추가됩니다.</span>
         )}
-        {checklist.program.has_subsidy_items && (
-          <span className="dupload__progress-hint">
-            고르신 지원 항목에 따라 서류가 늘고 줍니다. 항목을 바꾸면 이 목록도 바뀝니다.
-          </span>
-        )}
         <div className="dupload__bar">
           <div
             className="dupload__bar-fill"
@@ -580,7 +532,6 @@ export default function DocumentUpload({
           <SlotCard
             key={item.slot_key}
             item={item}
-            applicationId={applicationId}
             busy={busySlot === item.slot_key}
             declared={declared[item.slot_key] ?? EMPTY_YMD}
             onDeclaredChange={(v) => setDeclared({ ...declared, [item.slot_key]: v })}

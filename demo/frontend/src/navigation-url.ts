@@ -1,4 +1,10 @@
-export type Mode = 'applicant' | 'officer'
+export const ACTIVE_APPLICATION_KEY = 'applicant.activeApplicationId'
+
+// Explicit new starts invalidate pending work from the previous application.
+let applicationGeneration = 0
+export function currentApplicationGeneration(): number {
+  return applicationGeneration
+}
 
 const NAVIGATION_PARAMS = [
   'mode', 'application', 'stage', 'previous', 'from',
@@ -11,16 +17,6 @@ const NAVIGATION_PARAMS = [
 
 export function currentParams(): URLSearchParams {
   return new URLSearchParams(window.location.search)
-}
-
-export function currentMode(): Mode {
-  if (window.location.pathname.startsWith('/officer')) return 'officer'
-  if (window.location.pathname.startsWith('/apply')) return 'applicant'
-  return currentParams().get('mode') === 'officer' ? 'officer' : 'applicant'
-}
-
-export function currentUrl(): string {
-  return `${window.location.pathname}${window.location.search}${window.location.hash}`
 }
 
 export function routeUrl(path: string, params: Record<string, string | null> = {}, replace = false): void {
@@ -36,5 +32,7 @@ export function routeUrl(path: string, params: Record<string, string | null> = {
 }
 
 export function goToHome(): void {
-  routeUrl('/')
+  applicationGeneration += 1
+  try { window.sessionStorage.removeItem(ACTIVE_APPLICATION_KEY) } catch { /* A remount still starts a fresh in-memory application. */ }
+  routeUrl('/apply/identity')
 }

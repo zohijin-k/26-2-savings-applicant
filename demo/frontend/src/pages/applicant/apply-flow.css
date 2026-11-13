@@ -39,12 +39,6 @@
   flex-wrap: wrap;
 }
 
-/* 사업 선택 화면은 단계 표시가 없어 제목 아래에 선을 직접 긋는다 */
-.flow__head--solo {
-  padding-bottom: 16px;
-  border-bottom: 2px solid var(--brand);
-}
-
 .flow__head h1 {
   font-size: 22px;
   letter-spacing: -0.02em;
@@ -139,8 +133,7 @@
   margin-right: auto;
 }
 
-/* 버튼 공통. 담당자 화면은 officer.css의 .btn을 따로 쓴다 — 아래 기본값은 그쪽에도
-   적용되던 값이라 그대로 두고, 신청 화면 버튼은 .flow 안에서 다시 정한다. */
+/* 신청 화면 공통 버튼. */
 .btn {
   font: inherit;
   font-size: 14px;

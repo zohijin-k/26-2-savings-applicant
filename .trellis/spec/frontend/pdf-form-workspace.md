@@ -2,15 +2,15 @@
 
 ## Scope and ownership
 
-`demo/frontend/src/forms/PdfFormsWorkspace.tsx` serves both application programs. Double savings (`program.code === 'double_savings'`) uses an inline document panel; the employment package retains the form viewer modal. Keep document rendering shared between these shells.
+`demo/frontend/src/forms/PdfFormsWorkspace.tsx` serves the double-savings applicant in an inline document panel. Employment-package frontend forms and the alternative viewer shell were removed from this repository. The shared backend form APIs, templates and coordinate maps remain unchanged.
 
 `ApplyFlow` owns the controlled `form1`, `answers`, `consent`, and `form5` values. A document selection or edit/preview change must not reset those values. Keep applicant data out of navigation URLs, as specified in [state management](./state-management.md).
 
 ## Original document contract
 
 - Render the existing form-page image endpoint with the existing layout fields and masks. Scale the PDF background, masks, inputs, check hit areas, and page height using the same `pageWidth / pageSize.width` ratio. A narrow viewport may scroll the document; do not reflow its cells into a replacement form.
-- Reuse the existing field renderer and validation helpers for both shells. Updating the surrounding layout is not a reason to edit templates or coordinate maps.
-- Public form numbers/order come from the API/layout `public_form`, backed by `demo/form_numbers.py`. Internal `서식1` is public form 2; internal `서식2` is public form 1. Explicitly sort the savings display list by the same public metadata used for labels, then initialize the active document from that ordered list; response order alone is not a guarantee. Do not sort internal identifiers or duplicate the mapping client-side. Preserve employment-package response order and use a stable fallback after known public forms if metadata is absent.
+- Reuse the existing field renderer and validation helpers for the savings workspace. Updating the surrounding layout is not a reason to edit templates or coordinate maps.
+- Public form numbers/order come from the API/layout `public_form`, backed by `demo/form_numbers.py`. Internal `서식1` is public form 2; internal `서식2` is public form 1. Explicitly sort the savings display list by the same public metadata used for labels, then initialize the active document from that ordered list; response order alone is not a guarantee. Do not sort internal identifiers or duplicate the mapping client-side. Use a stable fallback after known public forms if metadata is absent.
 
 ## Saving before transitions
 
@@ -44,7 +44,7 @@ The compact stage strip uses a connected horizontal line with circular markers a
 
 In savings step 2, the progress area spans the right-hand PDF toolbar's width, excluding sidebar/gap. Share sidebar-width/gap variables between overview and workspace columns; title occupies the left overview column and progress fills the right column (do not subtract sidebar width again). At 800px the overview stacks and progress uses panel width. Marker 1/4 sit near the area's ends with safe insets, marker 2/3 at equal center gaps; edge captions align inward. Keep the non-interactive base rail bounded by `--stage-edge-center` on both sides, without tails. Completion connectors match marker centers and vertical midpoint. Do not restore a 700px cap or affect other stages. Sidebar draft text remains accent/heavier than neutral regular empty text, without badges.
 
-Applicant visual polish is scoped to the applicant shell and workspace chrome: keep its light top bar and bounded inner alignment coordinated with the main flow, use separate application accent/surface styles, and preserve the officer interface. Do not change global `--brand`, document fonts, PDF field colors/coordinates or assets to restyle navigation. Keep primary save/continue actions distinguishable from secondary preview/download and quiet reset actions. Preserve the download menu's positioned header stacking context and right-edge anchoring when changing panel spacing or corners.
+Applicant visual polish is scoped to the applicant shell and workspace chrome: keep its light top bar and bounded inner alignment coordinated with the main flow, use separate application accent/surface styles, and keep backend and engine behavior unchanged. Do not change global `--brand`, document fonts, PDF field colors/coordinates or assets to restyle navigation. Keep primary save/continue actions distinguishable from secondary preview/download and quiet reset actions. Preserve the download menu's positioned header stacking context and right-edge anchoring when changing panel spacing or corners.
 
 The application title keeps the original `.flow__head h1` typography (22px and original tracking/inherited color/line height). Compact layout should not reintroduce separate 16px desktop/mobile title overrides.
 
@@ -52,4 +52,4 @@ Balance-wrap the unchanged savings title within its left overview column. Stage 
 
 ## Verification
 
-Run frontend lint and build. Check direct nonsequential form navigation, consent persistence, save failures, stale transitions, every original field type, all PDF pages, preview/edit/reset, paper mode, and completion gating. Verify background/overlay alignment after resizing and narrow-screen scrolling, plus signature dialog keyboard/pointer workflows. Regression-check the employment-package modal because it shares rendering and save helpers. Static checks alone do not establish visual or interaction correctness; record unavailable browser checks explicitly.
+Run frontend lint and build. Check direct nonsequential form navigation, consent persistence, save failures, stale transitions, every original field type, all PDF pages, preview/edit/reset, paper mode, and completion gating. Verify background/overlay alignment after resizing and narrow-screen scrolling, plus signature dialog keyboard/pointer workflows. Continue running preserved backend officer/employment-package regression scenarios; there is no employment-package frontend modal to check. Static checks alone do not establish visual or interaction correctness; record unavailable browser checks explicitly.

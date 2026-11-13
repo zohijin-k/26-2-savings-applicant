@@ -1,4 +1,4 @@
-/* 신청자 / 담당자 화면 전환 띠. 시연용이라 최소한만 둔다. */
+/* 두배적금 신청자 상단 표시 영역. */
 .shell__inner { display: contents; }
 
 .shell {
@@ -64,46 +64,6 @@
   white-space: nowrap;
 }
 
-.shell__tabs {
-  flex-shrink: 0;
-  display: inline-flex;
-  padding: 3px;
-  border-radius: 9px;
-  background: rgb(255 255 255 / 12%);
-}
-
-.shell__tab {
-  font: inherit;
-  font-size: 13px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: rgb(255 255 255 / 80%);
-  padding: 5px 16px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background var(--ease), color var(--ease);
-}
-
-.shell__tab:hover {
-  color: #fff;
-}
-
-.shell__tab--on {
-  background: #fff;
-  color: var(--brand);
-  font-weight: 700;
-}
-
-.shell__tab--on:hover {
-  color: var(--brand);
-}
-
-.shell__tab:focus-visible {
-  outline: 2px solid #fff;
-  outline-offset: 1px;
-}
-
 .shell__application { display: flex; flex-shrink: 0; }
 .shell__application[hidden], .shell__application:empty { display: none; }
 .shell__application-controls { display: flex; align-items: center; gap: 14px; }
@@ -127,10 +87,9 @@
   .shell { gap: 6px 10px; }
   .shell__title { gap: 8px; }
   .shell__title strong { font-size: 11px; }
-  .shell__tab { padding: 4px 9px; font-size: 12px; }
 }
 
-/* Applicant chrome has its own palette; original PDF and officer tokens stay intact. */
+/* Applicant chrome has its own palette; original PDF tokens stay intact. */
 .app-shell--applicant {
   --workspace-accent: #315dcc;
   --workspace-ink: #233047;
@@ -154,17 +113,11 @@
 .app-shell--applicant .shell__mypage:hover:not(:disabled) { border-color: #adbedf; background: #f7f9fd; }
 .app-shell--applicant .shell__mypage:disabled { color: #8190a3; background: #f8fafc; }
 .app-shell--applicant .shell__mypage:focus-visible { outline-color: var(--workspace-accent); }
-.app-shell--applicant .shell__tabs { padding: 2px; border: 1px solid #e1e7ef; border-radius: 8px; background: #f3f6fa; }
-.app-shell--applicant .shell__tab { padding: 4px 12px; border: 1px solid transparent; border-radius: 5px; color: #637189; font-size: 12px; }
-.app-shell--applicant .shell__tab:hover { color: var(--workspace-ink); }
-.app-shell--applicant .shell__tab--on { border-color: #d8e1ed; background: #fff; color: #284166; }
-.app-shell--applicant .shell__tab:focus-visible { outline-color: var(--workspace-accent); }
 @media (max-width: 850px) {
   .app-shell--applicant .shell__inner { flex-wrap: wrap; gap: 8px 14px; }
   .app-shell--applicant .shell__application-controls { gap: 8px 14px; }
 }
 @media (max-width: 520px) {
   .app-shell--applicant .shell__title strong { font-size: 12px; }
-  .app-shell--applicant .shell__tab { padding: 4px 8px; }
   .app-shell--applicant .shell__application-number strong { font-size: 11px; }
 }

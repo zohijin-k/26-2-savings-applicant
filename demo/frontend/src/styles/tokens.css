@@ -1,0 +1,65 @@
+/*
+ * 신청자 화면 디자인 토큰.
+ * 색은 전북특별자치도 배너(jb.png)에서 뽑은 전북 블루 계열과 KRDS 회색·상태 색을 쓴다.
+ * 화면 틀·공용 컴포넌트·각 단계 화면의 CSS는 이 파일의 변수만 읽는다.
+ * (서식 원본 PDF 재현 영역이 읽는 옛 변수는 src/index.css에 따로 남아 있다.)
+ */
+:root {
+  /* brand — sampled from jb.png */
+  --jb-blue-5:#f0f5fb; --jb-blue-10:#dce8f6; --jb-blue-20:#b8d0ec; --jb-blue-30:#8ab0de;
+  --jb-blue-40:#4f86c9; --jb-blue-50:#1d5fb5; --jb-blue-60:#084090; --jb-blue-70:#06326f; --jb-blue-80:#05264f;
+  --jb-navy:#182880; --jb-cyan:#00a8d0; --jb-cyan-text:#00728f; --jb-magenta:#e00078;
+  --jb-mint:#f3f8ec; --jb-cream:#fcf5e5;
+
+  /* neutral (KRDS gray) */
+  --gray-0:#fff; --gray-5:#f4f5f6; --gray-10:#e6e8ea; --gray-20:#cdd1d5; --gray-30:#b1b8be; --gray-40:#8a949e;
+  --gray-50:#6d7882; --gray-60:#58616a; --gray-70:#464c53; --gray-80:#33363d; --gray-90:#1e2124;
+
+  /* status (KRDS) : -5 surface, -10/-20 border, -50 icon, -60 text */
+  --danger-5:#fdefec; --danger-10:#fcdfd9; --danger-50:#de3412; --danger-60:#bd2c0f;
+  --warning-5:#fff3db; --warning-10:#ffe0a3; --warning-50:#9e6a00; --warning-60:#8a5c00;
+  --success-5:#eaf6ec; --success-10:#d8eedd; --success-50:#228738; --success-60:#267337;
+  --info-5:#e7f4fe; --info-10:#d3ebfd; --info-50:#0b78cb; --info-60:#096ab3;
+
+  /* semantic */
+  --color-bg:#f7f8f5;            /* page: warm neutral that sits with the banner's cream/mint */
+  --color-surface:#fff; --color-surface-subtle:var(--gray-5); --color-surface-brand:var(--jb-blue-5);
+  --color-text:var(--gray-90); --color-text-subtle:var(--gray-70); --color-text-muted:var(--gray-60);
+  --color-text-disabled:var(--gray-50); --color-text-brand:var(--jb-blue-60); --color-text-on-primary:#fff;
+  --color-border:var(--gray-20); --color-border-strong:var(--gray-60); --color-divider:var(--gray-10);
+  --color-primary:var(--jb-blue-60); --color-primary-hover:var(--jb-blue-70); --color-primary-pressed:var(--jb-blue-80);
+  --color-focus:var(--jb-blue-50);
+  --color-dim:rgb(0 0 0 / 60%);
+
+  /* type — Pretendard GOV, self-hosted */
+  --font-ui:'Pretendard GOV','Pretendard','Apple SD Gothic Neo','Malgun Gothic','맑은 고딕','Noto Sans KR',system-ui,sans-serif;
+  --fs-13:13px; --fs-15:15px; --fs-16:16px; --fs-17:17px; --fs-19:19px; --fs-22:22px; --fs-24:24px; --fs-28:28px;
+  --lh-tight:1.35; --lh-base:1.55;
+  --fw-regular:400; --fw-medium:500; --fw-bold:700;
+
+  /* space (4px grid) */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px; --sp-10:40px; --sp-12:48px; --sp-16:64px;
+
+  /* shape */
+  --radius-4:4px; --radius-6:6px; --radius-8:8px; --radius-12:12px; --radius-pill:999px;
+  --shadow-1:0 0 2px rgb(0 0 0 / 5%),0 4px 8px rgb(0 0 0 / 8%);
+  --shadow-2:0 0 2px rgb(0 0 0 / 8%),0 8px 16px rgb(0 0 0 / 12%);
+  --shadow-3:0 0 2px rgb(0 0 0 / 8%),0 16px 24px rgb(0 0 0 / 12%);
+
+  /* control sizes */
+  --control-lg:56px; --control-md:48px; --control-sm:40px;
+  --ease:160ms ease;
+
+  /* layout */
+  --shell-max:1200px; --content-max:880px; --gutter:24px;
+  --bp-sm:600px; /* documentation only: media queries use 600px and 900px */
+
+  /* added by the foundation stage (same families as above) */
+  --shell-h:72px;          /* header height; 64px at 600px and below */
+  --z-sticky:20; --z-skip:90; --z-modal:100;
+}
+
+/* 좁은 화면에서는 화면 여백과 머리글 높이만 줄인다. */
+@media (max-width: 600px) {
+  :root { --gutter:16px; --shell-h:64px; }
+}

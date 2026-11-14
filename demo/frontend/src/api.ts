@@ -1,6 +1,7 @@
 /** 백엔드 호출. vite dev 서버가 /api 를 :8000 으로 프록시한다. */
 
 import { FORM_FIELD_KEYS } from './forms/form-field-bindings.ts'
+import { GENERIC_ERROR_COPY, NETWORK_ERROR_COPY, isCitizenSafe, messageForStatus } from './lib/error-copy.ts'
 
 /** 두배적금 신청에 사용하는 서버 사업 설정. */
 export interface Program {
@@ -226,30 +227,62 @@ export interface ApplicationStatus {
   call_center: string
 }
 
+/**
+ * 요청 실패.
+ *
+ * `message`는 그대로 화면에 보여 줘도 되는 문장이다(서버가 준 안내, 없으면 상태별 문장).
+ * `status`는 HTTP 상태이고 통신 자체가 실패하면 0이다. `detail`은 서버가 준 안내 문장이 있을 때만 채워진다.
+ */
 export class ApiError extends Error {
   readonly status: number
-  constructor(message: string, status: number) {
+  readonly detail?: string
+  constructor(message: string, status: number, detail?: string) {
     super(message)
+    this.name = 'ApiError'
     this.status = status
+    this.detail = detail
   }
 }
 
+const UPLOAD_ERROR_COPY = '파일을 올리지 못했습니다. 잠시 후 다시 시도해 주세요.'
+
+/** 응답 본문에서 서버 안내 문장만 꺼낸다. 문자열이 아니거나 안내 문장이 아니면 undefined. */
+function serverDetail(data: unknown): string | undefined {
+  const raw = data !== null && typeof data === 'object' ? (data as { detail?: unknown }).detail : undefined
+  return isCitizenSafe(raw) ? raw.trim() : undefined
+}
+
+function apiError(status: number, data: unknown, fallback: string): ApiError {
+  const detail = serverDetail(data)
+  return new ApiError(detail ?? messageForStatus(status) ?? fallback, status, detail)
+}
+
+/** 통신 자체가 실패하면(연결 끊김 등) 상태 0의 ApiError로 바꾼다. */
+async function request(path: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(path, init)
+  } catch {
+    throw new ApiError(NETWORK_ERROR_COPY, 0)
+  }
+}
+
+async function failure(res: Response, fallback: string): Promise<ApiError> {
+  return apiError(res.status, await res.json().catch(() => null), fallback)
+}
+
 async function json<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await request(path, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   })
-  if (!res.ok) throw new ApiError(`${init?.method ?? 'GET'} ${path} 실패 (${res.status})`, res.status)
+  if (!res.ok) throw await failure(res, GENERIC_ERROR_COPY)
   return res.json() as Promise<T>
 }
 
 /** 파일 업로드는 multipart라 Content-Type을 브라우저가 붙이게 둔다. */
 async function form<T>(path: string, body: FormData): Promise<T> {
-  const res = await fetch(path, { method: 'POST', body })
-  if (!res.ok) {
-    const detail = (await res.json().catch(() => null)) as { detail?: string } | null
-    throw new Error(detail?.detail ?? `업로드 실패 (${res.status})`)
-  }
+  const res = await request(path, { method: 'POST', body })
+  if (!res.ok) throw await failure(res, UPLOAD_ERROR_COPY)
   return res.json() as Promise<T>
 }
 
@@ -260,11 +293,8 @@ export async function uploadSignatureScan(id: number, file: File): Promise<void>
 }
 
 export async function deleteSignatureScan(id: number): Promise<void> {
-  const res = await fetch(`/api/applications/${id}/forms/signature-scan`, { method: 'DELETE' })
-  if (!res.ok) {
-    const data = (await res.json().catch(() => null)) as { detail?: string } | null
-    throw new Error(data?.detail ?? `서명 이미지 삭제 실패 (${res.status})`)
-  }
+  const res = await request(`/api/applications/${id}/forms/signature-scan`, { method: 'DELETE' })
+  if (!res.ok) throw await failure(res, '서명 이미지를 지우지 못했습니다. 잠시 후 다시 시도해 주세요.')
 }
 
 export const fetchPrograms = () => json<Program[]>('/api/programs')
@@ -373,16 +403,16 @@ export interface IdentityPayload {
 
 /** 본인인증 (데모). 실패 사유는 서버 문구 그대로 보여준다. */
 export async function verifyIdentity(id: number, body: IdentityPayload): Promise<Identity> {
-  const res = await fetch(`/api/applications/${id}/identity`, {
+  const res = await request(`/api/applications/${id}/identity`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
   const data = (await res.json().catch(() => null)) as
-    | { identity?: Identity; detail?: string }
+    | { identity?: Identity; detail?: unknown }
     | null
   if (!res.ok || !data?.identity) {
-    throw new Error(data?.detail ?? `본인인증 실패 (${res.status})`)
+    throw apiError(res.status, data, '본인인증을 마치지 못했습니다. 입력한 내용을 확인한 뒤 다시 시도해 주세요.')
   }
   return data.identity
 }
@@ -426,6 +456,68 @@ export function uploadDocument(
   body.append('slot_key', slotKey)
   if (declaredIssueDate) body.append('declared_issue_date', declaredIssueDate)
   return form<UploadedDocument>(`/api/applications/${id}/documents`, body)
+}
+
+/**
+ * `uploadDocument`와 같은 요청을 보내되 전송 진행을 알려 준다.
+ *
+ * - `onProgress(sent, total)`: 서버로 보낸 바이트 수가 바뀔 때마다.
+ * - `onSent()`: 파일을 모두 보냈을 때(이후는 서버가 서류를 읽고 확인하는 시간이다).
+ * - `signal`: 중단하면 `AbortError`(DOMException)로 거절된다.
+ * 실패하면 `ApiError`로 거절된다(통신 실패는 status 0).
+ */
+export function uploadDocumentWithProgress(
+  id: number,
+  slotKey: string,
+  file: File,
+  declaredIssueDate: string,
+  opts: {
+    onProgress?: (sent: number, total: number) => void
+    onSent?: () => void
+    signal?: AbortSignal
+  } = {},
+): Promise<UploadedDocument> {
+  const { onProgress, onSent, signal } = opts
+  const body = new FormData()
+  body.append('file', file)
+  body.append('slot_key', slotKey)
+  if (declaredIssueDate) body.append('declared_issue_date', declaredIssueDate)
+
+  return new Promise<UploadedDocument>((resolve, reject) => {
+    const aborted = () => new DOMException('The request was aborted.', 'AbortError')
+    if (signal?.aborted) {
+      reject(aborted())
+      return
+    }
+    const xhr = new XMLHttpRequest()
+    const abort = () => xhr.abort()
+    const settle = () => signal?.removeEventListener('abort', abort)
+
+    xhr.open('POST', `/api/applications/${id}/documents`)
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.(event.loaded, event.total)
+    }
+    xhr.upload.onload = () => onSent?.()
+    xhr.onload = () => {
+      settle()
+      let data: unknown = null
+      try {
+        data = JSON.parse(xhr.responseText)
+      } catch { /* 본문이 JSON이 아니면 상태만으로 판단한다. */ }
+      if (xhr.status >= 200 && xhr.status < 300 && data !== null) resolve(data as UploadedDocument)
+      else reject(apiError(xhr.status, data, UPLOAD_ERROR_COPY))
+    }
+    xhr.onerror = () => {
+      settle()
+      reject(new ApiError(NETWORK_ERROR_COPY, 0))
+    }
+    xhr.onabort = () => {
+      settle()
+      reject(aborted())
+    }
+    signal?.addEventListener('abort', abort, { once: true })
+    xhr.send(body)
+  })
 }
 
 /** 여러 서류를 한 파일로 올린 경우. 페이지별로 쪼개 슬롯에 자동 배정한다. */

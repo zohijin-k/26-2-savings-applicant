@@ -11,6 +11,7 @@ import * as pdfjs from 'pdfjs-dist'
 import { Skeleton, SkeletonBlock } from './Skeleton.tsx'
 import useDelayedFlag from '../hooks/useDelayedFlag.ts'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import './file-preview.css'
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
 
@@ -78,7 +79,7 @@ export default function PdfPages({
   const pdf = loaded?.url === url ? loaded.pdf : null
   const showLoading = useDelayedFlag(!pdf && !(loaded?.url === url && loaded.error))
   const error = loaded?.url === url ? loaded.error : ''
-  if (error) return <p className="pdfpages__error">PDF를 열 수 없습니다.</p>
+  if (error) return <p className="pdfpages__error" role="status">PDF를 열 수 없습니다.</p>
   const pageWidth = maxHeight ? Math.min(width, Math.round(maxHeight / 1.414)) : width
   if (!pdf) return showLoading ? (
     <div className={className ? `pdfpages ${className}` : 'pdfpages'}>
@@ -165,6 +166,7 @@ function PdfPage({
       ref={ref}
       className="pdfpages__page"
       style={size}
+      role="img"
       aria-label={`${pageNo}쪽`}
     />
   )

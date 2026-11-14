@@ -9,7 +9,7 @@
  * 설계 근거: .trellis/tasks/09-16-demo-site/design.md 6-A절
  */
 
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 
 import type { YMD } from './ymd.ts'
 
@@ -189,54 +189,127 @@ export function Text({
  * 년·월·일을 각각 따로 받는다.
  * 서식의 칸이 원래 그렇게 나뉘어 있고, 브라우저 기본 date 피커를 쓰면 칸 안에
  * 이질적인 위젯이 들어가 서식 모양이 깨진다.
+ *
+ * 모양은 두 가지다.
+ * - `sheet`(기본): 서식 칸 안에 들어가는 밑줄 입력. 범위를 넘는 숫자는 받지 않는다.
+ * - `ui`: 본인인증·서류 업로드 화면의 48px 입력. 범위를 넘는 숫자도 그대로 두고
+ *   그 칸을 `aria-invalid`로 표시한다. 무엇이 틀렸는지 알리는 문구는 쓰는 쪽에서 보여 준다.
+ *   `variant`를 주지 않아도 `invalid`·`describedBy`·`idPrefix`·`onBlur` 중 하나를 주면 `ui`가 된다.
  */
 export function DateTriple({
   value,
   onChange,
   ariaPrefix,
   readOnly = false,
+  variant,
+  invalid,
+  describedBy,
+  idPrefix,
+  onBlur,
 }: {
   value: YMD
   onChange: (v: YMD) => void
   ariaPrefix: string
   readOnly?: boolean
+  variant?: 'sheet' | 'ui'
+  /** 날짜 전체가 잘못됐을 때 세 칸 모두를 오류로 표시한다. */
+  invalid?: boolean
+  /** 도움말·오류 문구 요소의 id. 세 칸 모두에 `aria-describedby`로 연결한다. */
+  describedBy?: string
+  /** 주면 세 칸의 id가 `{idPrefix}-y`, `-m`, `-d`가 된다. */
+  idPrefix?: string
+  /** 포커스가 세 칸 밖으로 나갔을 때 한 번 부른다(칸 사이를 옮길 때는 부르지 않는다). */
+  onBlur?: () => void
 }) {
-  const set = (k: keyof YMD, max: number) => (raw: string) => {
-    const digits = raw.replace(/\D/g, '').slice(0, k === 'y' ? 4 : 2)
-    if (digits && Number(digits) > max) return
-    onChange({ ...value, [k]: digits })
+  const ui = variant
+    ? variant === 'ui'
+    : invalid !== undefined || describedBy !== undefined || idPrefix !== undefined || onBlur !== undefined
+
+  if (!ui) {
+    const set = (k: keyof YMD, max: number) => (raw: string) => {
+      const digits = raw.replace(/\D/g, '').slice(0, k === 'y' ? 4 : 2)
+      if (digits && Number(digits) > max) return
+      onChange({ ...value, [k]: digits })
+    }
+    return (
+      <span className="form-date">
+        <input
+          className="form-date__y"
+          inputMode="numeric"
+          aria-label={`${ariaPrefix} 년`}
+          readOnly={readOnly}
+          value={value.y}
+          onChange={(e) => set('y', 9999)(e.target.value)}
+        />
+        <span className="form-date__unit">년</span>
+        <input
+          className="form-date__m"
+          inputMode="numeric"
+          aria-label={`${ariaPrefix} 월`}
+          readOnly={readOnly}
+          value={value.m}
+          onChange={(e) => set('m', 12)(e.target.value)}
+        />
+        <span className="form-date__unit">월</span>
+        <input
+          className="form-date__d"
+          inputMode="numeric"
+          aria-label={`${ariaPrefix} 일`}
+          readOnly={readOnly}
+          value={value.d}
+          onChange={(e) => set('d', 31)(e.target.value)}
+        />
+        <span className="form-date__unit">일</span>
+      </span>
+    )
   }
+
+  const parts = [
+    { key: 'y', unit: '년', length: 4 },
+    { key: 'm', unit: '월', length: 2 },
+    { key: 'd', unit: '일', length: 2 },
+  ] as const
   return (
-    <span className="form-date">
-      <input
-        className="form-date__y"
-        inputMode="numeric"
-        aria-label={`${ariaPrefix} 년`}
-        readOnly={readOnly}
-        value={value.y}
-        onChange={(e) => set('y', 9999)(e.target.value)}
-      />
-      <span className="form-date__unit">년</span>
-      <input
-        className="form-date__m"
-        inputMode="numeric"
-        aria-label={`${ariaPrefix} 월`}
-        readOnly={readOnly}
-        value={value.m}
-        onChange={(e) => set('m', 12)(e.target.value)}
-      />
-      <span className="form-date__unit">월</span>
-      <input
-        className="form-date__d"
-        inputMode="numeric"
-        aria-label={`${ariaPrefix} 일`}
-        readOnly={readOnly}
-        value={value.d}
-        onChange={(e) => set('d', 31)(e.target.value)}
-      />
-      <span className="form-date__unit">일</span>
+    <span
+      className="date-triple date-triple--ui"
+      role="group"
+      aria-label={ariaPrefix}
+      onBlur={onBlur && ((event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) onBlur()
+      })}
+    >
+      {parts.map(({ key, unit, length }) => (
+        <Fragment key={key}>
+          <input
+            id={idPrefix ? `${idPrefix}-${key}` : undefined}
+            className={`input date-triple__${key}`}
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={length}
+            aria-label={`${ariaPrefix} ${unit}`}
+            aria-invalid={invalid || isDatePartOutOfRange(key, value[key]) || undefined}
+            aria-describedby={describedBy}
+            readOnly={readOnly}
+            value={value[key]}
+            onChange={(e) => onChange({ ...value, [key]: e.target.value.replace(/\D/g, '').slice(0, length) })}
+          />
+          <span className="date-triple__unit" aria-hidden="true">{unit}</span>
+        </Fragment>
+      ))}
     </span>
   )
+}
+
+/**
+ * 달력에 있을 수 없는 월(1~12 밖)·일(1~31 밖)인지.
+ * 빈 칸과 연도는 여기서 따지지 않고, "06"을 치는 도중의 "0" 한 글자는 아직 틀린 값으로 보지 않는다.
+ */
+function isDatePartOutOfRange(key: keyof YMD, digits: string): boolean {
+  if (!digits || key === 'y') return false
+  const n = Number(digits)
+  if (n === 0) return digits.length >= 2
+  return n > (key === 'm' ? 12 : 31)
 }
 
 /**

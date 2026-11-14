@@ -18,6 +18,15 @@ import {
   type Program,
   type SubmitResult,
 } from '../../api.ts'
+import Icon from '../../components/Icon.tsx'
+import Notice from '../../components/Notice.tsx'
+import PhoneLink from '../../components/PhoneLink.tsx'
+import Spinner from '../../components/Spinner.tsx'
+import useBeforeUnload from '../../hooks/useBeforeUnload.ts'
+import useDelayedFlag from '../../hooks/useDelayedFlag.ts'
+import useDocumentTitle from '../../hooks/useDocumentTitle.ts'
+import { friendlyError } from '../../lib/error-copy.ts'
+import { formatDateTime } from '../../lib/format.ts'
 import DocumentUpload from './DocumentUpload.tsx'
 import IdentityCheck from './IdentityCheck.tsx'
 import MyPage from './MyPage.tsx'
@@ -62,6 +71,19 @@ const APPLY_STEPS: Step[] = [
   { key: 'upload', label: '서류 업로드 및 제출' },
 ]
 
+/** 단계마다 다른 문서 제목. `{단계명} | 전북청년 함께 두배적금 신청` */
+const STAGE_TITLES: Record<Stage, string> = {
+  identity: '본인인증',
+  forms: '서식 작성',
+  upload: '서류 업로드 및 제출',
+  complete: '접수 완료',
+  mypage: '마이페이지',
+}
+const SERVICE_TITLE = '전북청년 함께 두배적금 신청'
+
+const LOAD_ERROR_COPY = '신청 화면을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
+const SAVE_ERROR_COPY = '작성한 내용을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+
 type ConsentType = ConsentPayload['consent_type']
 
 /** 신청서의 성명·생년월일을 본인인증 값으로 덮는다 (서버도 같은 규칙으로 잠근다). */
@@ -99,7 +121,13 @@ function createSavingsDraft() {
   return pendingDraft.request
 }
 
-export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | null }) {
+export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: {
+  headerHost: HTMLElement | null
+  /** 바닥글의 문의처 자리. App이 DOM 자리만 갖고, 내용은 ApplyFlow가 포털로 그린다. */
+  footerHost?: HTMLElement | null
+  /** 본인인증을 마쳤고 아직 제출하지 않은 신청이 있는지를 App에 알린다. */
+  onProgressChange?: (hasProgress: boolean) => void
+}) {
   const [initialPage] = useState(savedPage)
   const initialUrlWrite = useRef(true)
   const [restoring, setRestoring] = useState(true)
@@ -130,6 +158,12 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
   const [uploadBusy, setUploadBusy] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<StepperProgress>({ completed: 0, total: 0 })
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
+  // 아직 끝나지 않은 저장 요청 수. 남아 있는 동안 탭을 떠나려 하면 이탈 확인을 띄운다.
+  const pendingSaves = useRef(0)
+  const [saving, setSaving] = useState(false)
+  const body = useRef<HTMLDivElement>(null)
+  const focusedStage = useRef<Stage | null>(null)
+  const showLoading = useDelayedFlag(restoring && !error)
 
   useEffect(() => {
     let active = true
@@ -181,7 +215,8 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
       }
       const restoredStage = restored && initialPage ? initialPage.stage : 'identity'
       setStage(restoredStage === 'complete' && status.status === 'draft' ? 'upload' : restoredStage)
-      setStageBeforeMypage(restored && initialPage ? initialPage.previous : 'identity')
+      const restoredPrevious = restored && initialPage ? initialPage.previous : 'identity'
+      setStageBeforeMypage(restoredPrevious === 'complete' && status.status === 'draft' ? 'upload' : restoredPrevious)
     }
     // Defer the work so StrictMode's first cleanup happens before initialization.
     initialization.current ??= Promise.resolve().then(initialize)
@@ -189,7 +224,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
       if (active) setRestoring(false)
     }).catch((e: unknown) => {
       if (!active) return
-      setError(e instanceof Error ? e.message : String(e))
+      setError(friendlyError(e, LOAD_ERROR_COPY))
       setRestoring(false)
     })
     return () => { active = false; initialization.current = null }
@@ -210,12 +245,64 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
     setUploadProgress({ completed, total })
   }, [])
 
+  const hasProgress = identity !== null && submitted === null
+  useEffect(() => {
+    onProgressChange?.(hasProgress)
+  }, [hasProgress, onProgressChange])
+  useBeforeUnload(hasProgress || saving || formContinuing)
+  useDocumentTitle(restoring || program === null || error ? '' : `${STAGE_TITLES[stage]} | ${SERVICE_TITLE}`)
+
+  // 단계가 바뀌면 맨 위로 올리고 새 단계의 제목으로 포커스를 옮긴다. 처음 화면을 열 때는 옮기지 않는다.
+  useEffect(() => {
+    if (restoring || program === null || error) return undefined
+    if (focusedStage.current === null || focusedStage.current === stage) {
+      focusedStage.current = stage
+      return undefined
+    }
+    focusedStage.current = stage
+    window.scrollTo({ top: 0 })
+    const root = body.current
+    if (!root) return undefined
+    const findHeading = () => root.querySelector<HTMLElement>(stage === 'forms' ? '#pdf-form-panel-title' : 'h2')
+    const focusHeading = (heading: HTMLElement) => {
+      if (!heading.hasAttribute('tabindex')) heading.tabIndex = -1
+      heading.focus({ preventScroll: true })
+    }
+    const ready = findHeading()
+    if (ready) {
+      focusHeading(ready)
+      return undefined
+    }
+    // 내용을 불러온 뒤에 제목이 나타나는 단계는 잠시 기다린다. 그 사이 본문 안의 다른 곳을 쓰고 있으면 옮기지 않는다.
+    const observer = new MutationObserver(() => {
+      const heading = findHeading()
+      if (!heading) return
+      observer.disconnect()
+      const focused = document.activeElement
+      if (!focused || focused === document.body || !root.contains(focused)) focusHeading(heading)
+    })
+    observer.observe(root, { childList: true, subtree: true })
+    const giveUp = window.setTimeout(() => observer.disconnect(), 5000)
+    return () => {
+      observer.disconnect()
+      window.clearTimeout(giveUp)
+    }
+  }, [stage, restoring, program, error])
+
   const save = (body: { form1?: unknown; self_check?: unknown; form5?: unknown }): Promise<void> => {
     if (appId === null) return Promise.resolve()
-    const next = saveQueue.current.catch(() => undefined).then(() => patchApplication(appId, body)).then(() => undefined)
+    // 저장에 성공하면 앞선 자동 저장 실패 안내를 지운다. 저장 순서와 통과 조건은 그대로다.
+    const next = saveQueue.current.catch(() => undefined).then(() => patchApplication(appId, body)).then(() => { setFormError('') })
     saveQueue.current = next.catch(() => undefined)
+    pendingSaves.current += 1
+    setSaving(true)
+    void saveQueue.current.then(() => {
+      pendingSaves.current -= 1
+      if (pendingSaves.current === 0) setSaving(false)
+    })
     return next
   }
+  const reportSaveError = (e: unknown) => setFormError(friendlyError(e, SAVE_ERROR_COPY))
 
   const continueFromForms = async () => {
     if (appId === null || program === null) return
@@ -235,7 +322,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
       }
       setStage('upload')
     } catch (e: unknown) {
-      setFormError(e instanceof Error ? e.message : String(e))
+      reportSaveError(e)
     } finally {
       setFormContinuing(false)
     }
@@ -249,8 +336,25 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
     window.scrollTo({ top: 0 })
   }
 
-  if (error) return <div className="flow"><p className="flow-error" role="alert">{error}</p><button type="button" className="btn" onClick={() => { setError(''); setRestoring(true); setAttempt((value) => value + 1) }}>다시 시도</button></div>
-  if (restoring || program === null) return <p className="flow" role="status">두배적금 본인인증을 준비하고 있습니다...</p>
+  if (error) {
+    return (
+      <div className="flow flow--message">
+        <Notice tone="danger" role="alert" title="신청 화면을 열지 못했습니다">{error}</Notice>
+        <button type="button" className="btn btn--primary" onClick={() => { setError(''); setRestoring(true); setAttempt((value) => value + 1) }}>
+          <Icon name="refresh" />
+          다시 시도
+        </button>
+      </div>
+    )
+  }
+  if (restoring || program === null) {
+    // 뒤로·앞으로 가기처럼 금방 끝나는 준비에는 글자를 깜빡이지 않는다.
+    return (
+      <div className="flow flow--message" aria-busy="true">
+        {showLoading && <Spinner label="신청 화면을 준비하고 있습니다." />}
+      </div>
+    )
+  }
 
   const consentTypes = consentTypesOf()
   const needsAdminConsent = consentTypes.includes('admin_info')
@@ -267,9 +371,14 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
   const submittedDone = submitted !== null
   const uploadComplete = uploadProgress.total > 0 && uploadProgress.completed >= uploadProgress.total
   const viewedStage = stage === 'mypage' && !submittedDone ? stageBeforeMypage : stage
-  const currentIndex = viewedStage === 'identity' ? 0
-    : viewedStage === 'forms' ? 1
-      : 2
+  // 제출을 마친 뒤에는 어느 화면을 보고 있든 마지막 단계(접수 완료)만 현재로 알린다.
+  const currentIndex = submittedDone ? 2
+    : viewedStage === 'identity' ? 0
+      : viewedStage === 'forms' ? 1
+        : 2
+
+  // 주소를 직접 쳐서 본인인증 없이 뒤 단계에 온 경우, 1단계를 완료로 그리지 않는다.
+  const identityMissing = identity === null && !submittedDone && currentIndex > 0
 
   const openMyPage = async () => {
     if (formContinuing || uploadBusy) return
@@ -277,7 +386,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
       setFormContinuing(true)
       setFormError('')
       try { await flushForms() } catch (e: unknown) {
-        setFormError(e instanceof Error ? e.message : String(e))
+        reportSaveError(e)
         return
       } finally { setFormContinuing(false) }
     }
@@ -286,16 +395,17 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
     window.scrollTo({ top: 0 })
   }
 
-  const stepStatus = (index: number): string => {
-    if (submittedDone) return index === 2 ? '접수 완료' : '완료'
+  /** 단계 표시의 상태 글자와 진행 수치. 색이 아니라 글자로 완료·현재·예정을 알린다. */
+  const stepStatus = (index: number): { state: string; count: string } => {
+    if (submittedDone) return { state: index === 2 ? '접수 완료' : '완료', count: '' }
+    if (index === 0 && identityMissing) return { state: '미완료', count: '' }
     const progress = index === 1 ? formProgress : index === 2 ? uploadProgress : null
-    const count = progress && progress.total > 0 ? `${progress.completed} / ${progress.total}` : ''
-    if (index < currentIndex) return index === 2 && count ? `완료 · ${count}` : '완료'
-    if (index > currentIndex) {
-      const state = index === 2 && uploadComplete ? '완료' : '예정'
-      return count ? `${state} · ${count}` : state
-    }
-    return count ? `현재 · ${count}` : '현재 단계'
+    const count = progress && progress.total > 0
+      ? `${index === 1 ? '서식' : '서류'} ${progress.completed} / ${progress.total}`
+      : ''
+    if (index < currentIndex) return { state: '완료', count: '' }
+    if (index > currentIndex) return { state: index === 2 && uploadComplete ? '완료' : '예정', count }
+    return { state: '현재', count }
   }
 
   const stepperNavigate = async (index: number) => {
@@ -306,7 +416,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
       setFormContinuing(true)
       setFormError('')
       try { await flushForms() } catch (e: unknown) {
-        setFormError(e instanceof Error ? e.message : String(e))
+        reportSaveError(e)
         return
       } finally { setFormContinuing(false) }
     }
@@ -318,7 +428,7 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
   const onForm1 = (next: Form1Value) => {
     const locked = lockIdentity(next, identity)
     setForm1(locked)
-    void save({ form1: locked }).catch((e: unknown) => setFormError(e instanceof Error ? e.message : String(e)))
+    void save({ form1: locked }).catch(reportSaveError)
   }
 
   const flushForms = async () => {
@@ -346,153 +456,223 @@ export default function ApplyFlow({ headerHost }: { headerHost: HTMLElement | nu
       .filter((type) => !(type === 'admin_info' && paperForms['서식5']))
       .filter((type) => selectedConsent[type] === '동의함' || selectedConsent[type] === '동의하지 않음')
       .map((type) => values[type]))
+    setFormError('')
   }
 
+  const leaveMyPage = () => setStage(stageBeforeMypage === 'complete' && !submittedDone ? 'upload' : stageBeforeMypage)
+
   return (
-    <div className={`flow flow--active${stage === 'upload' ? ' flow--fluid' : stage === 'forms' ? ' flow--forms' : ''}`}>
+    <div className={`flow${stage === 'upload' ? ' flow--fluid' : stage === 'forms' ? ' flow--forms' : ''}`}>
       {headerHost && appId !== null && createPortal(
         <div className="shell__application-controls">
           <span className="shell__application-number">신청번호 <strong>{appNo || '발급 중…'}</strong></span>
-          <button type="button" className="shell__mypage" onClick={() => void openMyPage()} disabled={stage === 'mypage' || formContinuing || uploadBusy}>마이페이지</button>
+          <button type="button" className="btn btn--small shell__mypage" onClick={() => void openMyPage()} disabled={stage === 'mypage' || formContinuing || uploadBusy}>마이페이지</button>
         </div>, headerHost,
       )}
-      <div className="flow__overview">
-        <header className="flow__head flow__head--compact">
-          <h1>{program.name} 신청</h1>
-        </header>
+      {footerHost && program.call_center && createPortal(
+        <>
+          <Icon name="phone" size={18} />
+          <span>문의</span>
+          <PhoneLink number={program.call_center} />
+        </>, footerHost,
+      )}
+
+      <div className="flow__head">
+        <h1>{program.name} 신청</h1>
         <ol className="flow__stages" aria-label="신청 단계">
           {APPLY_STEPS.map(({ key, label }, i) => {
-            const complete = submittedDone || i < currentIndex || (i === 2 && uploadComplete)
+            const complete = submittedDone || (i < currentIndex && !(i === 0 && identityMissing)) || (i === 2 && uploadComplete)
             const current = i === currentIndex
-            const canNavigate = !submittedDone && !formContinuing && !uploadBusy && stage !== 'mypage' && i !== 0 &&
+            // 제출을 마친 뒤의 마지막 단계는 현재이면서 완료다. 그 밖에는 현재 표시가 완료 표시보다 앞선다.
+            const marker = submittedDone || (complete && !current) ? 'complete' : current ? 'current' : 'waiting'
+            const reachable = !submittedDone && stage !== 'mypage' && i !== 0 && !current &&
               (i < currentIndex || (i === 2 && uploadProgress.total > 0))
-            const status = stepStatus(i)
-            return (
-            <li
-              key={key}
-              className={current ? 'is-current' : complete ? 'is-complete' : 'is-waiting'}
-            >
-              <button
-                type="button"
-                aria-current={current ? 'step' : undefined}
-                aria-disabled={!canNavigate}
-                title={i === 0 && identity ? '본인인증은 완료되었습니다' : undefined}
-                onClick={() => void stepperNavigate(i)}
-              >
-                <span className="flow__stage-no" aria-hidden="true">
-                  {complete && !current && <span className="flow__stage-check" aria-hidden="true">✓</span>}
+            const blocked = formContinuing || uploadBusy
+            const { state, count } = stepStatus(i)
+            const content = (
+              <>
+                <span className={`step-marker step-marker--${marker}`} aria-hidden="true">
+                  {marker === 'complete' ? <Icon name="check" size={18} /> : marker === 'waiting' ? i + 1 : null}
                 </span>
                 <span className="flow__stage-copy">
                   <span className="flow__stage-caption">
                     <span>{i + 1}단계</span>
-                    <span className="flow__stage-status">{status}</span>
+                    <span className="flow__stage-status">{state}</span>
+                    {count && <span className="flow__stage-count">{count}</span>}
                   </span>
                   <span className="flow__stage-label">{label}</span>
                 </span>
-              </button>
-            </li>
+              </>
+            )
+            return (
+              <li key={key} className={`is-${marker}`}>
+                {reachable ? (
+                  <button
+                    type="button"
+                    className="flow__stage"
+                    aria-disabled={blocked}
+                    onClick={() => void stepperNavigate(i)}
+                  >
+                    {content}
+                  </button>
+                ) : (
+                  <span className="flow__stage" aria-current={current ? 'step' : undefined}>
+                    {content}
+                  </span>
+                )}
+              </li>
             )
           })}
         </ol>
       </div>
 
-      {/* ── 본인인증 (데모) ── */}
-      {stage === 'identity' && appId !== null && (
-        <IdentityCheck
-          appId={appId}
-          identity={identity}
-          onVerified={(verified, mobile) => {
-            setIdentity(verified)
-            const locked = lockIdentity({ ...form1, mobile }, verified)
-            setForm1(locked)
-            void save({ form1: locked }).catch((e: unknown) => setFormError(e instanceof Error ? e.message : String(e)))
-            setStage('forms')
-            window.scrollTo({ top: 0 })
-          }}
-          onNext={() => setStage('forms')}
-        />
-      )}
+      <div className="flow__body" ref={body}>
+        {/* ── 본인인증 (데모) ── */}
+        {stage === 'identity' && appId !== null && (
+          <IdentityCheck
+            appId={appId}
+            identity={identity}
+            onVerified={(verified, mobile) => {
+              setIdentity(verified)
+              const locked = lockIdentity({ ...form1, mobile }, verified)
+              setForm1(locked)
+              void save({ form1: locked }).catch(reportSaveError)
+              setStage('forms')
+              window.scrollTo({ top: 0 })
+            }}
+            onNext={() => setStage('forms')}
+          />
+        )}
 
-      {/* ── [1] 자가진단 ── */}
-      {stage === 'forms' && appId !== null && (
-        <PdfFormsWorkspace
-          key={`${appId}:${program.code}:${!!submitted}`}
-          applicationId={appId}
-          program={program}
-          identity={identity}
-          form1={form1}
-          answers={answers}
-          consent={consent}
-          form5={form5}
-          signMode={signMode}
-          onForm1={onForm1}
-          onAnswers={(next) => { setAnswers(next); void save({ self_check: next }).catch((e: unknown) => setFormError(e instanceof Error ? e.message : String(e))) }}
-          onConsent={setConsent}
-          onForm5={(next) => { setForm5(next); void save({ form5: next }).catch((e: unknown) => setFormError(e instanceof Error ? e.message : String(e))) }}
-          onSignMode={setSignMode}
-          onFlush={flushForms}
-          onPaperFormsChange={setPaperForms}
-          onContinue={() => void continueFromForms()}
-          continuing={formContinuing}
-          error={formError}
-          readOnly={!!submitted}
-          onProgress={reportFormProgress}
-        />
-      )}
+        {/* ── 서식 작성 ── */}
+        {stage === 'forms' && appId !== null && (
+          <PdfFormsWorkspace
+            key={`${appId}:${program.code}:${!!submitted}`}
+            applicationId={appId}
+            program={program}
+            identity={identity}
+            form1={form1}
+            answers={answers}
+            consent={consent}
+            form5={form5}
+            signMode={signMode}
+            onForm1={onForm1}
+            onAnswers={(next) => { setAnswers(next); void save({ self_check: next }).catch(reportSaveError) }}
+            onConsent={setConsent}
+            onForm5={(next) => { setForm5(next); void save({ form5: next }).catch(reportSaveError) }}
+            onSignMode={setSignMode}
+            onFlush={flushForms}
+            onPaperFormsChange={setPaperForms}
+            onContinue={() => void continueFromForms()}
+            continuing={formContinuing}
+            error={formError}
+            readOnly={!!submitted}
+            onProgress={reportFormProgress}
+          />
+        )}
 
-      {/* ── [5] 서류 업로드 ── */}
-      {stage === 'upload' && appId !== null && (
-        <>
-          {identity === null && (
-            <div className="flow-block flow-block--warn">
-              <strong>본인인증 전입니다.</strong>
-              <p>
-                지금 올리는 서류는 본인 명의인지 대조하지 않습니다.{' '}
+        {/* ── 서류 업로드 및 제출 ── */}
+        {stage === 'upload' && appId !== null && (
+          <>
+            {identity === null && (
+              <Notice tone="warning" title="본인인증 전입니다." className="flow__notice">
+                <p>지금 올리는 서류는 본인 명의인지 대조하지 않습니다.</p>
                 <button type="button" className="btn btn--small" onClick={() => jumpTo('identity')}>
                   본인인증 하러 가기
                 </button>
-              </p>
+              </Notice>
+            )}
+            <DocumentUpload
+              applicationId={appId}
+              callCenter={program.call_center}
+              onProgress={reportUploadProgress}
+              onBusyChange={reportUploadBusy}
+              onForms={() => jumpTo('forms')}
+              onBeforeSubmit={async () => { await saveQueue.current }}
+              onSubmitted={(result) => {
+                setSubmitted(result)
+                setStage('complete')
+                window.scrollTo({ top: 0 })
+              }}
+            />
+          </>
+        )}
+
+        {/* ── 접수 완료 (접수증) ── */}
+        {stage === 'complete' && submitted && appId !== null && (
+          <section className="card receipt" aria-labelledby="receipt-title">
+            <div className="receipt__head">
+              <Icon name="checkCircle" size={40} className="receipt__mark" />
+              <div>
+                <h2 id="receipt-title" tabIndex={-1}>신청이 접수되었습니다</h2>
+                <p>아래 접수 내용을 확인해 주세요.</p>
+              </div>
             </div>
-          )}
-          <DocumentUpload
-            applicationId={appId}
-            onProgress={reportUploadProgress}
-            onBusyChange={reportUploadBusy}
-            onForms={() => jumpTo('forms')}
-            onBeforeSubmit={async () => { await saveQueue.current }}
-            onSubmitted={(result) => {
-              setSubmitted(result)
-              setStage('complete')
-              window.scrollTo({ top: 0 })
-            }}
-          />
-        </>
-      )}
 
-      {/* ── 제출 완료 ── */}
-      {stage === 'complete' && submitted && appId !== null && (
-        <>
-          <div className="flow-block flow-block--ok">
-            <strong>{submitted.message}</strong>
-            <p>신청번호 {submitted.application_no}</p>
-            <ol className="flow-steps-list">
-              {submitted.next_steps.map((s) => <li key={s}>{s}</li>)}
-            </ol>
-            <p className="flow-alt">{submitted.notice}</p>
-            <ApplicantFormsBulkMenu applicationId={appId} refreshKey={1} />
-            <button type="button" className="btn btn--primary" onClick={() => void openMyPage()}>마이페이지</button>
-          </div>
-        </>
-      )}
+            <div className="receipt__body">
+              <dl className="fact-list receipt__facts">
+                <div>
+                  <dt>신청번호</dt>
+                  <dd className="receipt__number">{submitted.application_no}</dd>
+                </div>
+                {submitted.submitted_at && (
+                  <div>
+                    <dt>접수 일시</dt>
+                    <dd>{formatDateTime(submitted.submitted_at)}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt>사업명</dt>
+                  <dd>{program.name}</dd>
+                </div>
+                {program.call_center && (
+                  <div>
+                    <dt>문의</dt>
+                    <dd><PhoneLink number={program.call_center} /></dd>
+                  </div>
+                )}
+              </dl>
 
-      {stage === 'mypage' && appId !== null && (
-        <>
-          <div className="flow__mypage-return">
-            <button type="button" className="btn" onClick={() => setStage(stageBeforeMypage)}>신청 화면으로 돌아가기</button>
-          </div>
-          <MyPage applicationId={appId} />
-        </>
-      )}
+              <div className="receipt__next">
+                {submitted.next_steps.length > 0 && (
+                  <>
+                    <h3>다음 절차</h3>
+                    <ol>
+                      {submitted.next_steps.map((step) => <li key={step}>{step}</li>)}
+                    </ol>
+                  </>
+                )}
+                <p>진행 상황은 마이페이지에서 확인할 수 있습니다.</p>
+              </div>
+
+              {submitted.notice && <Notice tone="neutral">{submitted.notice}</Notice>}
+
+              <div className="receipt__actions">
+                <button type="button" className="btn btn--primary" onClick={() => void openMyPage()}>
+                  마이페이지에서 진행 상황 보기
+                </button>
+                <ApplicantFormsBulkMenu applicationId={appId} refreshKey={1} />
+                <button type="button" className="btn btn--quiet" onClick={() => window.print()}>
+                  <Icon name="printer" />
+                  접수 내용 인쇄
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {stage === 'mypage' && appId !== null && (
+          <>
+            <div className="flow__back">
+              <button type="button" className="btn btn--small" onClick={leaveMyPage}>
+                <Icon name="chevronLeft" size={18} />
+                신청 화면으로 돌아가기
+              </button>
+            </div>
+            <MyPage applicationId={appId} />
+          </>
+        )}
+      </div>
     </div>
   )
 }

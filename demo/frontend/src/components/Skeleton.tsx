@@ -12,7 +12,7 @@ export function Skeleton({ children, className = '', label = '불러오는 중',
   return (
     <div className={`skeleton ${className}`.trim()} style={style} role="status" aria-busy="true">
       {children}
-      <span className="skeleton__sr-only">{label}</span>
+      <span className="sr-only">{label}</span>
     </div>
   )
 }

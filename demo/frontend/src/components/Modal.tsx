@@ -1,19 +1,25 @@
 /** Accessible portal dialog. Each instance restores the background and focus it owns. */
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+
+import Icon from './Icon.tsx'
 import './modal.css'
 
 const openDialogs: HTMLElement[] = []
 const FOCUSABLE = 'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
 
-export default function Modal({ title, description, onClose, returnFocus, children, footer, variant = 'default' }: {
+export default function Modal({ title, description, onClose, returnFocus, children, footer, variant = 'default', size = 'md', closeOnOverlay = true }: {
   title: string
   description?: string
   onClose: () => void
   returnFocus?: () => HTMLElement | null
-  children: ReactNode
+  children?: ReactNode
   footer?: ReactNode
   variant?: 'default' | 'viewer' | 'printable-viewer' | 'reupload'
+  /** 기본 대화상자의 폭: sm 400px · md 560px · lg 760px. */
+  size?: 'sm' | 'md' | 'lg'
+  /** 바깥 어두운 영역을 눌러 닫을지. 확인 대화상자는 false로 둔다. */
+  closeOnOverlay?: boolean
 }) {
   const id = useId()
   const [host] = useState(() => document.createElement('div'))
@@ -71,16 +77,16 @@ export default function Modal({ title, description, onClose, returnFocus, childr
   }, [host])
 
   return createPortal(
-    <div className={variant === 'printable-viewer' ? 'modal-overlay modal-overlay--printable' : 'modal-overlay'} onClick={onClose}>
-      <div ref={dialog} className={variant === 'reupload' ? 'modal modal--reupload' : variant === 'default' ? 'modal' : 'modal modal--viewer'}
+    <div className={variant === 'printable-viewer' ? 'modal-overlay modal-overlay--printable' : 'modal-overlay'} onClick={closeOnOverlay ? onClose : undefined}>
+      <div ref={dialog} className={variant === 'reupload' ? 'modal modal--reupload' : variant === 'default' ? `modal modal--${size}` : 'modal modal--viewer'}
         role="dialog" aria-modal="true" aria-labelledby={`${id}-title`} aria-describedby={description ? `${id}-description` : undefined}
         onClick={(event) => event.stopPropagation()}>
         <div className="modal__head">
-          <h3 id={`${id}-title`} ref={heading} tabIndex={-1}>{title}</h3>
-          <button type="button" className="modal__close" onClick={onClose} aria-label="닫기">✕</button>
+          <h2 id={`${id}-title`} ref={heading} className="modal__title" tabIndex={-1}>{title}</h2>
+          <button type="button" className="modal__close" onClick={onClose} aria-label="닫기"><Icon name="close" /></button>
         </div>
         <div className="modal__body">
-          {description && <p id={`${id}-description`}>{description}</p>}
+          {description && <p id={`${id}-description`} className="modal__description">{description}</p>}
           {children}
         </div>
         {footer && <div className="modal__foot">{footer}</div>}

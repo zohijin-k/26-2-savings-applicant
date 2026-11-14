@@ -1,113 +1,126 @@
-/* 범용 모달. 기존 엔진 톤(브랜드 네이비, 판정 3색, .btn)을 그대로 물려받는다. */
+/* 대화상자. .flow 바깥(body 바로 아래)에 그려지므로 필요한 모양은 모두 여기와 components.css에 있다. */
 
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgb(20 20 30 / 45%);
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-  z-index: 100;
+  padding: var(--sp-5);
+  background: var(--color-dim);
   animation: modal-fade var(--ease);
 }
 
 .modal {
-  width: 100%;
-  max-width: 480px;
-  max-height: min(640px, 90vh);
   display: flex;
   flex-direction: column;
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  width: 100%;
+  max-width: 560px;
+  max-height: min(720px, 90dvh);
+  border-radius: var(--radius-12);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-3);
   animation: modal-pop var(--ease);
 }
 
+.modal--sm { max-width: 400px; }
+.modal--md { max-width: 560px; }
+.modal--lg { max-width: 760px; }
+
 .modal__head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  padding: 18px 20px 12px;
+  gap: var(--sp-3);
+  padding: var(--sp-6) var(--sp-6) 0;
 }
 
-.modal__head h3 {
+.modal__title {
+  min-width: 0;
   margin: 0;
-  font-size: 16px;
+  padding-top: 6px;
+  font-size: var(--fs-19);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
 }
 
 .modal__close {
-  font: inherit;
-  font-size: 14px;
-  line-height: 1;
-  border: none;
-  background: var(--surface-subtle);
-  color: var(--muted);
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  margin: -2px -8px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-6);
+  background: transparent;
+  color: var(--color-text-subtle);
   cursor: pointer;
-  transition: background var(--ease), color var(--ease);
+  transition: background-color var(--ease), color var(--ease);
 }
 
-.modal__close:hover {
-  background: var(--border);
-  color: var(--text);
-}
+.modal__close:hover { background: var(--gray-5); color: var(--color-text); }
 
 .modal__body {
   overflow-y: auto;
-  padding: 0 20px 20px;
-  font-size: 13px;
-  line-height: 1.7;
+  padding: var(--sp-3) var(--sp-6) var(--sp-6);
+  font-size: var(--fs-16);
 }
 
+.modal__body > :first-child { margin-top: 0; }
+.modal__body > :last-child { margin-bottom: 0; }
+.modal__body p { margin: 0 0 var(--sp-3); }
+.modal__description { color: var(--color-text-subtle); }
+
 .modal__foot {
-  padding: 14px 20px;
-  border-top: 1px solid var(--border);
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-6) var(--sp-6);
 }
 
 @keyframes modal-fade {
-  from {
-    opacity: 0;
-  }
+  from { opacity: 0; }
 }
 
 @keyframes modal-pop {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.98);
-  }
+  from { opacity: 0; transform: translateY(8px); }
 }
 
-@media (max-width: 520px) {
-  .modal {
-    max-width: none;
-  }
+@media (max-width: 600px) {
+  .modal-overlay { padding: var(--sp-4); }
+  .modal__head { padding: var(--sp-5) var(--sp-5) 0; }
+  .modal__body { padding: var(--sp-3) var(--sp-5) var(--sp-5); }
+  .modal__foot { flex-direction: column-reverse; padding: 0 var(--sp-5) var(--sp-5); }
+  .modal__foot > .btn { width: 100%; }
 }
 
-/* 파일 크게 보기 — 화면을 거의 채우고, 본문은 회색 바탕 위에 쪽을 올린다 */
+/* 파일 크게 보기: 화면을 거의 채우고 본문은 여백 없이 쓴다. */
 .modal--viewer {
   max-width: min(1000px, 94vw);
-  height: 92vh;
+  height: 92dvh;
   max-height: none;
   overflow: hidden;
 }
 
 .modal--viewer .modal__head {
-  padding: 14px 16px 12px 20px;
-  border-bottom: 1px solid var(--border);
+  align-items: center;
+  padding: var(--sp-3) var(--sp-4) var(--sp-3) var(--sp-6);
+  border-bottom: 1px solid var(--color-divider);
 }
 
-.modal--viewer .modal__head h3 {
+.modal--viewer .modal__title {
   overflow: hidden;
+  padding-top: 0;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+.modal--viewer .modal__close { margin: 0; }
 
 .modal--viewer .modal__body {
   flex: 1;
@@ -116,14 +129,24 @@
   overflow: hidden;
 }
 
-.modal--reupload { max-width: 900px; max-height: 90dvh; }
-.modal--reupload .modal__head h3 { font-size: 21px; line-height: 1.5; }
-.modal--reupload .modal__body { font-size: 15px; }
-.modal--reupload h3:focus { outline: none; }
-.reupload-doc { padding: 22px 0; border-top: 1px solid var(--border); }
-.reupload-doc h4 { margin: 0 0 12px; font-size: 18px; }
-.reupload-doc ol { padding-left: 24px; }
-.reupload-doc li { margin-bottom: 18px; }
-.reupload-doc li h5 { margin: 0; font-size: 16px; }
-.reupload-doc li p { margin: 6px 0; }
-.reupload-doc__actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+/* 다시 올릴 서류 안내 대화상자. 문구는 승인된 고정 안내를 그대로 쓴다. */
+.modal--reupload { max-width: 760px; max-height: 90dvh; }
+
+.reupload-doc {
+  padding: var(--sp-5) 0;
+  border-top: 1px solid var(--color-divider);
+}
+
+.reupload-doc:last-child { padding-bottom: 0; }
+.reupload-doc h3 { margin: 0 0 var(--sp-3); font-size: var(--fs-17); }
+.reupload-doc ol { margin: var(--sp-3) 0; padding-left: var(--sp-6); }
+.reupload-doc li { margin-bottom: var(--sp-4); }
+.reupload-doc li h4 { margin: 0; font-size: var(--fs-16); font-weight: var(--fw-bold); line-height: var(--lh-tight); }
+.reupload-doc li p { margin: 6px 0 0; }
+
+.reupload-doc__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}

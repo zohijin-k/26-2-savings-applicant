@@ -129,13 +129,21 @@ python -m pytest engine_v2/tests -q
 python -m pytest demo/backend/tests -q
 ```
 
-검증 기준선은 `engine_v2/tests` 1,264개 통과·3개 건너뜀, `demo/backend/tests` 1,227개 통과, 시나리오 18개 모듈 1,885개 통과·실패 0입니다. 시나리오 중 17개가 통과 건수를 출력하며 나머지 1개는 종료 코드로 확인합니다. 프런트 lint는 경고 1개·오류 0개이며 build는 통과했습니다. 위 반복문은 한 시나리오가 실패해도 나머지를 계속 실행합니다. 파일 이름 순서상 P11\~P15가 P2\~P9보다 먼저 실행되므로, 앞에서 멈추면 뒤 시나리오 결과를 확인할 수 없습니다.
+검증 기준선은 `engine_v2/tests` 1,264개 통과·3개 건너뜀, `demo/backend/tests` 1,339개 통과, 시나리오 18개 모듈 1,885개 통과·실패 0입니다. 시나리오 중 17개가 통과 건수를 출력하며 나머지 1개는 종료 코드로 확인합니다. 프런트 lint는 경고 1개·오류 0개이며 build는 통과했습니다. 위 반복문은 한 시나리오가 실패해도 나머지를 계속 실행합니다. 파일 이름 순서상 P11\~P15가 P2\~P9보다 먼저 실행되므로, 앞에서 멈추면 뒤 시나리오 결과를 확인할 수 없습니다.
 
 프론트엔드 타입 검사·린트·빌드는 다음과 같습니다.
 
 ```bash
 cd demo/frontend
 npx tsc -b && npx oxlint && npx vite build
+```
+
+프런트엔드 단위 시험은 별도 실행기 없이 Node로 실행합니다. `tests/` 아래 시험은 업로드 대기열, 예상 시간 추정, 파일 사전 검사, 본인인증 입력 검증, 표시 형식, 오류 문구 변환, 재업로드 안내를 확인합니다.
+
+```bash
+cd demo/frontend
+node --test tests/
+node src/forms/phone.test.ts
 ```
 
 하위 폴더별 기능과 추가 실행 방법은 [데모](../demo/README.md), [기존 엔진](../engine/README.md), [엔진 v2](../engine_v2/README.md), 대시보드 코드와 [대시보드 옛 안내](archive/dashboard-README.md)를 확인합니다.

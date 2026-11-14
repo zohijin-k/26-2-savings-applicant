@@ -1,31 +1,16 @@
-:root {
-  --skeleton-base: var(--border-strong, var(--border, #bbb));
-  --skeleton-shine: var(--surface-subtle, #fafafa);
-}
-
-.skeleton__sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
+/* 불러오는 동안의 자리 표시. 옅은 회색 위로 더 옅은 빛이 지나간다. */
 
 .skeleton__line,
 .skeleton__block {
   display: block;
-  background-color: var(--skeleton-base);
+  background-color: var(--gray-10);
   background-image: linear-gradient(
     90deg,
-    var(--skeleton-base) 0%,
-    var(--skeleton-base) 30%,
-    var(--skeleton-shine) 50%,
-    var(--skeleton-base) 70%,
-    var(--skeleton-base) 100%
+    var(--gray-10) 0%,
+    var(--gray-10) 30%,
+    var(--gray-5) 50%,
+    var(--gray-10) 70%,
+    var(--gray-10) 100%
   );
   background-size: 200% 100%;
   background-position: 100% 0;
@@ -34,22 +19,22 @@
 
 .skeleton__line {
   width: var(--skeleton-width, 100%);
-  height: 12px;
-  border-radius: 999px;
+  height: 14px;
+  border-radius: var(--radius-pill);
 }
 
 .skeleton__block {
   width: 100%;
-  min-height: 48px;
-  border-radius: var(--radius-sm, 8px);
+  min-height: var(--control-md);
+  border-radius: var(--radius-8);
 }
 
 .skeleton__card {
   min-width: 0;
-  padding: 16px;
-  border: 1px solid var(--border, #ddd);
-  border-radius: var(--radius-md, 12px);
-  background: var(--surface, #fff);
+  padding: var(--sp-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-12);
+  background: var(--color-surface);
 }
 
 @keyframes skeleton-shimmer {
@@ -60,32 +45,6 @@
   .skeleton__line,
   .skeleton__block {
     animation: none;
-    background-color: var(--skeleton-base);
     background-image: none;
   }
 }
-
-/* Screen-shaped skeleton layouts */
-.dupload__skeleton-list { display: grid; gap: 10px; }
-.dupload__skeleton-slot { min-height: 136px; display: grid; align-content: start; gap: 16px; }
-.mypage__head p .skeleton__line { display: inline-block; vertical-align: middle; }
-.dslot__head-meta { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
-.status-badge--loading { color: var(--muted); border-color: var(--border-strong); background: var(--surface-subtle); }
-.dslot__spinner { width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: dslot-spin 800ms linear infinite; }
-@keyframes dslot-spin { to { transform: rotate(360deg); } }
-.dresult--loading .dresult__kind--loading { cursor: default; border-color: var(--border); background: var(--surface-subtle); }
-.dresult__thumbnail-shimmer { width: 100%; height: 100%; min-height: 0; border-radius: 0; }
-.dresult__body--loading { align-content: center; }
-.dresult__name--loading { cursor: default; }
-.dresult__filename-shimmer { height: 14px; max-width: 220px; }
-.dresult__issue-date { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12.5px; }
-.dresult__issue-date .skeleton__line { flex: none; height: 12px; }
-.dresult--loading .dresult__actions button:disabled { opacity: 0.48; cursor: not-allowed; }
-@media (prefers-reduced-motion: reduce) {
-  .dslot__spinner { animation: none; }
-}
-.mypage__skeleton { display: grid; gap: 16px; }
-.pdfpages__loading { display: block; margin: 0; text-align: left; }
-.skeleton.pdfpages__loading { margin: 0; padding: 0; text-align: left; }
-.pdfpages__placeholder { aspect-ratio: 1 / 1.414; border-radius: 2px; box-shadow: 0 1px 4px rgb(20 20 30 / 12%); }
-.dresult__pages .pdfpages__loading { display: none; }

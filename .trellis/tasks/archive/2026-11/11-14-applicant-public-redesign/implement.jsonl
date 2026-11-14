@@ -1,0 +1,12 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend spec index"}
+{"file": ".trellis/spec/frontend/pdf-form-workspace.md", "reason": "Binding contracts for the PDF workspace, stage strip, upload step and reupload guidance"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "URL/sessionStorage/portal ownership contracts"}
+{"file": ".trellis/spec/backend/applicant-submission.md", "reason": "Applicant-facing status projection and the 10-code allowlist the UI must respect"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse shared components/tokens instead of duplicating"}
+{"file": ".trellis/tasks/11-14-applicant-public-redesign/research/audit-shell-tokens.md", "reason": "Current tokens, shell, shared components, routing invariants"}
+{"file": ".trellis/tasks/11-14-applicant-public-redesign/research/audit-identity-flow.md", "reason": "Flow frame, step 1, MyPage: strings, risks, invariants"}
+{"file": ".trellis/tasks/11-14-applicant-public-redesign/research/audit-forms-workspace.md", "reason": "Step 2: contracts, safe vs unsafe CSS, risks"}
+{"file": ".trellis/tasks/11-14-applicant-public-redesign/research/audit-upload-frontend.md", "reason": "Step 3: upload timeline, latency opportunities, risks"}
+{"file": ".trellis/tasks/11-14-applicant-public-redesign/research/audit-backend-ocr-timing.md", "reason": "Server timings and concurrency limits that shape the client queue"}
+{"file": ".trellis/tasks/11-14-applicant-public-redesign/research/audit-constraints-tests.md", "reason": "Verification commands, P4 token scan, DOM ids, prior decisions"}
+{"file": ".trellis/tasks/11-14-applicant-public-redesign/research/audit-gov-design-standards.md", "reason": "KRDS/KWCAG values and waiting-time guidance behind the tokens"}

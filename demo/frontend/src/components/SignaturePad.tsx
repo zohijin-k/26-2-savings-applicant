@@ -23,7 +23,16 @@ export default function SignaturePad({ value, onChange, width = 260, height = 90
   // 고해상도 화면에서 획이 흐려지지 않게 캔버스를 화면 배율만큼 크게 잡는다.
   const [dpr] = useState(() => Math.max(1, Math.round(window.devicePixelRatio || 1)))
 
+  const latestValue = useRef(value)
+  // 되살리는 그림이 늦게 도착해 새로 그은 획을 덮지 않도록, 다시 그릴 때마다 번호를 올린다.
+  const restoreTurn = useRef(0)
+  useEffect(() => {
+    latestValue.current = value
+  }, [value])
+
   // 저장된 서명이 있으면 되살린다 (임시저장 후 복귀 등).
+  // 캔버스 크기가 바뀌면 브라우저가 그림을 지우므로, 그때도 지금 서명을 다시 그린다.
+  // 서명은 늘이지 않고 원래 비율 그대로 새 크기에 맞춰 가운데에 놓는다.
   useEffect(() => {
     const canvas = ref.current
     if (!canvas) return
@@ -31,17 +40,25 @@ export default function SignaturePad({ value, onChange, width = 260, height = 90
     if (!ctx) return
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.clearRect(0, 0, width, height)
-    if (!value) {
+    const turn = ++restoreTurn.current
+    const current = latestValue.current
+    if (!current) {
       setEmpty(true)
       return
     }
     const img = new Image()
-    img.onload = () => ctx.drawImage(img, 0, 0, width, height)
-    img.src = value
+    img.onload = () => {
+      if (turn !== restoreTurn.current || !img.naturalWidth || !img.naturalHeight) return
+      const fit = Math.min(width / img.naturalWidth, height / img.naturalHeight)
+      const drawWidth = img.naturalWidth * fit
+      const drawHeight = img.naturalHeight * fit
+      ctx.clearRect(0, 0, width, height)
+      ctx.drawImage(img, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight)
+    }
+    img.src = current
     setEmpty(false)
-    // value 는 최초 복원에만 쓴다. 그리는 중에 다시 그리면 획이 끊긴다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    // value 는 복원에만 쓴다. 그리는 중에 다시 그리면 획이 끊기므로 값이 바뀔 때는 다시 그리지 않는다.
+  }, [width, height, dpr])
 
   const pos = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
@@ -52,6 +69,7 @@ export default function SignaturePad({ value, onChange, width = 260, height = 90
     const ctx = ref.current?.getContext('2d')
     if (!ctx) return
     e.currentTarget.setPointerCapture(e.pointerId)
+    restoreTurn.current += 1
     drawing.current = true
     const { x, y } = pos(e)
     ctx.lineWidth = 2.2
@@ -101,6 +119,7 @@ export default function SignaturePad({ value, onChange, width = 260, height = 90
           onPointerMove={move}
           onPointerUp={end}
           onPointerLeave={end}
+          onPointerCancel={end}
           aria-label="전자서명 입력란"
         />
         {empty && (

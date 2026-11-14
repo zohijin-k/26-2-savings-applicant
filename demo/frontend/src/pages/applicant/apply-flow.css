@@ -1,278 +1,349 @@
-/* 신청 플로우 껍데기. 서식 내부 스타일은 forms/form-sheet.css 가 담당한다. */
+/*
+ * 신청 화면 틀: 제목 · 단계 표시 · 단계별 본문 자리 · 접수증.
+ * 변수는 styles/tokens.css에서만 가져온다. 버튼 · 입력 · 안내 상자 같은 공용 모양은 styles/components.css에 있다.
+ * 서식 내부(원본 PDF 위 입력 칸)는 forms/ 쪽 CSS가 담당한다.
+ *
+ * 차례: flow · flow__head · step-marker · flow__stages · flow__body · fact-list · receipt · print
+ */
 
+/* ── flow ─────────────────────────────────────────────────────────────── */
+/* 모든 단계가 같은 틀을 쓴다. 본문 폭만 단계에 따라 다르다(.flow__body). */
 .flow {
-  width: 940px;
-  margin: 0 auto;
-  padding: 28px 0 96px;
-}
-
-/* Upload uses a fluid shell capped near the default 940px width. Savings forms
- * use the wider shell below; their PDF background and input coordinates scale
- * together inside the document viewer rather than reflowing document cells. */
-.flow--fluid {
   width: 100%;
-  max-width: calc(940px + 32px);
-  padding-left: 16px;
-  padding-right: 16px;
-}
-
-/* The document keeps its original coordinates; only its surrounding workspace grows. */
-.flow.flow--forms {
-  --forms-sidebar-width: 244px;
-  --forms-workspace-gap: 20px;
-  width: calc(100% - 32px);
-  max-width: 1160px;
+  max-width: var(--shell-max);
   margin: 0 auto;
+  padding: 0 var(--gutter) var(--sp-16);
 }
 
-.flow--forms .flow__head { flex-wrap: wrap; }
-
-.flow__head {
+/* 준비 중 · 열지 못함: 가운데 한 덩어리. */
+.flow--message {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 20px;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-4);
+  max-width: calc(560px + var(--gutter) * 2);
+  min-height: 240px;
+  padding-top: var(--sp-16);
 }
 
-.flow--fluid .flow__head {
-  flex-wrap: wrap;
+.flow--message .notice { width: 100%; }
+
+/* ── flow__head ───────────────────────────────────────────────────────── */
+/* 제목과 단계 표시를 담은 흰 띠. 띠는 화면 양끝까지 이어지고 내용은 틀 폭에 맞춘다. */
+.flow__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-8);
+  padding: var(--sp-6) 0 var(--sp-5);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 100vmax var(--color-surface), 0 1px 0 100vmax var(--color-border);
+  clip-path: inset(0 -100vmax -1px);
 }
 
 .flow__head h1 {
-  font-size: 22px;
-  letter-spacing: -0.02em;
+  font-size: var(--fs-24);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+/* ── step-marker ──────────────────────────────────────────────────────── */
+/* 단계 표식(원). 신청 단계와 마이페이지 진행 상황이 함께 쓴다.
+   예정 = 번호, 현재 = 고리와 점, 완료 = 채운 원과 체크. 상태는 옆의 글자로도 알린다. */
+.step-marker {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--marker, 32px);
+  height: var(--marker, 32px);
+  border: 2px solid var(--gray-30);
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--fs-15);
+  font-weight: var(--fw-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.step-marker .icon {
+  width: 56%;
+  height: 56%;
+  stroke-width: 2.5;
+}
+
+.step-marker--current { border-color: var(--color-primary); }
+
+.step-marker--current::after {
+  content: '';
+  width: 38%;
+  height: 38%;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+.step-marker--complete {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+}
+
+/* ── flow__stages ─────────────────────────────────────────────────────── */
+/* 이어진 선 위에 원형 표식 셋. 표식 아래에 "N단계 · 상태"와 단계 이름을 둔다. */
+.flow__stages {
+  --marker: 32px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.flow__sub {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-/* 신청 단계는 상단 바 아래 한 줄로 표시한다. */
-.flow.flow--active { padding-top: 12px; }
-.flow__overview { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin-bottom: 12px; }
-.flow--forms .flow__overview { grid-template-columns: var(--forms-sidebar-width) minmax(0, 1fr); column-gap: var(--forms-workspace-gap); align-items: center; }
-.flow--forms .flow__head--compact h1 { text-wrap: balance; word-break: keep-all; }
-.flow__head--compact { align-items: baseline; justify-content: flex-start; flex-shrink: 0; gap: 10px; margin: 0; }
-.flow__submission-order { color: var(--workspace-muted, #66758b); font-size: 11px; white-space: nowrap; }
-.flow__stages { --stage-node-size: 20px; --stage-node-top: 3px; display: flex; width: 100%; margin: 0 auto; padding: 0; list-style: none; }
-.flow--forms .flow__stages { position: relative; width: 100%; margin: 0; }
-.flow--forms .flow__stages::before { position: absolute; z-index: 0; top: calc(var(--stage-node-top) + var(--stage-node-size) / 2 - 0.5px); right: var(--stage-edge-center); left: var(--stage-edge-center); height: 1px; background: #d8e0ea; content: ''; pointer-events: none; }
-.flow--forms .flow__stages { --stage-edge-inset: 16px; --stage-edge-center: calc(var(--stage-edge-inset) + var(--stage-node-size) / 2); --stage-edge-column: calc(25% + var(--stage-edge-center) / 2); display: grid; grid-template-columns: var(--stage-edge-column) minmax(0, 1fr) var(--stage-edge-column); }
-.flow--forms .flow__stages li:first-child button { align-items: flex-start; padding-left: var(--stage-edge-inset); padding-right: 0; }
-.flow--forms .flow__stages li:last-child button { align-items: flex-end; padding-left: 0; padding-right: var(--stage-edge-inset); }
-.flow--forms .flow__stages li:first-child .flow__stage-copy { text-align: left; }
-.flow--forms .flow__stages li:last-child .flow__stage-copy { text-align: right; }
-.flow--forms .flow__stages li:first-child .flow__stage-caption { justify-content: flex-start; }
-.flow--forms .flow__stages li:last-child .flow__stage-caption { justify-content: flex-end; }
-.flow--forms .flow__stages li:nth-child(2) .flow__stage-copy { width: 100%; text-align: center; }
-.flow--forms .flow__stages li:last-child .flow__stage-copy { align-self: flex-end; width: 100%; text-align: right; }
-.flow--forms .flow__stages li:nth-child(2) .flow__stage-caption { justify-content: center; }
-.flow--forms .flow__stages li:nth-child(3) .flow__stage-caption { justify-content: flex-end; }
-.flow--forms .flow__stages li:first-child::after { left: var(--stage-edge-center); width: calc(200% - var(--stage-node-size) - var(--stage-edge-inset) * 2); }
-.flow__stages li { position: relative; display: flex; flex: 1; min-width: 0; }
-.flow__stages li:not(:last-child)::after { position: absolute; top: calc(var(--stage-node-top) + var(--stage-node-size) / 2 - 0.5px); left: 50%; width: 100%; height: 1px; background: #d8e0ea; content: ''; pointer-events: none; }
-.flow__stages button { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; min-height: 68px; padding: var(--stage-node-top) 4px 5px; border: 0; border-radius: 4px; background: transparent; color: #626f82; font: inherit; text-align: center; cursor: default; }
-.flow__stage-no { position: relative; display: grid; flex-shrink: 0; place-items: center; width: var(--stage-node-size); height: var(--stage-node-size); border: 1px solid #d2dbe6; border-radius: 50%; background: #e9eef4; line-height: 1; }
-.flow__stage-copy { display: grid; gap: 1px; width: 100%; min-width: 0; }
-.flow__stage-caption { display: flex; justify-content: center; flex-wrap: wrap; gap: 0 5px; color: #637186; font-size: 11px; line-height: 14px; }
-.flow__stage-caption > span:first-child { white-space: nowrap; }
-.flow__stage-label { font-size: 14px; font-weight: 600; line-height: 20px; word-break: keep-all; }
-.flow__stage-status { overflow-wrap: anywhere; }
-.flow__stages button[aria-disabled="false"] { cursor: pointer; }
-.flow__stages button[aria-disabled="false"]:hover .flow__stage-label { color: var(--workspace-accent, #315dcc); text-decoration: underline; text-underline-offset: 3px; }
-.flow__stages button:focus-visible { outline: 2px solid var(--workspace-accent, #315dcc); outline-offset: 2px; }
-.flow__stage-check { color: #fff; font-size: 12px; font-weight: 700; }
-.flow__stages li.is-complete::after { background: #b6c2d2; }
-.flow__stages li.is-complete .flow__stage-no { border-color: #8e9db0; background: #8e9db0; }
-.flow__stages li.is-complete .flow__stage-label { color: #45566e; }
-.flow__stages li.is-current .flow__stage-no { border: 2px solid var(--workspace-accent, #315dcc); background: #fff; box-shadow: 0 0 0 3px #e7edfb; }
-.flow__stages li.is-current .flow__stage-no::after { width: 6px; height: 6px; border-radius: 50%; background: var(--workspace-accent, #315dcc); content: ''; }
-.flow__stages li.is-current .flow__stage-caption { color: #496ab5; }
-.flow__stages li.is-current .flow__stage-label { color: var(--workspace-accent, #315dcc); font-weight: 700; }
-@media (max-width: 1000px) {
-  .flow.flow--forms { --forms-sidebar-width: 218px; --forms-workspace-gap: 16px; }
-}
-@media (max-width: 800px) {
-  .flow--forms .flow__overview { grid-template-columns: minmax(0, 1fr); }
-  .flow--forms .flow__stages { width: 100%; margin: 0 auto; }
-}
-@media (max-width: 580px) {
-  .flow--forms .flow__stages { --stage-edge-inset: 12px; }
-  .flow--forms .flow__stages li:nth-child(2) .flow__stage-copy,
-  .flow--forms .flow__stages li:nth-child(3) .flow__stage-copy { width: 100%; }
-  .flow__stages button { padding-right: 3px; padding-left: 3px; }
-  .flow__stage-label { font-size: 12px; line-height: 18px; }
-  .flow__stage-caption { min-height: 28px; align-content: flex-start; gap: 0 3px; font-size: 10px; }
-}
-
-.flow__mypage-return { display: flex; justify-content: flex-end; margin-bottom: 16px; }
-
-@media (max-width: 960px) {
-  .flow { width: auto; max-width: 940px; margin: 0 16px; }
-}
-
-.flow__gap {
-  height: 28px;
-}
-
-.flow__actions {
+.flow__stages li {
+  position: relative;
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 28px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
-}
-
-/* 이전 버튼은 왼쪽, 다음으로 가는 버튼은 오른쪽 */
-.flow__actions > .btn:not(.btn--primary):first-child {
-  margin-right: auto;
-}
-
-/* 신청 화면 공통 버튼. */
-.btn {
-  font: inherit;
-  font-size: 14px;
-  padding: 8px 20px;
-  border: 1px solid #888;
-  border-radius: var(--radius-sm);
-  background: #fff;
-  cursor: pointer;
-  transition: background var(--ease), border-color var(--ease), transform var(--ease);
-}
-
-.btn:hover:not(:disabled) {
-  border-color: var(--brand);
-  color: var(--brand);
-}
-
-.btn--primary {
-  border-color: var(--brand);
-  background: var(--brand);
-  color: #fff;
-  font-weight: 700;
-}
-
-.btn--primary:hover:not(:disabled) {
-  background: #16294d;
-  color: #fff;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 신청 화면 버튼 */
-.flow .btn {
-  display: inline-flex;
-  align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 42px;
+  min-width: 0;
+}
+
+/* 앞 표식의 가운데에서 이 표식의 가운데까지 잇는 선. 이 단계가 현재이거나 완료면 주 색이다. */
+.flow__stages li + li::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--marker) / 2 - 1px);
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--gray-20);
+}
+
+.flow__stages li.is-current::before,
+.flow__stages li.is-complete::before { background: var(--color-primary); }
+
+.flow__stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: 100%;
+  margin: 0;
+  padding: 0 var(--sp-2) var(--sp-1);
+  border: 0;
+  border-radius: var(--radius-8);
+  background: transparent;
+  color: var(--color-text);
   font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  padding: 0 20px;
-  border: 1px solid #c3cad5;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: #2b3442;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background var(--ease), border-color var(--ease), color var(--ease);
-}
-
-.flow .btn:hover:not(:disabled) {
-  border-color: var(--brand);
-  color: var(--brand);
-  background: #f7f9fd;
-}
-
-.flow .btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--brand-tint);
-  border-color: var(--brand);
-}
-
-.flow .btn--primary {
-  border-color: var(--brand);
-  background: var(--brand);
-  color: #fff;
-  font-weight: 700;
-}
-
-.flow .btn--primary:hover:not(:disabled) {
-  background: #16294d;
-  border-color: #16294d;
-  color: #fff;
-}
-
-.app-shell--applicant .flow .flow__actions > .btn--primary:not(:disabled) { border-color: var(--workspace-accent); background: var(--workspace-accent); }
-.app-shell--applicant .flow .flow__actions > .btn--primary:hover:not(:disabled) { border-color: #284fb5; background: #284fb5; }
-
-.flow .btn:disabled {
-  cursor: not-allowed;
-  border-color: var(--border);
-  background: #eef0f4;
-  color: #848c98;
-}
-
-.flow .btn--small {
-  min-height: 32px;
-  font-size: 12.5px;
-  padding: 0 12px;
-}
-
-.flow-block {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 16px 18px;
-  margin-top: 18px;
-}
-
-.flow-block p {
-  margin: 6px 0 0;
-}
-
-/* 자가진단에서 걸린 경우 — 사유와 대안을 같이 준다 */
-.flow-block--stop {
-  border-color: color-mix(in srgb, var(--fail) 35%, transparent);
-  background: var(--fail-tint);
-}
-
-/* 본인인증 없이 서류 단계로 건너뛴 경우 */
-.flow-block--warn {
-  border-color: color-mix(in srgb, #b45309 35%, transparent);
-  background: #fffbeb;
-  margin: 0 0 16px;
-}
-
-.flow-block--ok {
-  border-color: color-mix(in srgb, var(--success) 35%, transparent);
-  background: var(--success-tint);
-}
-
-.flow-alt {
-  background: #fff;
-  border-left: 3px solid var(--brand);
-  border-radius: 0 6px 6px 0;
-  padding: 8px 12px;
-}
-
-.flow-error {
-  color: var(--fail);
   text-align: center;
-  padding: 40px;
 }
 
-/* 제출 완료 안내의 다음 절차 목록 */
-.flow-steps-list {
-  margin: 8px 0 0;
-  padding-left: 20px;
-  font-size: 13px;
+button.flow__stage { cursor: pointer; }
+button.flow__stage[aria-disabled="true"] { cursor: not-allowed; }
+
+button.flow__stage:not([aria-disabled="true"]):hover .flow__stage-label {
+  color: var(--color-text-brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.flow__stage-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.flow__stage-caption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  color: var(--color-text-subtle);
+  font-size: var(--fs-13);
+  line-height: var(--lh-tight);
+}
+
+.flow__stage-caption > span { white-space: nowrap; }
+
+.flow__stage-caption > span + span::before {
+  content: '·';
+  margin: 0 var(--sp-1);
+  color: var(--color-text-subtle);
+  font-weight: var(--fw-regular);
+}
+
+.flow__stage-label {
+  font-size: var(--fs-16);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+}
+
+.flow__stages li.is-waiting .flow__stage-label { color: var(--color-text-subtle); }
+
+.flow__stages li.is-current .flow__stage-label,
+.flow__stages li.is-current .flow__stage-status {
+  color: var(--color-text-brand);
+}
+
+.flow__stages li.is-current .flow__stage-status { font-weight: var(--fw-bold); }
+
+/* ── flow__body ───────────────────────────────────────────────────────── */
+/* 읽는 화면(본인인증 · 서류 업로드 · 접수증 · 마이페이지)은 가운데 좁은 단, 서식 작성은 틀 전체 폭. */
+.flow__body {
+  max-width: var(--content-max);
+  margin-inline: auto;
+}
+
+.flow--forms .flow__body { max-width: none; }
+
+.flow__notice { margin-bottom: var(--sp-4); }
+
+.flow__notice .notice__body { display: grid; justify-items: start; gap: var(--sp-3); }
+.flow__notice .notice__body p { margin: 0; }
+
+.flow__back { margin-bottom: var(--sp-4); }
+
+/* ── fact-list ────────────────────────────────────────────────────────── */
+/* "항목 이름 — 값" 목록. 확인 대화상자 · 본인인증 결과 · 접수증이 쓴다(대화상자 안에서도 같아야 하므로 전역). */
+.fact-list {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--sp-2) var(--sp-5);
+  margin: 0;
+  padding: 0;
+}
+
+.fact-list > div { display: contents; }
+
+.fact-list dt {
+  color: var(--color-text-subtle);
+  font-size: var(--fs-15);
+  line-height: var(--lh-base);
+}
+
+.fact-list dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--fs-16);
+  font-weight: var(--fw-medium);
+}
+
+/* ── receipt ──────────────────────────────────────────────────────────── */
+/* 접수 완료 화면은 접수증 한 장이다. */
+/* 넘치는 부분을 자르지 않는다: 아래 서식 메뉴가 카드 밖으로 펼쳐져야 한다. */
+.receipt { padding: 0; }
+
+/* 머리 띠: 배너의 연녹 → 크림. 장식이며 뜻을 전하는 색이 아니다. */
+.receipt__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-8) var(--sp-6);
+  border-bottom: 1px solid var(--color-divider);
+  border-radius: var(--radius-12) var(--radius-12) 0 0;
+  background: linear-gradient(100deg, var(--jb-mint), var(--jb-cream));
+}
+
+.receipt__mark { color: var(--success-60); }
+
+.receipt__head p {
+  margin: var(--sp-1) 0 0;
+  color: var(--color-text-subtle);
+  font-size: var(--fs-16);
+}
+
+.receipt__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-6);
+  padding: var(--sp-6);
+}
+
+.receipt__facts { gap: var(--sp-3) var(--sp-6); }
+
+.receipt__facts dd { font-size: var(--fs-17); }
+
+.receipt__facts .receipt__number {
+  font-size: var(--fs-19);
+  font-weight: var(--fw-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.receipt__next h3 {
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-17);
+}
+
+.receipt__next ol {
+  margin: 0 0 var(--sp-3);
+  padding-left: var(--sp-5);
+}
+
+.receipt__next li + li { margin-top: var(--sp-1); }
+
+.receipt__next p {
+  margin: 0;
+  color: var(--color-text-subtle);
+}
+
+.receipt__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  padding-top: var(--sp-6);
+  border-top: 1px solid var(--color-divider);
+}
+
+/* ── 좁은 화면 ────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .flow { padding-bottom: var(--sp-12); }
+  .flow--message { padding-top: var(--sp-12); }
+
+  .flow__head {
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-5);
+    padding: var(--sp-4) 0;
+  }
+
+  .flow__head h1 { font-size: var(--fs-22); }
+
+  .flow__stages { --marker: 24px; }
+  .flow__stage { padding: 0 2px var(--sp-1); }
+  .step-marker { font-size: var(--fs-13); }
+  .flow__stage-label { font-size: var(--fs-15); }
+
+  /* 진행 수치는 아래 줄로 내려 글자가 겹치지 않게 한다. */
+  .flow__stage-caption > .flow__stage-count { flex-basis: 100%; }
+  .flow__stage-caption > .flow__stage-count::before { content: none; }
+
+  .fact-list { gap: var(--sp-2) var(--sp-4); }
+
+  .receipt__head {
+    align-items: flex-start;
+    padding: var(--sp-6) var(--sp-4);
+  }
+
+  .receipt__body { padding: var(--sp-5) var(--sp-4); }
+  /* 버튼 세 개를 같은 폭으로 위아래로 쌓는다. 서식 메뉴(details)도 같은 폭을 쓴다. */
+  .receipt__actions > * { flex: 1 0 100%; }
+  .receipt__actions > details > summary { width: 100%; }
+}
+
+/* ── 인쇄 (접수 내용 인쇄) ────────────────────────────────────────────── */
+@media print {
+  .flow__head {
+    margin-bottom: var(--sp-5);
+    padding: var(--sp-4) 0;
+    border-bottom: 1px solid var(--color-border);
+    box-shadow: none;
+    clip-path: none;
+  }
+
+  .flow__stages,
+  .flow__back,
+  .receipt__actions { display: none; }
+
+  .receipt { break-inside: avoid; }
 }

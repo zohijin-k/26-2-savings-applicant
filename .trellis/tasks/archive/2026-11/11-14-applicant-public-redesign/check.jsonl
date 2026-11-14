@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend spec index"}
+{"file": ".trellis/spec/frontend/pdf-form-workspace.md", "reason": "Contracts the redesign must still satisfy"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "State and navigation contracts"}
+{"file": ".trellis/spec/backend/applicant-submission.md", "reason": "Applicant-facing status and reason exposure rules"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Thinking guides for cross-layer and reuse checks"}
+{"file": ".trellis/tasks/11-14-applicant-public-redesign/research/audit-constraints-tests.md", "reason": "Verification commands, P4 token scan, DOM ids"}
+{"file": ".trellis/tasks/11-14-applicant-public-redesign/research/audit-gov-design-standards.md", "reason": "Accessibility and design criteria to check against"}
+{"file": ".trellis/tasks/11-14-applicant-public-redesign/research/audit-visual-capture.md", "reason": "Before-state screenshots and critique for comparison"}

@@ -1,119 +1,875 @@
-.pdf-forms { display: grid; gap: 16px; }
-.pdf-forms__intro h2 { margin: 0 0 4px; font-size: 20px; }
-.pdf-forms__intro p { margin: 0; color: var(--muted); }
-.pdf-form__contents { display: flex; flex-direction: column; min-width: 0; min-height: 0; margin: 0; padding: 0; border: 0; }
-.modal--viewer .pdf-form__contents { flex: 1 1 auto; }
+/*
+ * 2단계 서식 작성.
+ *
+ * 1부(.pdf-forms__*, .form-signature*)는 원본 서식 둘레의 화면이다: 서식 목록, 문서 머리, 도구줄,
+ * 작성 방식, 안내, 서명 창. 색·글자·간격은 styles/tokens.css의 변수만 쓴다.
+ *
+ * 2부(.pdf-form__*)는 원본 PDF 쪽 그림과 그 위에 겹쳐 그리는 입력 칸이다. 좌표·크기·글꼴은
+ * 서식 재현에 맞춰져 있으므로 바꾸지 않는다. 여기서 정하는 색은 "작성할 칸" 표시뿐이다.
+ */
 
-/* Workspace chrome is separate from the original PDF's field styles below. */
-.pdf-forms--inline { gap: 12px; }
-.pdf-forms--inline .pdf-forms__bulk-menu { flex-shrink: 0; }
-.pdf-forms__workspace { display: grid; grid-template-columns: var(--forms-sidebar-width) minmax(0, 1fr); align-items: start; gap: var(--forms-workspace-gap); }
-.pdf-forms__sidebar { position: sticky; top: 16px; overflow: hidden; border-right: 1px solid #dfe5ed; background: transparent; }
-.pdf-forms__sidebar-head { display: flex; align-items: center; justify-content: space-between; min-height: 42px; padding: 8px 16px 12px; border-bottom: 1px solid #dfe5ed; color: var(--workspace-ink, #233047); font-size: 13px; font-weight: 600; }
-.pdf-forms__sidebar-head strong { color: #43536b; font-size: 13px; line-height: 1; }
-.pdf-forms__sidebar-head small { color: #8591a2; font-size: 12px; font-weight: 400; }
-.pdf-forms__nav-list { display: grid; margin: 0; padding: 0; list-style: none; }
-.pdf-forms__nav-list li + li { border-top: 1px solid #e2e7ee; }
-.pdf-forms__nav-item { display: block; width: 100%; padding: 14px 16px 14px 14px; border: 0; border-left: 2px solid transparent; border-radius: 0; background: transparent; color: #46546a; font: inherit; text-align: left; cursor: pointer; }
-.pdf-forms__nav-item:hover:not(:disabled) { background: #eef1f5; }
-.pdf-forms__nav-item.is-active { border-left-color: #30496f; }
-.pdf-forms__nav-item:focus-visible { outline: 2px solid var(--workspace-accent, #315dcc); outline-offset: -2px; }
-.pdf-forms__nav-item:disabled { cursor: wait; }
-.pdf-forms__nav-info { display: flex; flex: 1; flex-direction: column; gap: 5px; min-width: 0; }
-.pdf-forms__nav-meta { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 2px 8px; }
-.pdf-forms__nav-label { color: #66758b; font-size: 11px; line-height: 1.4; }
-.pdf-forms__nav-info strong { font-size: 13px; font-weight: 500; line-height: 1.55; word-break: keep-all; overflow-wrap: anywhere; }
-.is-active .pdf-forms__nav-label, .is-active .pdf-forms__nav-info strong { color: #233047; }
-.is-active .pdf-forms__nav-info strong { font-weight: 600; }
-.pdf-forms__nav-status { color: #66758b; font-size: 11px; line-height: 1.4; }
-.pdf-forms__nav-item--done .pdf-forms__nav-status { color: #596e85; }
-.pdf-forms__nav-item--draft .pdf-forms__nav-status { color: var(--workspace-accent, #315dcc); font-weight: 600; }
-.pdf-forms__nav-item--empty .pdf-forms__nav-status { color: #606e82; font-weight: 400; }
-.pdf-forms__panel { min-width: 0; overflow: hidden; border: 1px solid var(--workspace-border, #dfe5ed); border-radius: 10px; background: #fff; box-shadow: 0 1px 2px rgb(25 43 72 / 3%); }
-.pdf-forms__panel-head { position: relative; z-index: 10; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px 16px; padding: 11px 16px; background: #fff; }
-.pdf-forms__panel-head > div:first-child { display: flex; align-items: baseline; flex-wrap: wrap; gap: 3px 8px; min-width: 0; }
-.pdf-forms__panel-head h2 { margin: 0; color: var(--workspace-ink, #233047); font-size: 15px; font-weight: 700; line-height: 1.5; letter-spacing: -0.03em; overflow-wrap: anywhere; }
-.pdf-forms__panel-state { color: #66758b; font-size: 11px; white-space: nowrap; }
-.pdf-forms__panel-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
-.flow .pdf-forms__panel-actions .btn { min-height: 32px; padding: 5px 10px; border-color: #dbe3ed; border-radius: 7px; background: #fff; color: #45556e; font-size: 12px; font-weight: 500; }
-.flow .pdf-forms__panel-actions .btn:hover:not(:disabled) { border-color: #b9c9e3; background: #f7f9fd; color: #284b8d; }
-.flow .pdf-forms__panel-actions .pdf-forms__reset { border-color: transparent; color: #758298; }
-.flow .pdf-forms__panel-actions .pdf-forms__save { min-width: 58px; border-color: var(--workspace-accent, #315dcc); background: var(--workspace-accent, #315dcc); color: #fff; font-weight: 600; }
-.flow .pdf-forms__panel-actions .pdf-forms__save:hover:not(:disabled) { border-color: #284fb5; background: #284fb5; color: #fff; }
-.flow .pdf-forms__panel-actions .btn:disabled { border-color: #e5eaf1; background: #f4f6f9; color: #9aa5b5; }
-.flow .pdf-forms__panel-actions .btn:focus-visible { outline: 2px solid var(--workspace-accent, #315dcc); outline-offset: 2px; box-shadow: none; }
-.pdf-forms__panel-actions .pdf-forms__bulk-menu { position: static; }
-.pdf-forms__panel-actions .pdf-forms__bulk-menu > a { position: absolute; top: calc(100% + 4px); right: 16px; min-width: 180px; margin: 0; padding: 8px 12px; border-color: #dce4ef; border-radius: 6px; color: #45556e; font-size: 12px; line-height: 20px; box-shadow: 0 3px 10px rgb(25 43 72 / 8%); }
-.pdf-forms__panel-actions .pdf-forms__bulk-menu > a + a { top: calc(100% + 44px); }
-.pdf-forms__save-status { margin: 0; padding: 0 16px 7px; color: #667b9b; font-size: 11px; }
-.pdf-forms__panel .pdf-form__toolbar { gap: 12px; padding: 5px 12px; border-top: 1px solid #e9edf3; border-bottom: 1px solid #e5ebf2; background: #fafbfd; color: #62728b; font-size: 12px; }
-.flow .pdf-forms__panel .pdf-form__toolbar .btn { min-height: 26px; padding: 3px 9px; border-color: #dfe6ef; border-radius: 5px; background: #fff; color: #5c7090; font-size: 11px; }
-.pdf-forms__panel .pdf-form__scroll { height: calc(100dvh - 270px); min-height: 360px; max-height: 1000px; background: #eef2f6; }
-.pdf-forms__panel .pdf-form__page { box-shadow: 0 1px 5px rgb(31 48 76 / 12%); }
-.pdf-forms__paper-options { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; padding: 10px 16px; border-top: 1px solid #e9edf3; background: #fafbfd; }
-.pdf-forms__paper-options label { display: flex; align-items: center; gap: 10px; color: #43536c; font-size: 12px; font-weight: 600; }
-.pdf-forms__paper-options select { padding: 6px 10px; border: 1px solid #dce4ef; border-radius: 6px; background: #fff; color: #45556e; font: inherit; }
-.pdf-forms__paper-options > span { color: #77859a; font-size: 11px; }
-.pdf-forms__paper-state, .pdf-forms__loading { display: grid; align-content: center; justify-items: center; min-height: 430px; padding: 36px 24px; background: #f8fafc; color: #748298; text-align: center; }
-.pdf-forms__paper-icon { display: grid; place-items: center; width: 48px; height: 48px; border: 1px solid #dce4ef; border-radius: 10px; background: #fff; color: #476590; font-size: 26px; }
-.pdf-forms__paper-state h3 { margin: 18px 0 8px; color: #34435b; font-size: 16px; }
-.pdf-forms__paper-state p { margin: 0; font-size: 13px; line-height: 1.9; }
-.pdf-forms__mobile-hint { display: none; }
-@media (max-width: 1000px) {
-  .pdf-forms__panel-head { grid-template-columns: minmax(0, 1fr); }
+/* ════════════════════════════ 1부. 서식 둘레 화면 ════════════════════════════ */
+
+/* ── 작업 영역: 왼쪽 서식 목록 + 오른쪽 문서 ─────────────────────────────── */
+.pdf-forms {
+  --forms-sidebar-width: 264px;
+  --forms-workspace-gap: var(--sp-6);
+  display: grid;
+  gap: var(--sp-4);
+  min-width: 0;
 }
-@media (max-width: 800px) {
-  .pdf-forms__workspace { grid-template-columns: minmax(0, 1fr); }
-  .pdf-forms__sidebar { position: static; border-right: 0; border-bottom: 1px solid #dfe5ed; }
-  .pdf-forms__sidebar-head { min-height: 42px; padding: 10px 16px; }
-  .pdf-forms__nav-list { display: flex; overflow-x: auto; }
-  .pdf-forms__nav-list li { flex: 0 0 204px; }
-  .pdf-forms__nav-list li + li { border-top: 0; border-left: 1px solid #e2e7ee; }
-  .pdf-forms__nav-item { height: 100%; padding: 12px 14px; border-left: 0; border-bottom: 2px solid transparent; }
-  .pdf-forms__nav-item.is-active { border-bottom-color: #30496f; }
-  .pdf-forms__panel .pdf-form__scroll { height: calc(100dvh - 380px); min-height: 320px; }
-  .pdf-forms__mobile-hint { display: block; margin: 0; padding: 10px 16px; border-top: 1px solid #e6eaf0; color: #7a889b; font-size: 11px; }
+
+.pdf-forms__workspace {
+  display: grid;
+  grid-template-columns: var(--forms-sidebar-width) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--forms-workspace-gap);
 }
-@media (max-width: 520px) {
-  .pdf-forms__panel-head { padding: 12px; }
-  .pdf-forms__panel-head h2 { font-size: 14px; }
-  .pdf-forms__panel-actions { gap: 5px; }
-  .flow .pdf-forms__panel-actions .btn { padding: 5px 8px; }
-  .pdf-forms__panel-actions .pdf-forms__bulk-menu > a { right: 12px; }
-  .pdf-forms__paper-options { padding: 10px 12px; }
-  .pdf-forms__panel .pdf-form__extra { flex-direction: column; align-items: flex-start; }
+
+/* 안내 상자 안의 버튼은 문장과 조금 띄운다. */
+.pdf-forms .notice__body .btn { margin-top: var(--sp-2); }
+
+/* ── 서식 목록 ────────────────────────────────────────────────────────── */
+.pdf-forms__sidebar {
+  position: sticky;
+  top: var(--sp-4);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-12);
+  background: var(--color-surface);
 }
-.pdf-forms__list { display: grid; gap: 10px; padding: 0; margin: 0; list-style: none; }
-.pdf-form-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
-.pdf-form-row--done { border-left: 4px solid var(--success, #278451); }
-.pdf-form-row--draft { border-left: 4px solid var(--warning, #bb7b16); }
-.pdf-form-row--paper { border-left: 4px solid var(--brand); }
-.pdf-form-row--empty { border-left: 4px solid var(--border-strong); }
-.pdf-form-row__info { display: flex; flex-direction: column; gap: 4px; }
-.pdf-form-row__info span { color: var(--muted); font-size: 12px; }
-.pdf-form-row__thumb { flex: 0 0 44px; width: 44px; height: 58px; padding: 0; overflow: hidden; border: 1px solid var(--border-strong); border-radius: 3px; background: #fff; cursor: zoom-in; }
-.pdf-form-row__thumb img { display: block; width: 100%; height: 100%; object-fit: contain; }
-.pdf-form-row__thumb:disabled { cursor: default; }
-.pdf-form-row__info { flex: 1; min-width: 0; }
-.pdf-form-row__actions { display: flex; gap: 8px; }
-.pdf-form-row__paper-mode { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 12px; }
-.pdf-form-row__paper-files { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.pdf-form-row__paper-files p { flex-basis: 100%; margin: 2px 0; }
-.pdf-forms__bulk-menu { position: relative; width: fit-content; }
-.pdf-forms__bulk-menu > summary { display: inline-flex; align-items: center; gap: 7px; list-style: none; cursor: pointer; }
+
+.pdf-forms__sidebar-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-1) var(--sp-3);
+  padding: var(--sp-4) var(--sp-4) var(--sp-3) var(--sp-5);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.pdf-forms__sidebar-title { font-size: var(--fs-17); }
+
+.pdf-forms__sidebar-count {
+  color: var(--color-text-subtle);
+  font-size: var(--fs-15);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pdf-forms__nav { position: relative; }
+
+.pdf-forms__nav-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pdf-forms__nav-list li + li { border-top: 1px solid var(--color-divider); }
+
+.pdf-forms__nav-item {
+  position: relative;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  min-height: var(--control-lg);
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4) var(--sp-3) var(--sp-5);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--ease);
+}
+
+.pdf-forms__nav-item:hover:not(:disabled) { background: var(--gray-5); }
+.pdf-forms__nav-item:disabled { color: var(--color-text); cursor: progress; }
+
+/* 목록이 모서리를 잘라 내므로 포커스 고리는 항목 안쪽에 그린다. */
+.pdf-forms__nav-item:focus-visible { outline-offset: -3px; }
+
+/* 지금 보고 있는 서식: 옅은 파란 바탕 + 왼쪽 막대. */
+.pdf-forms__nav-item.is-active,
+.pdf-forms__nav-item.is-active:hover:not(:disabled) {
+  background: var(--jb-blue-5);
+  box-shadow: inset 3px 0 0 var(--jb-blue-60);
+}
+
+.pdf-forms__nav-label {
+  color: var(--color-text-subtle);
+  font-size: var(--fs-13);
+  line-height: var(--lh-tight);
+}
+
+.pdf-forms__nav-title {
+  font-size: var(--fs-16);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-tight);
+}
+
+.pdf-forms__nav-item.is-active .pdf-forms__nav-title { font-weight: var(--fw-bold); }
+.pdf-forms__nav-item .pdf-forms__status { margin-top: var(--sp-1); }
+
+/* 서식을 바꾸는 동안 누른 항목에 진행 표시가 뜬다. */
+.pdf-forms__nav-pending {
+  position: absolute;
+  top: var(--sp-3);
+  right: var(--sp-4);
+  display: inline-flex;
+}
+
+.pdf-forms__nav-skeleton { display: grid; }
+
+.pdf-forms__nav-skeleton-row {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-4) var(--sp-4) var(--sp-5);
+}
+
+.pdf-forms__nav-skeleton-row + .pdf-forms__nav-skeleton-row { border-top: 1px solid var(--color-divider); }
+
+/* ── 서식 상태 한 줄 (목록과 문서 머리가 함께 쓴다) ──────────────────────── */
+/* 배지를 쓰지 않고 아이콘과 글자로 알린다. 작성 중은 굵은 파란 글자다. */
+.pdf-forms__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: var(--fs-15);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-tight);
+}
+
+.pdf-forms__status--done { color: var(--success-60); }
+.pdf-forms__status--draft { color: var(--jb-blue-60); font-weight: var(--fw-bold); }
+.pdf-forms__status--paper,
+.pdf-forms__status--preview,
+.pdf-forms__status--locked { color: var(--color-text-subtle); }
+
+/* ── 문서 ─────────────────────────────────────────────────────────────── */
+.pdf-forms__panel {
+  min-width: 0;
+  overflow: hidden;
+  scroll-margin-top: var(--sp-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-12);
+  background: var(--color-surface);
+}
+
+/* 내려받기 메뉴가 도구줄과 서식 위로 펼쳐지도록 문서 머리가 쌓임 맥락을 갖는다. */
+.pdf-forms__panel-head {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3) var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--color-divider);
+  background: var(--color-surface);
+}
+
+.pdf-forms__panel-heading {
+  display: grid;
+  flex: 1 1 280px;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.pdf-forms__panel-heading h2 { font-size: var(--fs-19); }
+
+.pdf-forms__panel-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-4);
+  min-height: 22px;
+  margin: 0;
+}
+
+/* 저장 상태: 저장 중 · 저장했습니다 · 저장하지 못했습니다. 따로 줄을 잡지 않고 문서 머리 안에서 읽힌다. */
+.pdf-forms__save-state,
+.pdf-forms__save-state > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pdf-forms__save-state {
+  color: var(--color-text-subtle);
+  font-size: var(--fs-15);
+  line-height: var(--lh-tight);
+}
+
+.pdf-forms__save-state--saved { color: var(--success-60); }
+.pdf-forms__save-state--pending { color: var(--warning-60); }
+.pdf-forms__save-state--failed { color: var(--danger-60); font-weight: var(--fw-bold); }
+
+.pdf-forms__panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  margin-left: auto;
+}
+
+/* "다시 작성"은 지우는 동작이라 다른 버튼과 선으로 갈라 둔다. */
+.pdf-forms__action-divider {
+  width: 1px;
+  height: var(--sp-6);
+  margin: 0 var(--sp-1);
+  background: var(--color-border);
+}
+
+/* ── 내려받기 메뉴 ─────────────────────────────────────────────────────── */
+.pdf-forms__bulk-menu {
+  position: relative;
+  width: fit-content;
+}
+
+.pdf-forms__bulk-menu > summary {
+  list-style: none;
+  user-select: none;
+}
+
 .pdf-forms__bulk-menu > summary::-webkit-details-marker { display: none; }
-.pdf-forms__bulk-menu > a { display: flex; align-items: center; gap: 8px; margin-top: 3px; padding: 7px 10px; background: var(--surface); color: var(--text); border: 1px solid var(--border); text-decoration: none; white-space: nowrap; }
-.pdf-forms__bulk-menu > a small { color: var(--muted); font-size: 11px; }
-.pdf-forms__download-icon { width: 16px; height: 16px; flex: 0 0 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.pdf-forms__bulk-menu[open] { z-index: 3; }
-.pdf-forms__selfcheck { display: grid; gap: 12px; }
-.pdf-forms__selfcheck h3 { margin: 0; }
-.pdf-forms__selfcheck fieldset { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; }
-.pdf-forms__selfcheck legend { font-weight: 600; }
-.pdf-forms__selfcheck label { margin-right: 18px; }
-.pdf-forms__error { color: #a22; background: #fff4f2; border: 1px solid #e8b6b1; padding: 10px 12px; border-radius: 8px; }
-.pdf-form__toolbar { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 10px; background: var(--surface-subtle); }
-.pdf-form__hint { margin-left: 16px; color: var(--muted); font-size: 12px; }
+.pdf-forms__bulk-menu[open] > summary { background: var(--gray-5); }
+.pdf-forms__bulk-caret { transition: transform var(--ease); }
+.pdf-forms__bulk-menu[open] .pdf-forms__bulk-caret { transform: rotate(180deg); }
+
+.pdf-forms__bulk-list {
+  position: absolute;
+  top: calc(100% + var(--sp-1));
+  left: 0;
+  z-index: 3;
+  display: grid;
+  min-width: 200px;
+  padding: var(--sp-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-8);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-2);
+}
+
+/* 문서 머리에서는 버튼의 오른쪽 끝에 맞춰 펼친다. */
+.pdf-forms__panel-actions .pdf-forms__bulk-list {
+  right: 0;
+  left: auto;
+}
+
+.pdf-forms__bulk-list a {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--control-sm);
+  padding: 0 var(--sp-3);
+  border-radius: var(--radius-6);
+  color: var(--color-text);
+  font-size: var(--fs-15);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pdf-forms__bulk-list a:hover {
+  background: var(--color-surface-brand);
+  color: var(--color-text-brand);
+}
+
+/* ── 작성 방식 (온라인 작성 / 스캔본 제출) ──────────────────────────────── */
+.pdf-forms__paper-options {
+  display: grid;
+  gap: var(--sp-2);
+  min-width: 0;
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.pdf-forms__paper-title {
+  margin: 0;
+  font-size: var(--fs-15);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+}
+
+.pdf-forms__paper-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-3);
+}
+
+.pdf-forms__paper-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-8);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: background-color var(--ease), border-color var(--ease);
+}
+
+.pdf-forms__paper-choice:hover { border-color: var(--jb-blue-40); }
+
+.pdf-forms__paper-choice input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.pdf-forms__paper-choice.is-selected {
+  border-color: var(--jb-blue-60);
+  background: var(--jb-blue-5);
+  box-shadow: inset 0 0 0 1px var(--jb-blue-60);
+}
+
+.pdf-forms__paper-choice-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pdf-forms__paper-choice-copy strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-tight);
+}
+
+.pdf-forms__paper-choice.is-selected strong {
+  color: var(--jb-blue-60);
+  font-weight: var(--fw-bold);
+}
+
+.pdf-forms__paper-choice-copy > span {
+  color: var(--color-text-subtle);
+  font-size: var(--fs-15);
+}
+
+.pdf-forms__paper-choice.is-disabled,
+.pdf-forms__paper-choice.is-disabled input { cursor: not-allowed; }
+.pdf-forms__paper-choice.is-disabled:not(.is-selected):hover { border-color: var(--color-border); }
+
+/* 스캔본으로 내기로 한 서식 */
+.pdf-forms__paper-state {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: var(--sp-3);
+  min-height: 360px;
+  padding: var(--sp-10) var(--sp-6);
+  background: var(--color-surface-subtle);
+  text-align: center;
+}
+
+.pdf-forms__paper-icon {
+  display: grid;
+  place-items: center;
+  width: var(--control-lg);
+  height: var(--control-lg);
+  border-radius: var(--radius-pill);
+  background: var(--jb-blue-10);
+  color: var(--jb-blue-60);
+}
+
+.pdf-forms__paper-state h3 { font-size: var(--fs-19); }
+
+.pdf-forms__paper-state p {
+  margin: 0;
+  color: var(--color-text-subtle);
+  font-size: var(--fs-16);
+}
+
+/* ── 도구줄: 작성할 칸 안내 + 쪽 넘기기 ─────────────────────────────────── */
+.pdf-forms__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-4);
+  min-height: var(--control-lg);
+  padding: var(--sp-2) var(--sp-5);
+  border-bottom: 1px solid var(--color-divider);
+  background: var(--color-surface-subtle);
+}
+
+.pdf-forms__legend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  color: var(--color-text-subtle);
+  font-size: var(--fs-15);
+}
+
+/* 서식 위 "작성할 칸" 표시와 같은 모양의 보기. */
+.pdf-forms__legend-swatch {
+  flex: none;
+  width: 20px;
+  height: 14px;
+  border: 2px solid var(--jb-blue-40);
+  border-radius: var(--radius-4);
+  background: var(--jb-blue-5);
+}
+
+.pdf-forms__legend--error { color: var(--danger-60); }
+
+.pdf-forms__legend--error .pdf-forms__legend-swatch {
+  border-color: var(--danger-50);
+  background: var(--color-surface);
+}
+
+.pdf-forms__pager {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-left: auto;
+}
+
+.pdf-forms__pager-count {
+  min-width: 64px;
+  color: var(--color-text-subtle);
+  font-size: var(--fs-15);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* 좁은 화면에서만 보이는 좌우 스크롤 안내 */
+.pdf-forms__mobile-hint { display: none; }
+
+.pdf-forms__page-error {
+  padding: var(--sp-3) var(--sp-5);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+/* ── 서식이 보이는 창: 화면 높이에 맞춰 그 안에서만 스크롤한다 ──────────── */
+.pdf-forms__panel .pdf-form__scroll {
+  height: calc(100dvh - 216px);
+  min-height: 360px;
+  max-height: 1160px;
+  background: var(--gray-10);
+}
+
+.pdf-forms__panel .pdf-form__page { box-shadow: var(--shadow-1); }
+
+/* 쪽 그림이 오기 전: 자리 표시를 보여 주고 입력 칸은 그림이 온 뒤에 보인다. */
+.pdf-form__page--pending .pdf-form__background,
+.pdf-form__page--pending .pdf-form__overlay { visibility: hidden; }
+
+.pdf-forms__page-skeleton {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  font-family: var(--font-ui);
+}
+
+.pdf-forms__sheet-placeholder {
+  display: grid;
+  align-content: start;
+  gap: var(--sp-4);
+  width: 100%;
+  height: 100%;
+  padding: var(--sp-12) var(--sp-10);
+  background: var(--color-surface);
+}
+
+.pdf-forms__sheet-placeholder .skeleton__line:first-child {
+  height: var(--sp-6);
+  margin-bottom: var(--sp-4);
+}
+
+.pdf-forms__sheet-placeholder .skeleton__block { min-height: 120px; }
+
+/* 처음 불러오는 동안: 서식 창과 같은 크기의 자리 표시 */
+.pdf-forms__loading {
+  display: grid;
+  justify-items: center;
+  height: calc(100dvh - 216px + var(--control-lg));
+  min-height: 360px;
+  max-height: 1160px;
+  padding: 14px;
+  overflow: hidden;
+  background: var(--gray-10);
+}
+
+.pdf-forms__loading .pdf-forms__sheet-placeholder {
+  max-width: 794px;
+  box-shadow: var(--shadow-1);
+}
+
+.pdf-forms__load-failed { padding: var(--sp-5); }
+
+/* ── 서식 아래 덧붙는 입력 (기간 산정에 쓰는 날짜) ──────────────────────── */
+.pdf-forms__extra {
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
+  border-top: 1px solid var(--color-divider);
+}
+
+.pdf-forms__extra-title { font-size: var(--fs-16); }
+
+.pdf-forms__extra-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-5);
+}
+
+.pdf-forms__extra-fields .field { flex: 0 1 220px; }
+
+/* ── 덜 쓴 서식 안내 ("서류 업로드로"를 눌렀을 때) ──────────────────────── */
+.notice__body .pdf-forms__incomplete-list {
+  display: grid;
+  justify-items: start;
+  gap: var(--sp-1);
+  margin: var(--sp-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notice__body .pdf-forms__incomplete-list li + li { margin-top: 0; }
+
+.pdf-forms__incomplete-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: var(--control-sm);
+  margin: 0 0 0 calc(var(--sp-2) * -1);
+  padding: var(--sp-1) var(--sp-2);
+  border: 0;
+  border-radius: var(--radius-6);
+  background: transparent;
+  color: var(--color-text-brand);
+  font: inherit;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-medium);
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: background-color var(--ease);
+}
+
+.pdf-forms__incomplete-item:hover:not(:disabled) { background: var(--color-surface); }
+
+.pdf-forms__incomplete-item:disabled {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  cursor: not-allowed;
+}
+
+/* ── 좁은 화면 ─────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .pdf-forms__workspace { grid-template-columns: minmax(0, 1fr); gap: var(--sp-4); }
+  .pdf-forms__sidebar { position: static; }
+
+  /* 서식 목록은 옆으로 넘기는 한 줄이 되고, 더 있는 쪽 끝에 그림자가 보인다. */
+  .pdf-forms__nav-list { display: flex; overflow-x: auto; overscroll-behavior-x: contain; }
+  .pdf-forms__nav-list li { flex: 0 0 232px; }
+  .pdf-forms__nav-list li + li { border-top: 0; border-left: 1px solid var(--color-divider); }
+
+  .pdf-forms__nav-item.is-active,
+  .pdf-forms__nav-item.is-active:hover:not(:disabled) { box-shadow: inset 0 -3px 0 var(--jb-blue-60); }
+
+  .pdf-forms__nav::before,
+  .pdf-forms__nav::after {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 1;
+    width: var(--sp-5);
+    opacity: 0;
+    content: '';
+    pointer-events: none;
+    transition: opacity var(--ease);
+  }
+
+  .pdf-forms__nav::before {
+    left: 0;
+    background: linear-gradient(to right, color-mix(in srgb, var(--gray-90) 14%, transparent), transparent);
+  }
+
+  .pdf-forms__nav::after {
+    right: 0;
+    background: linear-gradient(to left, color-mix(in srgb, var(--gray-90) 14%, transparent), transparent);
+  }
+
+  .pdf-forms__nav[data-more-start="true"]::before,
+  .pdf-forms__nav[data-more-end="true"]::after { opacity: 1; }
+
+  .pdf-forms__nav-skeleton { grid-auto-flow: column; grid-auto-columns: 232px; overflow: hidden; }
+  .pdf-forms__nav-skeleton-row + .pdf-forms__nav-skeleton-row { border-top: 0; border-left: 1px solid var(--color-divider); }
+
+  .pdf-forms__panel-actions { margin-left: 0; }
+
+  .pdf-forms__mobile-hint {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin: 0;
+    padding: var(--sp-2) var(--sp-5);
+    border-bottom: 1px solid var(--color-divider);
+    color: var(--color-text-subtle);
+    font-size: var(--fs-15);
+  }
+
+  .pdf-forms__panel .pdf-form__scroll { height: calc(100dvh - 240px); min-height: 320px; }
+  .pdf-forms__loading { height: calc(100dvh - 240px); min-height: 320px; }
+}
+
+@media (max-width: 600px) {
+  .pdf-forms__panel-head,
+  .pdf-forms__toolbar,
+  .pdf-forms__paper-options,
+  .pdf-forms__extra,
+  .pdf-forms__page-error,
+  .pdf-forms__mobile-hint { padding-right: var(--sp-4); padding-left: var(--sp-4); }
+
+  /* 버튼 세 개를 같은 폭으로 한 줄에 놓고, "다시 작성"은 그 아래 줄로 내린다. */
+  .pdf-forms__panel-actions {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .pdf-forms__panel-actions > .btn { padding-right: var(--sp-2); padding-left: var(--sp-2); }
+  .pdf-forms__panel-actions > .pdf-forms__reset { order: 1; justify-self: start; }
+  .pdf-forms__action-divider { display: none; }
+
+  /* 내려받기 메뉴는 버튼 줄 전체 폭으로 펼쳐 화면 밖으로 나가지 않게 한다. */
+  .pdf-forms__panel-actions .pdf-forms__bulk-menu { position: static; width: auto; }
+  .pdf-forms__panel-actions .pdf-forms__bulk-menu > summary { width: 100%; padding-right: var(--sp-2); padding-left: var(--sp-2); }
+  .pdf-forms__panel-actions .pdf-forms__bulk-list { top: auto; right: 0; left: 0; margin-top: var(--sp-1); }
+
+  .pdf-forms__paper-choices { grid-template-columns: minmax(0, 1fr); }
+
+  /* 쪽 넘기기 버튼은 화살표만 보이고, 이름은 화면 낭독기에 그대로 읽힌다. */
+  .pdf-forms__pager-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .pdf-forms__extra-fields .field { flex: 1 1 100%; }
+  .pdf-forms__sheet-placeholder { padding: var(--sp-8) var(--sp-5); }
+}
+
+/* ── 서식5 서명 창 ─────────────────────────────────────────────────────── */
+/* body 바로 아래에 그려지므로 필요한 모양을 모두 여기서 정한다. 공용 대화상자와 같은 모양이다. */
+.form-signature__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--sp-5);
+  background: var(--color-dim);
+}
+
+.form-signature {
+  width: min(500px, 100%);
+  max-height: calc(100dvh - var(--sp-10));
+  overflow-y: auto;
+  padding: var(--sp-6);
+  border-radius: var(--radius-12);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-3);
+}
+
+.form-signature__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+
+.form-signature__title {
+  min-width: 0;
+  padding-top: 6px;
+  font-size: var(--fs-19);
+}
+
+.form-signature__close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  margin: -2px calc(var(--sp-2) * -1) 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-6);
+  background: transparent;
+  color: var(--color-text-subtle);
+  cursor: pointer;
+  transition: background-color var(--ease), color var(--ease);
+}
+
+.form-signature__close:hover { background: var(--gray-5); color: var(--color-text); }
+
+/* 서명 방식: 두 칸짜리 선택 단추. 고른 쪽은 파란 바탕과 체크로 알린다. */
+.form-signature__tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: var(--sp-4);
+}
+
+.form-signature__tabs button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--control-md);
+  margin: 0;
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--fs-16);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-tight);
+  cursor: pointer;
+  transition: background-color var(--ease), border-color var(--ease), color var(--ease);
+}
+
+.form-signature__tabs button:first-child { border-radius: var(--radius-8) 0 0 var(--radius-8); }
+.form-signature__tabs button:last-child { margin-left: -1px; border-radius: 0 var(--radius-8) var(--radius-8) 0; }
+.form-signature__tabs button:hover:not(:disabled):not(.is-active) { background: var(--gray-5); }
+
+.form-signature__tabs button.is-active {
+  z-index: 1;
+  border-color: var(--jb-blue-60);
+  background: var(--jb-blue-5);
+  box-shadow: inset 0 0 0 1px var(--jb-blue-60);
+  color: var(--jb-blue-60);
+  font-weight: var(--fw-bold);
+}
+
+.form-signature__tabs button:focus-visible { z-index: 2; }
+.form-signature__tabs button:disabled { cursor: not-allowed; }
+.form-signature__tabs button:disabled:not(.is-active) { color: var(--color-text-muted); }
+
+.form-signature__body {
+  display: grid;
+  place-items: center;
+  min-height: 210px;
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-8);
+  background: var(--color-surface);
+}
+
+/* 서명 칸 자체의 테두리·기준선·아래 버튼은 쓰지 않고 이 창의 틀과 버튼을 쓴다. */
+.form-signature__body .signature-box { display: block; }
+
+.form-signature__body .signature-frame {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: var(--color-surface);
+}
+
+.form-signature__body .signature-frame::after { content: none; }
+
+.form-signature__body .signature-pad {
+  display: block;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.form-signature__body .signature-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-muted);
+  font-size: var(--fs-16);
+  pointer-events: none;
+}
+
+.form-signature__body .signature-actions { display: none; }
+
+.form-signature__upload {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: var(--sp-4);
+  width: 100%;
+  min-height: 210px;
+  padding: var(--sp-4);
+  color: var(--color-text-subtle);
+  font-size: var(--fs-15);
+  text-align: center;
+}
+
+.form-signature__upload img {
+  max-width: 100%;
+  max-height: 136px;
+  object-fit: contain;
+}
+
+/* 파일 입력은 화면에서 숨기고 버튼 모양의 이름표로 고른다. 포커스 고리는 이름표에 그린다. */
+.form-signature__upload input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.form-signature__upload:has(input:focus-visible) label {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.form-signature__error,
+.form-signature__status { margin: var(--sp-3) 0 0; }
+
+.form-signature__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+}
+
+@media (max-width: 600px) {
+  .form-signature__overlay { padding: var(--sp-4); }
+  .form-signature { max-height: calc(100dvh - var(--sp-8)); padding: var(--sp-5); }
+  .form-signature__tabs button { font-size: var(--fs-15); }
+}
+
+/* ════════════════════════════ 2부. 원본 서식 재현 ════════════════════════════ */
+/* 아래 규칙의 위치·크기·글꼴·여백은 서식 좌표와 맞물려 있다. 바꾸지 않는다. */
+
+.pdf-form__contents { display: flex; flex-direction: column; min-width: 0; min-height: 0; margin: 0; padding: 0; border: 0; }
 .pdf-form__scroll { height: 100%; overflow: auto; display: block; padding: 14px; background: #e9eaed; }
 .pdf-form__page { position: relative; margin: 0 auto; background: #fff; box-shadow: 0 3px 16px rgb(0 0 0 / 18%); }
 .pdf-form__background { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: fill; user-select: none; }
@@ -126,17 +882,16 @@
 .pdf-form__text { padding: 0 2px; border: 1px solid rgb(51 83 147 / 25%); border-radius: 2px; background: rgb(242 247 255 / 72%); color: #101d42; line-height: 1.1; z-index: 2; }
 .pdf-form__text--sans { font-family: 'Noto Sans KR', sans-serif; }
 .pdf-form__text--serif { font-family: 'Noto Serif KR', serif; }
-.pdf-form__text:focus { outline: 2px solid var(--brand); z-index: 3; }
+.pdf-form__text:focus { outline: 2px solid var(--brand); outline-offset: 0; z-index: 3; }
 .pdf-form__text[readonly] { background: rgb(239 242 246 / 65%); }
 .pdf-form__auto-date { position: absolute; display: block; box-sizing: border-box; overflow: visible; padding: 0; border: 0; background: transparent; color: #141414; font-family: 'Noto Sans KR', sans-serif; font-weight: 400; white-space: nowrap; pointer-events: none; user-select: none; z-index: 2; }
 .pdf-form__auto-date--serif { font-family: 'Noto Serif KR', serif; }
-.pdf-form__text.is-missing, .pdf-form__check.is-missing, .pdf-form__sign.is-missing { outline: 2px solid #c33; outline-offset: 1px; }
 .pdf-form__check { display: block; z-index: 4; overflow: visible; }
 .pdf-form__check input { appearance: none; position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; border: 1px solid transparent; }
 .pdf-form__check-mark { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); overflow: visible; pointer-events: none; z-index: 1; }
 .pdf-form__check-mark rect { fill: #112861; stroke: #112861; }
 .pdf-form__check-mark path { fill: none; stroke: #fff; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
-.pdf-form__check input:focus-visible { outline: 2px solid var(--brand); }
+.pdf-form__check input:focus-visible { outline: 2px solid var(--brand); outline-offset: 0; }
 .pdf-form__radio-text { position: absolute; display: flex; align-items: center; justify-content: center; gap: 4px; z-index: 5; overflow: visible; pointer-events: auto; color: #141414; font-family: 'Noto Sans KR', sans-serif; font-weight: 400; white-space: nowrap; cursor: pointer; }
 .pdf-form__radio-text--serif { font-family: 'Noto Serif KR', serif; }
 .pdf-form__radio-text input { appearance: none; position: absolute; inset: -5px; width: calc(100% + 10px); height: calc(100% + 10px); margin: 0; border: 0; opacity: 0; cursor: pointer; }
@@ -146,54 +901,22 @@
 .pdf-form__radio-box path { display: none; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .pdf-form__radio-box.is-checked rect { fill: #112861; stroke: #112861; }
 .pdf-form__radio-box.is-checked path { display: block; }
-.pdf-form__group-missing { position: absolute; border: 1px solid #c33; pointer-events: none; z-index: 6; }
 .pdf-form__sign { display: grid; place-items: center; padding: 0; border: 0; background: transparent; cursor: pointer; z-index: 4; }
 .pdf-form__sign img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; max-width: 100%; max-height: 100%; object-fit: contain; }
 .pdf-form__sign { color: transparent; }
-.pdf-form__sign.is-missing { outline: 2px solid #c33; outline-offset: 1px; }
-.pdf-form__extra { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 18px; padding: 12px 18px; border-top: 1px solid var(--border); }
-.pdf-form__extra label { display: flex; align-items: center; gap: 8px; }
-.pdf-form__extra input { font: inherit; padding: 5px 8px; border: 1px solid var(--border-strong); border-radius: 6px; }
-.pdf-form__extra span { width: 100%; color: var(--muted); font-size: 12px; }
-.pdf-form__sign-pad { padding: 14px 18px; border-top: 1px solid var(--border); }
-.pdf-form__sign-pad h4 { display: flex; align-items: center; justify-content: space-between; margin: 0 0 8px; }
-.pdf-form__remaining { margin-right: auto; color: var(--muted); font-size: 13px; }
-.pdf-form__date-warning { color: #a22 !important; font-weight: 600; }
 .pdf-form__email-hint { position: absolute; z-index: 8; padding: 2px 4px; color: #a22; background: #fff; line-height: 1.2; pointer-events: none; }
-.pdf-form__sign-pad .signature-box { display: inline-flex; align-items: center; gap: 12px; }
-.pdf-form__sign-pad .signature-frame { position: relative; display: block; overflow: hidden; border: 1px solid var(--border-strong); border-radius: 5px; background: #fff; }
-.pdf-form__sign-pad .signature-pad { display: block; touch-action: none; cursor: crosshair; }
-.pdf-form__sign-pad .signature-placeholder { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); pointer-events: none; }
-.pdf-form__sign-pad .signature-actions { display: flex; align-items: center; gap: 8px; }
-.modal--viewer .modal__body:has(.pdf-form__scroll) { display: flex; flex-direction: column; min-height: 0; }
-.modal--viewer .pdf-form__scroll { flex: 1 1 auto; min-height: 180px; height: auto; }
 
-/* 서식 5 서명란에서 여는 작은 전자서명 창 */
-.form-signature__overlay { position: fixed; inset: 0; z-index: 110; display: grid; place-items: center; padding: 16px; background: rgb(20 20 30 / 50%); }
-.form-signature { box-sizing: border-box; width: min(500px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 22px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); box-shadow: var(--shadow-md); }
-.form-signature__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
-.form-signature__head h3 { margin: 0; font-size: 22px; line-height: 1.3; }
-.form-signature__close { width: 32px; height: 32px; border: 0; background: transparent; color: var(--muted); font-size: 28px; line-height: 1; cursor: pointer; }
-.form-signature__tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 16px; padding: 5px; border-radius: 12px; background: var(--surface-subtle); }
-.form-signature__tabs button { min-height: 42px; padding: 8px; border: 0; border-radius: 9px; background: transparent; color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
-.form-signature__tabs button.is-active { background: var(--surface); box-shadow: 0 1px 4px rgb(0 0 0 / 10%); }
-.form-signature__tabs button:focus-visible, .form-signature__close:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-.form-signature__body { display: grid; place-items: center; min-height: 210px; border: 1px solid var(--border-strong); border-radius: 12px; background: #fff; overflow: hidden; }
-.form-signature__body .signature-box { display: block; }
-.form-signature__body .signature-frame { position: relative; display: block; border: 0; background: #fff; overflow: hidden; }
-.form-signature__body .signature-frame::after { content: none; }
-.form-signature__body .signature-pad { display: block; touch-action: none; cursor: crosshair; }
-.form-signature__body .signature-placeholder { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); pointer-events: none; }
-.form-signature__body .signature-actions { display: none; }
-.form-signature__upload { box-sizing: border-box; display: grid; justify-items: center; align-content: center; gap: 14px; width: 100%; min-height: 210px; padding: 16px; color: var(--muted); text-align: center; }
-.form-signature__upload img { max-width: 100%; max-height: 135px; object-fit: contain; }
-.form-signature__upload input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.form-signature__upload label { cursor: pointer; }
-.form-signature__upload:focus-within label { outline: 2px solid var(--brand); outline-offset: 2px; }
-.form-signature__error { margin: 10px 0 0; color: #a22; font-size: 13px; }
-.form-signature__status { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
-.form-signature__foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-.form-signature__clear { display: inline-flex; align-items: center; gap: 6px; }
-.form-signature__clear svg { width: 18px; height: 18px; flex: none; }
-@media (max-width: 520px) { .form-signature { padding: 16px; } .form-signature__head h3 { font-size: 19px; } .form-signature__tabs button { font-size: 13px; } }
-@media (max-width: 900px) { .pdf-form-row { align-items: flex-start; flex-direction: column; } .pdf-form-row__actions { flex-wrap: wrap; } }
+/*
+ * 작성해야 하는 빈칸의 색. 크기와 위치는 그대로이고 색만 다르다.
+ * 처음에는 차분한 파란 "작성할 칸" 표시이고, 저장이나 다음 단계를 시도한 뒤(.pdf-forms--show-errors)에만
+ * 이전부터 쓰던 오류 색으로 보인다.
+ */
+.pdf-form__text.is-missing, .pdf-form__check.is-missing, .pdf-form__sign.is-missing { outline: 2px solid var(--jb-blue-40); outline-offset: 1px; }
+.pdf-form__text.is-missing { background: var(--jb-blue-5); }
+.pdf-form__text.is-missing:focus { outline-color: var(--brand); }
+.pdf-form__sign.is-missing { background: color-mix(in srgb, var(--jb-blue-40) 12%, transparent); }
+.pdf-form__group-missing { position: absolute; border: 1px solid var(--jb-blue-40); background: color-mix(in srgb, var(--jb-blue-40) 8%, transparent); box-shadow: 0 0 0 1px var(--jb-blue-40); pointer-events: none; z-index: 6; }
+.pdf-forms--show-errors .pdf-form__text.is-missing, .pdf-forms--show-errors .pdf-form__check.is-missing, .pdf-forms--show-errors .pdf-form__sign.is-missing { outline-color: #c33; }
+.pdf-forms--show-errors .pdf-form__text.is-missing { background: rgb(242 247 255 / 72%); }
+.pdf-forms--show-errors .pdf-form__sign.is-missing { background: transparent; }
+.pdf-forms--show-errors .pdf-form__group-missing { border-color: #c33; background: transparent; box-shadow: none; }

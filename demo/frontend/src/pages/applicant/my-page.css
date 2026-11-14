@@ -1,257 +1,243 @@
-/* 마이페이지. 점수를 표시하지 않는다는 원칙이 스타일에도 반영돼 있다 —
-   강조 블록은 진행 단계와 안내 문구뿐이다. */
+/*
+ * 마이페이지. 점수를 표시하지 않는다는 원칙이 모양에도 반영돼 있다 — 강조하는 것은 진행 단계와 안내 문구뿐이다.
+ * 변수는 styles/tokens.css에서만 가져온다. 단계 표식(.step-marker)은 apply-flow.css와 함께 쓴다.
+ */
 
 .mypage {
-  width: 940px;
-  margin: 0 auto;
-}
-
-.mypage__loading {
-  padding: 40px;
-  text-align: center;
-  color: var(--muted);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-4);
 }
 
 .mypage__head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  border-radius: var(--radius-md);
-  background: var(--brand);
-  color: #fff;
-  padding: 18px 22px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-2);
 }
 
-.mypage__head h2 {
-  font-size: 16px;
+.mypage__program {
   margin: 0;
+  color: var(--color-text-subtle);
 }
 
-.mypage__head p {
-  margin: 4px 0 0;
-  font-size: 13px;
-}
+.mypage__head .dl-inline { margin-top: var(--sp-2); }
 
-.mypage__head p {
-  color: rgb(255 255 255 / 78%);
-}
-
-.mypage__head strong {
-  color: #fff;
-  font-variant-numeric: tabular-nums;
-}
-
-.mypage__call {
-  padding: 4px 10px;
-  border: 1px solid rgb(255 255 255 / 35%);
-  border-radius: 999px;
-  font-size: 12.5px;
-}
-
-/* ---- 진행 5단계 ---- */
-
-/* 심사 진행 5단계 — 칸을 이어 붙인 진행 막대 */
-.mypage__progress {
-  display: flex;
-  list-style: none;
-  margin: 16px 0 12px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: var(--surface);
-}
-
-.mpstep {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 14px;
-  font-size: 13px;
-  color: #8a9099;
-}
-
-.mpstep + .mpstep {
-  border-left: 1px solid var(--border);
-}
-
-.mpstep__no {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 22px;
-  height: 22px;
-  border: 1.5px solid currentColor;
-  border-radius: 50%;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.mpstep--done {
-  color: var(--success);
-  background: var(--success-tint);
-}
-
-.mpstep--current {
-  background: var(--brand-tint);
-  color: var(--brand);
-  font-weight: 700;
-  box-shadow: inset 0 -3px 0 var(--brand);
-}
-
-.mpstep--current .mpstep__no {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: #fff;
-}
-
-.mypage__notice {
-  margin: 0 0 16px;
-  border-left: 3px solid var(--brand);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  background: var(--surface-subtle);
-  padding: 10px 14px;
-  font-size: 12.5px;
-  color: #4a5160;
-}
-
-/* ---- 선착순 순번 · 보완 기한 ---- */
-
-.mypage__queue {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  border: 1px solid #b06000;
-  background: #fffaf2;
-  padding: 10px 14px;
-  margin-bottom: 12px;
-  font-size: 12.5px;
-}
-
-.mypage__queue strong {
-  font-size: 15px;
-  color: #b06000;
-}
-
-.mypage__queue-note {
-  color: var(--muted);
-  margin-left: auto;
-}
-
-.mypage__supplement {
-  border: 2px solid #b06000;
-  background: #fffaf2;
-  padding: 12px 14px;
-  margin-bottom: 16px;
-}
-
-.mypage__supplement--over {
-  border-color: #c00;
-  background: #fff5f5;
-}
-
-.mypage__countdown {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  font-size: 12.5px;
-}
-
-.mypage__days {
-  font-size: 22px;
-  font-weight: 700;
-  color: #b06000;
-  font-variant-numeric: tabular-nums;
-}
-
-.mypage__supplement--over .mypage__days {
-  color: #c00;
-}
-
-.mypage__supplement p {
-  margin: 6px 0 0;
-  font-size: 12.5px;
-  line-height: 1.6;
-}
-
-.mypage__supplement-list {
-  margin: 8px 0 0;
-  padding-left: 18px;
-  font-size: 12.5px;
-  line-height: 1.7;
-}
-
-/* ---- 서류·동의 ---- */
-
-.mypage__box {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 18px 20px 20px;
-  margin-bottom: 16px;
-}
-
-.mypage__box h3 {
-  font-size: 15px;
-  margin: 0 0 12px;
+.mypage__section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-4);
 }
 
 .mypage__empty {
   margin: 0;
-  font-size: 13px;
-  color: var(--muted);
+  color: var(--color-text-subtle);
 }
 
+.mypage__none { color: var(--color-text-muted); }
+
+.mypage__skeleton,
+.mypage__skeleton-card {
+  display: grid;
+  gap: var(--sp-4);
+}
+
+/* ── 진행 상황 ────────────────────────────────────────────────────────── */
+/* 신청 단계 표시와 같은 말씨: 이어진 선 위의 원형 표식, 아래에 이름과 상태 글자. */
+.mypage__progress {
+  --marker: 32px;
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  margin: 0;
+  padding: var(--sp-2) 0;
+  list-style: none;
+}
+
+.mpstep {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  padding: 0 var(--sp-1);
+  text-align: center;
+}
+
+.mpstep + .mpstep::before {
+  content: '';
+  position: absolute;
+  top: calc(var(--marker) / 2 - 1px);
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--gray-20);
+}
+
+.mpstep.is-current::before,
+.mpstep.is-complete::before { background: var(--color-primary); }
+
+.mpstep__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mpstep__label {
+  font-size: var(--fs-16);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+}
+
+.mpstep__state {
+  color: var(--color-text-subtle);
+  font-size: var(--fs-13);
+  line-height: var(--lh-tight);
+}
+
+.mpstep.is-waiting .mpstep__label { color: var(--color-text-subtle); }
+
+.mpstep.is-current .mpstep__label,
+.mpstep.is-current .mpstep__state { color: var(--color-text-brand); }
+
+.mpstep.is-current .mpstep__state { font-weight: var(--fw-bold); }
+
+/* ── 올린 서류 ────────────────────────────────────────────────────────── */
 .mypage__docs {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--fs-15);
 }
 
 .mypage__docs th,
 .mypage__docs td {
-  border-bottom: 1px solid #eceef1;
-  padding: 9px 12px;
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--color-divider);
   text-align: left;
-  vertical-align: middle;
+  vertical-align: top;
 }
 
-.mypage__docs thead th {
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-subtle);
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
+.mypage__docs th {
+  border-bottom-color: var(--color-border);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-subtle);
+  font-weight: var(--fw-bold);
+  white-space: nowrap;
 }
 
-.mypage__extract {
-  color: #444;
-}
+.mypage__docs tbody tr:last-child td { border-bottom: 0; }
 
+/* ── 동의 이력 ────────────────────────────────────────────────────────── */
 .mypage__consents {
-  list-style: none;
   margin: 0;
   padding: 0;
-  font-size: 12.5px;
+  list-style: none;
 }
 
 .mypage__consents li {
-  display: flex;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid #eceef1;
+  display: grid;
+  /* 동의 여부와 일시는 줄마다 같은 자리에 오게 폭을 정해 둔다. */
+  grid-template-columns: minmax(0, 1fr) 7em 17em;
+  align-items: center;
+  justify-items: start;
+  gap: var(--sp-2) var(--sp-4);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--color-divider);
 }
 
+.mypage__consents li:first-child { padding-top: 0; }
+
 .mypage__consents li:last-child {
+  padding-bottom: 0;
   border-bottom: 0;
 }
 
-.mypage__consents li span:first-child {
-  flex: 1;
-}
+.mypage__consent-label { font-weight: var(--fw-medium); }
 
 .mypage__time {
-  color: var(--muted);
+  color: var(--color-text-subtle);
+  font-size: var(--fs-15);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 좁은 화면: 가로 스크롤 없이 세로로 쌓는다 ────────────────────────── */
+@media (max-width: 600px) {
+  /* 진행 상황은 세로 줄로 바꾼다. 표식 사이 간격만큼 선을 긋는다. */
+  .mypage__progress {
+    --marker: 28px;
+    --step-gap: var(--sp-4);
+    grid-auto-flow: row;
+    gap: var(--step-gap);
+    padding: 0;
+  }
+
+  .mpstep {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: 0;
+    text-align: left;
+  }
+
+  .mpstep + .mpstep::before {
+    top: calc(-1 * var(--step-gap));
+    right: auto;
+    left: calc(var(--marker) / 2 - 1px);
+    width: 2px;
+    height: var(--step-gap);
+  }
+
+  .mpstep__copy {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--sp-2);
+  }
+
+  /* 표는 서류 한 건씩 쌓고, 칸 이름을 값 앞에 붙인다. */
+  .mypage__docs thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .mypage__docs,
+  .mypage__docs tbody,
+  .mypage__docs tr { display: block; }
+
+  .mypage__docs tr {
+    padding: var(--sp-3) 0;
+    border-bottom: 1px solid var(--color-divider);
+  }
+
+  .mypage__docs tr:first-child { padding-top: 0; }
+
+  .mypage__docs tr:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .mypage__docs td {
+    display: grid;
+    grid-template-columns: 5.5em minmax(0, 1fr);
+    align-items: start;
+    justify-items: start;
+    gap: var(--sp-2);
+    padding: var(--sp-1) 0;
+    border: 0;
+  }
+
+  .mypage__docs td::before {
+    content: attr(data-label);
+    color: var(--color-text-subtle);
+  }
+
+  .mypage__consents li {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+    gap: var(--sp-1);
+  }
 }

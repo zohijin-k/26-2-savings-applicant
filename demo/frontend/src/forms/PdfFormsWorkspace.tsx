@@ -15,7 +15,16 @@ import {
   type Identity,
   type Program,
 } from '../api.ts'
+import ConfirmDialog from '../components/ConfirmDialog.tsx'
+import Icon from '../components/Icon.tsx'
+import Notice from '../components/Notice.tsx'
 import SignaturePad from '../components/SignaturePad.tsx'
+import { Skeleton, SkeletonBlock, SkeletonLine } from '../components/Skeleton.tsx'
+import Spinner from '../components/Spinner.tsx'
+import useBeforeUnload from '../hooks/useBeforeUnload.ts'
+import useDelayedFlag from '../hooks/useDelayedFlag.ts'
+import { friendlyError, isCitizenSafe } from '../lib/error-copy.ts'
+import { formatDate } from '../lib/format.ts'
 import type { ConsentValue } from './consent-model.ts'
 import { isValidEmail, normalizeEmail } from './email.ts'
 import { formatPhone, isValidPhone, phoneCursorPosition } from './phone.ts'
@@ -25,6 +34,22 @@ import { EMPTY_FORM5, type Form5Value, type SignMode } from './form5-model.ts'
 import './pdf-forms-workspace.css'
 
 type ActiveForm = { formNo: string; mode: 'edit' | 'preview' }
+
+/** 화면에 보여 줄 오류. `save`는 저장·서식 전환 실패로, 다시 저장할 수 있게 안내한다. */
+type WorkspaceError = { message: string; kind: 'save' | 'input' }
+
+/** 화면 확인 대화상자에 넘기는 내용. 답은 `resolve`로 돌려준다. */
+type ConfirmRequest = {
+  title: string
+  description: string
+  confirmLabel: string
+  tone?: 'primary' | 'danger'
+  resolve: (confirmed: boolean) => void
+}
+
+const SAVE_FAILED_COPY = '작성한 내용을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+const REQUEST_FAILED_COPY = '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+const LOAD_FAILED_COPY = '서식을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
 
 interface Props {
   applicationId: number
@@ -115,8 +140,45 @@ function fieldGroup(key: string): string {
   return key.split('.')[0]
 }
 
-export function ApplicantFormsBulkMenu({ applicationId, refreshKey }: { applicationId: number; refreshKey?: number }) {
+export function ApplicantFormsBulkMenu({ applicationId, refreshKey, label = '서식 내려받기', small = false, closeKey }: {
+  applicationId: number
+  refreshKey?: number
+  /** 버튼에 보이는 이름. */
+  label?: string
+  /** 문서 머리처럼 좁은 자리에서는 40px 버튼으로 그린다. */
+  small?: boolean
+  /** 값이 바뀌면 열려 있던 메뉴를 닫는다(서식 전환, 대화상자 열림 등). */
+  closeKey?: string | number
+}) {
   const [hwp, setHwp] = useState<{ url: string | null; label: string | null }>({ url: null, label: null })
+  const [open, setOpen] = useState(false)
+  const [seenCloseKey, setSeenCloseKey] = useState(closeKey)
+  const menuRef = useRef<HTMLDetailsElement>(null)
+  if (seenCloseKey !== closeKey) {
+    setSeenCloseKey(closeKey)
+    setOpen(false)
+  }
+
+  // 열려 있는 동안 Esc와 바깥 클릭으로 닫는다.
+  useEffect(() => {
+    if (!open) return
+    const menu = menuRef.current
+    const onPointer = (event: PointerEvent) => {
+      if (menu && !menu.contains(event.target as Node)) setOpen(false)
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      const focusInside = !!menu && menu.contains(document.activeElement)
+      setOpen(false)
+      if (focusInside) menu.querySelector('summary')?.focus()
+    }
+    document.addEventListener('pointerdown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
 
   useEffect(() => {
     let alive = true
@@ -136,17 +198,22 @@ export function ApplicantFormsBulkMenu({ applicationId, refreshKey }: { applicat
   }, [applicationId, refreshKey])
 
   return (
-    <details className="pdf-forms__bulk-menu"><summary className="btn"><DownloadIcon /> 다운로드 <span aria-hidden="true">▾</span></summary>
-      <a href={`/api/applications/${applicationId}/forms/files/written.pdf`}><DownloadIcon /> <span>PDF 다운로드</span></a>
-      {hwp.url && hwp.label && <a href={hwp.url}><DownloadIcon /> <span>HWP 다운로드</span></a>}
+    <details ref={menuRef} className="pdf-forms__bulk-menu" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary className={small ? 'btn btn--small' : 'btn'}>
+        {!small && <Icon name="fileDown" />}
+        {label}
+        <Icon name="chevronDown" size={16} className="pdf-forms__bulk-caret" />
+      </summary>
+      <div className="pdf-forms__bulk-list">
+        <a href={`/api/applications/${applicationId}/forms/files/written.pdf`} onClick={() => setOpen(false)}>
+          <Icon name="fileDown" size={18} /> <span>PDF 내려받기</span>
+        </a>
+        {hwp.url && hwp.label && <a href={hwp.url} onClick={() => setOpen(false)}>
+          <Icon name="fileDown" size={18} /> <span>HWP 내려받기</span>
+        </a>}
+      </div>
     </details>
   )
-}
-
-function DownloadIcon() {
-  return <svg className="pdf-forms__download-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-    <path d="M10 2.5v9m0 0 3.5-3.5M10 11.5 6.5 8M3.5 13v3.5h13V13" />
-  </svg>
 }
 
 export default function PdfFormsWorkspace({
@@ -161,15 +228,33 @@ export default function PdfFormsWorkspace({
   const [paperForms, setPaperForms] = useState<Record<string, boolean>>({})
   const [active, setActive] = useState<ActiveForm | null>(null)
   const [page, setPage] = useState(0)
-  const [localError, setLocalError] = useState('')
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'failed'>('loading')
+  const [loadError, setLoadError] = useState('')
+  const [loadAttempt, setLoadAttempt] = useState(0)
+  const [localError, setLocalError] = useState<WorkspaceError | null>(null)
+  const [dismissedParentError, setDismissedParentError] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveNotice, setSaveNotice] = useState<{ message: string; values: unknown[] } | null>(null)
+  // 서버에 마지막으로 보낸 동의 선택. 동의 선택은 저장·서식 전환·미리보기 때에만 서버로 간다.
+  const [flushedConsent, setFlushedConsent] = useState(consent)
+  // 빈칸을 오류 색으로 보여 줄지: 저장·다음 단계를 시도한 서식에서만 켠다.
+  const [attemptedForms, setAttemptedForms] = useState<Record<string, boolean>>({})
+  const [incompleteNotice, setIncompleteNotice] = useState(0)
+  const [pendingFormNo, setPendingFormNo] = useState<string | null>(null)
+  const [jump, setJump] = useState(0)
+  const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null)
+  const [imageStatus, setImageStatus] = useState<{ key: string; status: 'loaded' | 'error' } | null>(null)
+  const [imageRetry, setImageRetry] = useState(0)
   const [signatureTarget, setSignatureTarget] = useState<string | null>(null)
   const [previewKey, setPreviewKey] = useState(0)
   const [thumbnailVersion, setThumbnailVersion] = useState(0)
   const [scanVersion, setScanVersion] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const navListRef = useRef<HTMLUListElement>(null)
+  const incompleteRef = useRef<HTMLDivElement>(null)
+  const confirmRef = useRef<ConfirmRequest | null>(null)
   const signatureDialogRef = useRef<HTMLDivElement>(null)
+  const signatureTitleRef = useRef<HTMLHeadingElement>(null)
   const signatureTriggerRef = useRef<HTMLButtonElement | null>(null)
   const signatureFocusReturnRef = useRef<HTMLButtonElement | null>(null)
   const sessionEpoch = useRef(0)
@@ -179,8 +264,33 @@ export default function PdfFormsWorkspace({
   const [availablePageWidth, setAvailablePageWidth] = useState(794)
   const draftValues = [form1, answers, consent, form5, signMode]
   const currentSaveNotice = saveNotice?.values.every((value, index) => value === draftValues[index]) ? saveNotice.message : ''
+  const hasUnflushedChanges = !readOnly && (
+    consent.privacy !== flushedConsent.privacy || consent.uniqueId !== flushedConsent.uniqueId || consent.thirdParty !== flushedConsent.thirdParty
+  )
+  // 저장에 성공하면 그 전에 떠 있던 상위 오류는 감추고, 상위 오류가 바뀌면 다시 보여 준다.
+  if (dismissedParentError && error !== dismissedParentError) setDismissedParentError('')
+  const parentError = error && error !== dismissedParentError ? (isCitizenSafe(error) ? error : REQUEST_FAILED_COPY) : ''
+
+  useBeforeUnload(saving || hasUnflushedChanges)
 
   useEffect(() => { paperFormsChangeRef.current = onPaperFormsChange }, [onPaperFormsChange])
+
+  // 화면 확인 대화상자. 답을 기다리는 동안 화면이 사라지면 "취소"로 끝낸다.
+  const askConfirm = (request: Omit<ConfirmRequest, 'resolve'>) => new Promise<boolean>((resolve) => {
+    const next = { ...request, resolve }
+    confirmRef.current = next
+    setConfirmRequest(next)
+  })
+  const answerConfirm = (confirmed: boolean) => {
+    const request = confirmRef.current
+    confirmRef.current = null
+    setConfirmRequest(null)
+    request?.resolve(confirmed)
+  }
+  useEffect(() => () => {
+    confirmRef.current?.resolve(false)
+    confirmRef.current = null
+  }, [])
 
   useEffect(() => {
     let alive = true
@@ -210,14 +320,20 @@ export default function PdfFormsWorkspace({
           paperFormsChangeRef.current?.(checklist.context.paper_forms || {})
           if (orderedFormNos.length > 0) {
             setActive({ formNo: orderedFormNos[0], mode: readOnly ? 'preview' : 'edit' })
+            setLoadState('ready')
+          } else {
+            setLoadError(LOAD_FAILED_COPY)
+            setLoadState('failed')
           }
         }
       })
       .catch((e: unknown) => {
-        if (alive) setLocalError(e instanceof Error ? e.message : String(e))
+        if (!alive) return
+        setLoadError(friendlyError(e, LOAD_FAILED_COPY))
+        setLoadState('failed')
       })
     return () => { alive = false; sessionEpoch.current += 1 }
-  }, [applicationId, readOnly])
+  }, [applicationId, readOnly, loadAttempt])
 
   const signatureOpen = active?.mode === 'edit' && active.formNo === '서식5' && !readOnly && !!signatureTarget
   useEffect(() => {
@@ -228,8 +344,13 @@ export default function PdfFormsWorkspace({
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const focusable = () => Array.from(dialog.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), [tabindex="0"]')).filter((item) => item.getClientRects().length > 0)
-    focusable()[0]?.focus()
+    // 처음에는 닫기 버튼이 아니라 대화상자 제목이 포커스를 받는다.
+    const title = signatureTitleRef.current
+    if (title) title.focus()
+    else focusable()[0]?.focus()
     const onKey = (event: KeyboardEvent) => {
+      // 이 창 위에 확인 대화상자가 떠 있는 동안에는 그 대화상자가 키보드를 맡는다.
+      if (dialog.closest('[inert]')) return
       if (event.key === 'Escape') {
         event.preventDefault()
         event.stopImmediatePropagation()
@@ -238,7 +359,7 @@ export default function PdfFormsWorkspace({
         const items = focusable()
         const first = items[0]
         const last = items[items.length - 1]
-        if (event.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === title || !dialog.contains(document.activeElement))) {
           event.preventDefault()
           last?.focus()
         } else if (!event.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
@@ -268,15 +389,26 @@ export default function PdfFormsWorkspace({
     const isCurrent = () => epoch === sessionEpoch.current
     pendingOperation.current = epoch
     setSaving(true)
-    setLocalError('')
+    setLocalError(null)
     setSaveNotice(null)
+    let flushing = !readOnly && flush
     try {
       if (!readOnly && flush) await onFlush()
       if (!isCurrent()) return
+      if (flushing) {
+        flushing = false
+        setFlushedConsent(consent)
+        setDismissedParentError(error)
+        setSaveNotice({ message: '저장했습니다', values: draftValues })
+      }
       await action(isCurrent)
       if (isCurrent()) setThumbnailVersion((key) => key + 1)
     } catch (e: unknown) {
-      if (isCurrent()) setLocalError(e instanceof Error ? e.message : String(e))
+      if (isCurrent()) {
+        setLocalError(flushing
+          ? { message: friendlyError(e, SAVE_FAILED_COPY), kind: 'save' }
+          : { message: friendlyError(e, REQUEST_FAILED_COPY), kind: 'input' })
+      }
     } finally {
       if (isCurrent()) {
         pendingOperation.current = null
@@ -286,15 +418,24 @@ export default function PdfFormsWorkspace({
   }
 
   const changePaperMode = async (formNo: string, next: boolean) => {
-    if (readOnly || saving || continuing) return
+    if (readOnly || saving || continuing || !!paperForms[formNo] === next) return
     const hasOnlineContent = formNo === '서식5' ? hasStarted('서식5') : false
-    if (next && hasOnlineContent && !window.confirm('온라인으로 작성한 내용은 제출되지 않습니다. 스캔본 제출로 바꾸시겠어요?')) return
+    if (next && hasOnlineContent && !(await askConfirm({
+      title: '스캔본 제출로 바꾸시겠습니까?',
+      description: '온라인으로 작성한 내용은 제출되지 않습니다.',
+      confirmLabel: '바꾸기',
+    }))) return
     await runSavedAction(async (isCurrent) => {
       if (!next && paperForms[formNo]) {
         const checklist = await fetchChecklist(applicationId)
         if (!isCurrent()) return
         const scan = checklist.items.find((item) => item.slot_key === 'admin_info_consent')?.documents[0]
-        if (scan && !window.confirm('올린 스캔본은 제출되지 않습니다. 온라인 작성으로 바꾸시겠어요?')) return
+        if (scan && !(await askConfirm({
+          title: '온라인 작성으로 바꾸시겠습니까?',
+          description: '올린 스캔본은 제출되지 않습니다.',
+          confirmLabel: '바꾸기',
+        }))) return
+        if (!isCurrent()) return
         if (scan) await deleteDocument(applicationId, scan.document_id)
       }
       const checklist = await fetchChecklist(applicationId)
@@ -314,9 +455,10 @@ export default function PdfFormsWorkspace({
     void onFlush().then(() => {
       if (epoch !== sessionEpoch.current) return
       setThumbnailVersion((version) => version + 1)
-      setSaveNotice({ message: '초기화한 내용을 저장했습니다.', values: [form1, answers, consent, form5, signMode] })
+      setFlushedConsent(consent)
+      setSaveNotice({ message: '초기화한 내용을 저장했습니다', values: [form1, answers, consent, form5, signMode] })
     }).catch((e: unknown) => {
-      if (epoch === sessionEpoch.current) setLocalError(e instanceof Error ? e.message : String(e))
+      if (epoch === sessionEpoch.current) setLocalError({ message: friendlyError(e, SAVE_FAILED_COPY), kind: 'save' })
     }).finally(() => {
       if (epoch === sessionEpoch.current) { pendingOperation.current = null; setSaving(false) }
     })
@@ -476,7 +618,11 @@ export default function PdfFormsWorkspace({
   const changeSignMode = async (next: SignMode) => {
     if (readOnly || next === signMode || pendingOperation.current !== null) return
     const hasSignature = !!form5.signature || form5.signatureScanUploaded
-    if (hasSignature && !window.confirm('서명 방식을 바꾸면 현재 서명이 지워집니다. 바꾸시겠어요?')) return
+    if (hasSignature && !(await askConfirm({
+      title: '서명 방식을 바꾸시겠습니까?',
+      description: '서명 방식을 바꾸면 현재 서명이 지워집니다.',
+      confirmLabel: '바꾸기',
+    }))) return
     await runSavedAction(async (isCurrent) => {
       if (form5.signatureScanUploaded) await deleteSignatureScan(applicationId)
       if (!isCurrent()) return
@@ -489,13 +635,13 @@ export default function PdfFormsWorkspace({
   const uploadScan = async (file: File | undefined, input: HTMLInputElement) => {
     if (!file || readOnly || pendingOperation.current !== null) return
     input.value = ''
-    setLocalError('')
+    setLocalError(null)
     if (!['image/jpeg', 'image/png'].includes(file.type)) {
-      setLocalError('JPG 또는 PNG 이미지 파일을 올려 주세요.')
+      setLocalError({ message: 'JPG 또는 PNG 이미지 파일을 올려 주세요.', kind: 'input' })
       return
     }
     if (file.size > 10 * 1024 * 1024) {
-      setLocalError('서명 이미지는 10MB 이하로 올려 주세요.')
+      setLocalError({ message: '서명 이미지는 10MB 이하로 올려 주세요.', kind: 'input' })
       return
     }
     await runSavedAction(async (isCurrent) => {
@@ -518,12 +664,20 @@ export default function PdfFormsWorkspace({
 
   const resetForm = async (formNo: string) => {
     if (readOnly || pendingOperation.current !== null || continuing) return
-    if (!window.confirm('작성한 내용과 서명이 모두 지워집니다. 다시 작성할까요?')) return
+    if (!(await askConfirm({
+      title: '다시 작성하시겠습니까?',
+      description: '작성한 내용과 서명이 모두 지워집니다.',
+      confirmLabel: '다시 작성',
+      tone: 'danger',
+    }))) return
+    if (pendingOperation.current !== null) return
     const epoch = sessionEpoch.current
     pendingOperation.current = epoch
     setSaving(true)
     setSaveNotice(null)
-    setLocalError('')
+    setLocalError(null)
+    // 다시 작성한 서식은 처음 연 서식처럼 차분한 표시로 돌아간다.
+    setAttemptedForms((current) => ({ ...current, [formNo]: false }))
     try {
       if (formNo === '서식5' && form5.signatureScanUploaded) await deleteSignatureScan(applicationId)
       if (epoch !== sessionEpoch.current) return
@@ -549,7 +703,7 @@ export default function PdfFormsWorkspace({
       resetPending.current = null
       pendingOperation.current = null
       setSaving(false)
-      setLocalError(e instanceof Error ? e.message : String(e))
+      setLocalError({ message: friendlyError(e, REQUEST_FAILED_COPY), kind: 'input' })
     }
   }
 
@@ -563,35 +717,124 @@ export default function PdfFormsWorkspace({
     })
   }
 
+  const markAttempted = (targets: string[]) => {
+    setAttemptedForms((current) => ({ ...current, ...Object.fromEntries(targets.map((formNo) => [formNo, true])) }))
+  }
+
   const saveAndClose = async () => {
+    if (active) markAttempted([active.formNo])
     await runSavedAction(() => {
-      setSaveNotice({ message: '작성 내용을 저장했습니다.', values: draftValues })
       setSignatureTarget(null)
     })
   }
 
-  const selectForm = async (formNo: string) => {
-    if (active?.formNo === formNo) return
+  /** 빈칸이 처음 나오는 쪽. 빈칸이 없으면 첫 쪽이다. */
+  const firstMissingPage = (formNo: string): number => {
+    const fields = Object.entries(layouts[formNo]?.fields || {})
+    const pages = missing(formNo).flatMap((required) => fields
+      .filter(([fieldKey]) => fieldKey === required || fieldGroup(fieldKey) === required)
+      .map(([, field]) => field.page))
+    return pages.length > 0 ? Math.min(...pages) : 0
+  }
+
+  /**
+   * 서식을 바꾼다. 바꾸기 전에 지금 서식을 저장하고, 저장에 실패하면 지금 서식에 머문다.
+   * `toMissing`을 주면 바꾼 뒤 빈칸이 있는 쪽으로 옮기고 문서 머리로 포커스를 보낸다.
+   */
+  const selectForm = async (formNo: string, toMissing = false) => {
+    if (active?.formNo === formNo) {
+      if (!toMissing || readOnly) return
+      if (active.mode !== 'edit') setActive({ ...active, mode: 'edit' })
+      setPage(firstMissingPage(formNo))
+      setJump((count) => count + 1)
+      return
+    }
+    // 쓰다 만 서식을 떠나면, 돌아왔을 때 남은 빈칸을 오류 색으로 보여 준다.
+    const leaving = active?.formNo
+    if (leaving && !readOnly && !paperForms[leaving] && hasStarted(leaving) && missing(leaving).length > 0) markAttempted([leaving])
+    setPendingFormNo(formNo)
     await runSavedAction(() => {
-      setPage(0)
+      setPage(toMissing ? firstMissingPage(formNo) : 0)
       setSignatureTarget(null)
       setActive({ formNo, mode: readOnly ? 'preview' : 'edit' })
-      scrollRef.current?.scrollTo({ top: 0, left: 0 })
+      if (toMissing) setJump((count) => count + 1)
+      else scrollRef.current?.scrollTo({ top: 0, left: 0 })
     })
+    setPendingFormNo(null)
   }
 
+  const incompleteForms = formNos.filter((formNo) => !!layouts[formNo] && !paperForms[formNo] && missing(formNo).length > 0)
+
   const submitWorkspace = () => {
-    if (readOnly || pendingOperation.current !== null || continuing) return
+    if (readOnly || pendingOperation.current !== null || continuing || loadState !== 'ready') return
     if (!allReady) {
-      setLocalError('필수 칸과 자가진단 문항을 모두 작성해 주세요.')
+      // 통과 조건은 그대로다. 덜 쓴 서식을 알려 주고 빈칸을 오류 색으로 바꾼다.
+      markAttempted(formNos)
+      setIncompleteNotice((count) => count + 1)
       return
     }
     onContinue()
   }
 
+  const changePage = (next: number) => {
+    setPage(next)
+    scrollRef.current?.scrollTo({ top: 0 })
+  }
+
   const pageImageUrl = active
     ? `/api/applications/${applicationId}/forms/${encodeURIComponent(active.formNo)}/pages/${page + 1}.png?preview=${active.mode === 'preview' ? 'true' : 'false'}&v=${previewKey}`
     : ''
+  // 쪽 그림이 올 때까지 자리 표시를 보여 주고, 입력 칸은 그림이 온 뒤에 보인다.
+  const imageKey = `${pageImageUrl}#${imageRetry}`
+  const imageState = !active ? 'loaded' : imageStatus?.key === imageKey ? imageStatus.status : 'loading'
+  const showPageSkeleton = useDelayedFlag(imageState === 'loading')
+
+  // 덜 쓴 서식 안내가 나오면 그 안내로 포커스를 옮긴다.
+  useEffect(() => {
+    if (incompleteNotice > 0) incompleteRef.current?.focus()
+  }, [incompleteNotice])
+
+  // 안내에서 고른 서식: 첫 빈칸이 보이게 하고 문서 머리로 포커스를 옮긴다.
+  useEffect(() => {
+    if (jump === 0) return
+    const frame = requestAnimationFrame(() => {
+      const viewport = scrollRef.current
+      if (viewport) {
+        const base = viewport.getBoundingClientRect().top - viewport.scrollTop
+        const tops = Array.from(viewport.querySelectorAll<HTMLElement>('.is-missing, .pdf-form__group-missing'))
+          .map((item) => item.getBoundingClientRect().top - base)
+        viewport.scrollTo({ top: tops.length > 0 ? Math.max(0, Math.min(...tops) - 80) : 0 })
+      }
+      document.getElementById('pdf-form-panel-title')?.focus({ preventScroll: true })
+      document.getElementById('pdf-form-panel')?.scrollIntoView({ block: 'start' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [jump])
+
+  // 좁은 화면의 가로 서식 목록: 더 넘길 내용이 있는 쪽에 그림자를 보이고, 고른 서식이 보이게 한다.
+  const activeFormNo = active?.formNo
+  useEffect(() => {
+    const list = navListRef.current
+    const frame = list?.parentElement
+    if (!list || !frame) return
+    const update = () => {
+      const rest = list.scrollWidth - list.clientWidth - list.scrollLeft
+      frame.dataset.moreStart = list.scrollLeft > 4 ? 'true' : 'false'
+      frame.dataset.moreEnd = rest > 4 ? 'true' : 'false'
+    }
+    const current = list.querySelector<HTMLElement>('[aria-current="true"]')?.parentElement
+    if (current && list.scrollWidth > list.clientWidth) {
+      list.scrollTo({ left: Math.max(0, current.offsetLeft - list.offsetLeft - 16) })
+    }
+    update()
+    list.addEventListener('scroll', update, { passive: true })
+    const observer = new ResizeObserver(update)
+    observer.observe(list)
+    return () => {
+      list.removeEventListener('scroll', update)
+      observer.disconnect()
+    }
+  }, [activeFormNo, loadState])
 
   const renderField = ([key, field]: [string, FormFieldLayout], fieldIndex: number) => {
     if (!active || field.page !== page) return null
@@ -672,7 +915,7 @@ export default function PdfFormsWorkspace({
           style={boxStyle}
           aria-label="서명 입력란"
           title="눌러서 서명"
-          onClick={(event) => { signatureTriggerRef.current = event.currentTarget; setLocalError(''); setSignatureTarget(key) }}
+          onClick={(event) => { signatureTriggerRef.current = event.currentTarget; setLocalError(null); setSignatureTarget(key) }}
         >
           {value && <img src={value} alt="입력한 서명" />}
         </button>
@@ -757,25 +1000,59 @@ export default function PdfFormsWorkspace({
     return `${layout.public_form} ${shortTitle}`
   }
 
+  const activeStatus = active ? itemLabelForStatus(active.formNo) : null
+  const editing = !!active && active.mode === 'edit' && !readOnly && !paperForms[active.formNo]
+  // 저장이나 다음 단계를 시도한 서식에서만 남은 빈칸을 오류 색으로 보여 준다.
+  const showErrors = editing && !!attemptedForms[active.formNo]
+  const hasMissing = editing && (activeStatus?.remaining ?? 0) > 0
+  const pageCount = currentLayout?.page_sizes.length ?? 0
+
   const viewerContent = active && currentLayout ? (
     <fieldset className="pdf-form__contents" disabled={saving || continuing}>
-      <div className="pdf-form__toolbar">
-        <button type="button" className="btn" aria-label="이전 쪽" disabled={page <= 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>◀</button>
-        <span>{page + 1} / {currentLayout.page_sizes.length}쪽</span>
-        <button type="button" className="btn" aria-label="다음 쪽" disabled={page >= currentLayout.page_sizes.length - 1} onClick={() => setPage((p) => Math.min(currentLayout.page_sizes.length - 1, p + 1))}>▶</button>
+      <div className="pdf-forms__toolbar">
+        {hasMissing && (showErrors
+          ? <p className="pdf-forms__legend pdf-forms__legend--error"><span className="pdf-forms__legend-swatch" aria-hidden="true" />빨간 테두리 칸이 아직 비어 있습니다.</p>
+          : <p className="pdf-forms__legend"><span className="pdf-forms__legend-swatch" aria-hidden="true" />파란 테두리 칸은 작성해야 하는 칸입니다.</p>)}
+        <div className="pdf-forms__pager">
+          {pageCount > 1 && <button type="button" className="btn btn--small" disabled={page <= 0} onClick={() => changePage(Math.max(0, page - 1))}>
+            <Icon name="chevronLeft" size={18} /><span className="pdf-forms__pager-label">이전 쪽</span>
+          </button>}
+          <span className="pdf-forms__pager-count">{page + 1} / {pageCount}쪽</span>
+          {pageCount > 1 && <button type="button" className="btn btn--small" disabled={page >= pageCount - 1} onClick={() => changePage(Math.min(pageCount - 1, page + 1))}>
+            <span className="pdf-forms__pager-label">다음 쪽</span><Icon name="chevronRight" size={18} />
+          </button>}
+        </div>
       </div>
+      <p className="pdf-forms__mobile-hint"><Icon name="info" size={18} />서식이 화면보다 넓으면 좌우로 스크롤해 주세요.</p>
+      {imageState === 'error' && (
+        <div className="pdf-forms__page-error">
+          <Notice tone="danger" role="alert" title="서식 화면을 불러오지 못했습니다.">
+            <button type="button" className="btn btn--small" onClick={() => setImageRetry((count) => count + 1)}>
+              <Icon name="refresh" size={18} />다시 불러오기
+            </button>
+          </Notice>
+        </div>
+      )}
       <div className="pdf-form__scroll" ref={scrollRef} data-form-scroll>
         <div
-          className="pdf-form__page"
+          className={imageState === 'loaded' ? 'pdf-form__page' : 'pdf-form__page pdf-form__page--pending'}
           data-form-page
           style={{ width: pageWidth, height: pageSize ? pageSize.height * scale : 'auto' }}
         >
           <img
+            key={imageKey}
             className="pdf-form__background"
             src={pageImageUrl}
             alt={`${formLabel(active.formNo)} ${page + 1}쪽 원본 서식`}
             draggable={false}
+            onLoad={() => setImageStatus({ key: imageKey, status: 'loaded' })}
+            onError={() => setImageStatus({ key: imageKey, status: 'error' })}
           />
+          {showPageSkeleton && (
+            <Skeleton className="pdf-forms__page-skeleton" label="서식 화면을 불러오는 중입니다">
+              <SheetPlaceholder />
+            </Skeleton>
+          )}
           {active.mode === 'edit' && (
             <div className="pdf-form__overlay" style={{ width: pageWidth, height: pageSize ? pageSize.height * scale : 'auto' }}>
               {(currentLayout.masks || []).filter((mask) => mask.page === page).map((mask, index) => {
@@ -803,131 +1080,235 @@ export default function PdfFormsWorkspace({
         </div>
       </div>
       {active.mode === 'edit' && !readOnly && active.formNo === '서식1' && (
-        <div className="pdf-form__extra">
-          <strong>기간 산정에 쓰는 날짜</strong>
-          <label>전북 최종 전입일
-            <input type="date" max={currentLayout?.auto_date} value={isoDate(form1.transferIn)} onChange={(event) => onForm1({ ...form1, transferIn: fromISO(event.currentTarget.value) })} />
-          </label>
-          <label>현 직장 입사일
-            <input type="date" max={currentLayout?.auto_date} value={isoDate(form1.employedAt)} onChange={(event) => onForm1({ ...form1, employedAt: fromISO(event.currentTarget.value) })} />
-          </label>
-          <span>기간 구간은 공고일 기준으로 서식에 자동 표시됩니다.</span>
+        <div className="pdf-forms__extra">
+          <h3 className="pdf-forms__extra-title">기간 산정에 쓰는 날짜</h3>
+          <div className="pdf-forms__extra-fields">
+            <label className="field">
+              <span className="field__label">전북 최종 전입일</span>
+              <input className="input" type="date" max={currentLayout?.auto_date} value={isoDate(form1.transferIn)} onChange={(event) => onForm1({ ...form1, transferIn: fromISO(event.currentTarget.value) })} />
+            </label>
+            <label className="field">
+              <span className="field__label">현 직장 입사일</span>
+              <input className="input" type="date" max={currentLayout?.auto_date} value={isoDate(form1.employedAt)} onChange={(event) => onForm1({ ...form1, employedAt: fromISO(event.currentTarget.value) })} />
+            </label>
+          </div>
+          <p className="field__hint">날짜를 넣으면 서식의 거주기간·근무기간 칸이 공고일 기준으로 자동 표시됩니다.</p>
           {(isAfterBasis(form1.transferIn, program.announcement_date) || isAfterBasis(form1.employedAt, program.announcement_date)) && (
-            <span className="pdf-form__date-warning" role="alert">공고일({koreanDate(program.announcement_date)}) 이후 날짜입니다. 기간 보기에 해당하는 칸이 없습니다.</span>
+            <p className="field__error" role="alert"><Icon name="alertCircle" size={18} />공고일({formatDate(program.announcement_date)}) 이후 날짜입니다. 기간 보기에 해당하는 칸이 없습니다.</p>
           )}
         </div>
       )}
     </fieldset>
   ) : null
 
+  const errorNotice = signatureOpen ? null : localError ? (
+    <Notice tone="danger" role="alert" className="pdf-forms__error" title={localError.kind === 'save' ? '저장하지 못했습니다' : undefined}>
+      <p>{localError.message}</p>
+      {localError.kind === 'save' && !readOnly && (
+        <button type="button" className="btn btn--small" disabled={saving || continuing} onClick={() => void saveAndClose()}>다시 저장</button>
+      )}
+    </Notice>
+  ) : parentError ? (
+    <Notice tone="danger" role="alert" className="pdf-forms__error"><p>{parentError}</p></Notice>
+  ) : null
+
+  const busy = saving || continuing
+  const saveState = busy ? <><Spinner small />저장 중…</>
+    : localError?.kind === 'save' ? <span className="pdf-forms__save-state--failed"><Icon name="alertCircle" size={18} />저장하지 못했습니다</span>
+    : hasUnflushedChanges ? <span className="pdf-forms__save-state--pending"><Icon name="info" size={18} />저장하지 않은 변경이 있습니다</span>
+    : currentSaveNotice ? <span className="pdf-forms__save-state--saved"><Icon name="checkCircle" size={18} />{currentSaveNotice}</span>
+    : null
+
+  const paperChoices = [
+    { paper: false, icon: 'pencil', title: '온라인 작성', text: '이 화면에서 바로 작성하고 서명합니다.' },
+    { paper: true, icon: 'upload', title: '스캔본 제출', text: '출력해 손으로 쓰고 서명한 뒤 올립니다. 휴대폰 사진도 됩니다.' },
+  ] as const
+
   return (
-    <section className="pdf-forms pdf-forms--inline">
-      <>
-        {(localError || error) && <p className="pdf-forms__error" role="alert">{localError || error} 저장 또는 서식 선택을 다시 시도해 주세요.</p>}
-        <div className="pdf-forms__workspace" aria-busy={saving}>
-          <aside className="pdf-forms__sidebar">
-            <div className="pdf-forms__sidebar-head">
-              <span>서식 목록</span>
-              <strong>{completedFormCount}<small> / {availableFormCount}</small></strong>
+    <section className={showErrors ? 'pdf-forms pdf-forms--show-errors' : 'pdf-forms'}>
+      {errorNotice}
+      <div className="pdf-forms__workspace" aria-busy={saving}>
+        <aside className="pdf-forms__sidebar">
+          <div className="pdf-forms__sidebar-head">
+            <h2 className="pdf-forms__sidebar-title">서식 목록</h2>
+            {loadState === 'ready' && <span className="pdf-forms__sidebar-count">작성 완료 {completedFormCount} / {availableFormCount}</span>}
+          </div>
+          <nav className="pdf-forms__nav" aria-label="신청 서식 선택">
+            {loadState === 'loading' && (
+              <Skeleton className="pdf-forms__nav-skeleton" label="서식 목록을 불러오는 중입니다">
+                {[0, 1, 2, 3, 4].map((row) => (
+                  <span key={row} className="pdf-forms__nav-skeleton-row">
+                    <SkeletonLine width="30%" /><SkeletonLine width="85%" /><SkeletonLine width="45%" />
+                  </span>
+                ))}
+              </Skeleton>
+            )}
+            <ul ref={navListRef} className="pdf-forms__nav-list">
+              {formNos.map((formNo) => {
+                const state = itemLabelForStatus(formNo)
+                const selected = active?.formNo === formNo
+                const layout = layouts[formNo]
+                return <li key={formNo}>
+                  <button
+                    type="button"
+                    className={`pdf-forms__nav-item pdf-forms__nav-item--${state.state}${selected ? ' is-active' : ''}`}
+                    aria-current={selected ? 'true' : undefined}
+                    aria-controls="pdf-form-panel"
+                    disabled={!layout || saving || continuing}
+                    onClick={() => void selectForm(formNo)}
+                  >
+                    <span className="pdf-forms__nav-label">{layout?.public_form || formNo}</span>
+                    <span className="pdf-forms__nav-title">{layout?.title.replace(/ 및 필수사항.*$/, '') || formNo}</span>
+                    <FormStatus state={state.state} label={state.label} />
+                    {pendingFormNo === formNo && <span className="pdf-forms__nav-pending"><Spinner small /></span>}
+                  </button>
+                </li>
+              })}
+            </ul>
+          </nav>
+        </aside>
+        <section id="pdf-form-panel" className="pdf-forms__panel" aria-labelledby="pdf-form-panel-title">
+          <header className="pdf-forms__panel-head">
+            <div className="pdf-forms__panel-heading">
+              <h2 id="pdf-form-panel-title" tabIndex={-1}>{active ? formLabel(active.formNo) : loadState === 'failed' ? '서식을 불러오지 못했습니다' : '서식을 불러오고 있습니다'}</h2>
+              <p className="pdf-forms__panel-state">
+                {active && activeStatus && (readOnly
+                  ? <FormStatus state="locked" label="제출한 서식입니다" />
+                  : paperForms[active.formNo]
+                    ? <FormStatus state="paper" label="스캔본 제출" />
+                    : active.mode === 'preview'
+                      ? <FormStatus state="preview" label="미리보기" />
+                      : <FormStatus state={activeStatus.state} label={activeStatus.label} />)}
+                <span className="pdf-forms__save-state" role="status">{!readOnly && saveState}</span>
+              </p>
             </div>
-            <nav aria-label="신청 서식 선택">
-              <ul className="pdf-forms__nav-list">
-                {formNos.map((formNo) => {
-                  const state = itemLabelForStatus(formNo)
-                  const selected = active?.formNo === formNo
-                  const layout = layouts[formNo]
-                  return <li key={formNo}>
-                    <button
-                      type="button"
-                      className={`pdf-forms__nav-item pdf-forms__nav-item--${state.state}${selected ? ' is-active' : ''}`}
-                      aria-current={selected ? 'step' : undefined}
-                      aria-controls="pdf-form-panel"
-                      disabled={!layout || saving || continuing}
-                      onClick={() => void selectForm(formNo)}
-                    >
-                      <span className="pdf-forms__nav-info">
-                        <span className="pdf-forms__nav-meta">
-                          <span className="pdf-forms__nav-label">{layout?.public_form || formNo}</span>
-                          <span className="pdf-forms__nav-status">{state.state === 'draft' ? '작성 중' : state.label}</span>
-                        </span>
-                        <strong>{layout?.title.replace(/ 및 필수사항.*$/, '') || formNo}</strong>
-                      </span>
-                    </button>
-                  </li>
-                })}
-              </ul>
-            </nav>
-          </aside>
-          <section id="pdf-form-panel" className="pdf-forms__panel" aria-labelledby="pdf-form-panel-title">
-            <header className="pdf-forms__panel-head">
-              <div>
-                <h2 id="pdf-form-panel-title">{active ? formLabel(active.formNo) : localError ? '서식을 불러오지 못했습니다' : '서식을 불러오는 중입니다'}</h2>
-                {active && <span className="pdf-forms__panel-state">{paperForms[active.formNo] ? '스캔본 제출' : active.mode === 'preview' ? '미리보기' : itemLabelForStatus(active.formNo).label}</span>}
-              </div>
-              <div className="pdf-forms__panel-actions">
-                <ApplicantFormsBulkMenu applicationId={applicationId} refreshKey={thumbnailVersion} />
-                {active && !paperForms[active.formNo] && !readOnly && <>
-                  {active.mode === 'preview'
-                    ? <button type="button" className="btn" disabled={saving || continuing} onClick={() => { setSignatureTarget(null); setActive({ ...active, mode: 'edit' }) }}>수정하기</button>
-                    : <button type="button" className="btn" disabled={saving || continuing} onClick={() => void startPreview(active.formNo)}>미리보기</button>}
-                  <button type="button" className="btn pdf-forms__reset" disabled={saving || continuing || itemLabelForStatus(active.formNo).state === 'empty'} onClick={() => void resetForm(active.formNo)}>다시 작성</button>
-                  <button type="button" className="btn btn--primary pdf-forms__save" disabled={saving || continuing} onClick={() => void saveAndClose()}>저장</button>
-                </>}
-              </div>
-            </header>
-            {(saving || currentSaveNotice) && <p className="pdf-forms__save-status" role="status">{saving ? '저장 중…' : currentSaveNotice}</p>}
-            {active && paperAllowed[active.formNo] && <div className="pdf-forms__paper-options">
-              <label>작성 방식
-                <select aria-label={`${formLabel(active.formNo)} 작성 방식`} value={paperForms[active.formNo] ? 'paper' : 'screen'} disabled={readOnly || saving || continuing} onChange={(event) => void changePaperMode(active.formNo, event.currentTarget.value === 'paper')}>
-                  <option value="screen">온라인 작성</option><option value="paper">스캔본 제출</option>
-                </select>
-              </label>
-              <span>{paperForms[active.formNo] ? '출력해 손으로 쓰고 서명한 뒤 올립니다. 휴대폰 사진도 됩니다.' : '이 화면에서 바로 작성하고 서명합니다.'}</span>
+            {loadState === 'ready' && <div className="pdf-forms__panel-actions">
+              {active && !paperForms[active.formNo] && !readOnly && <>
+                <button type="button" className="btn btn--quiet btn--small pdf-forms__reset" disabled={busy || activeStatus?.state === 'empty'} onClick={() => void resetForm(active.formNo)}>다시 작성</button>
+                <span className="pdf-forms__action-divider" aria-hidden="true" />
+              </>}
+              <ApplicantFormsBulkMenu
+                applicationId={applicationId}
+                refreshKey={thumbnailVersion}
+                label="내려받기"
+                small
+                closeKey={`${active?.formNo ?? ''}:${active?.mode ?? ''}:${confirmRequest ? 'confirm' : ''}:${signatureOpen ? 'sign' : ''}`}
+              />
+              {active && !paperForms[active.formNo] && !readOnly && <>
+                {active.mode === 'preview'
+                  ? <button type="button" className="btn btn--small" disabled={busy} onClick={() => { setSignatureTarget(null); setActive({ ...active, mode: 'edit' }) }}>수정하기</button>
+                  : <button type="button" className="btn btn--small" disabled={busy} onClick={() => void startPreview(active.formNo)}>미리보기</button>}
+                <button type="button" className="btn btn--primary btn--small pdf-forms__save" disabled={busy} onClick={() => void saveAndClose()}>저장</button>
+              </>}
             </div>}
-            {active && paperForms[active.formNo] ? <div className="pdf-forms__paper-state">
-              <span className="pdf-forms__paper-icon" aria-hidden="true">↥</span>
+          </header>
+          {active && paperAllowed[active.formNo] && (
+            <div className="pdf-forms__paper-options" role="radiogroup" aria-labelledby="pdf-forms-paper-title">
+              <p id="pdf-forms-paper-title" className="pdf-forms__paper-title">작성 방식</p>
+              <div className="pdf-forms__paper-choices">
+                {paperChoices.map((choice) => {
+                  const selected = !!paperForms[active.formNo] === choice.paper
+                  return (
+                    <label key={choice.title} className={`pdf-forms__paper-choice${selected ? ' is-selected' : ''}${readOnly || busy ? ' is-disabled' : ''}`}>
+                      <input type="radio" name="pdf-forms-paper-mode" checked={selected} disabled={readOnly || busy} onChange={() => void changePaperMode(active.formNo, choice.paper)} />
+                      <span className="pdf-forms__paper-choice-copy">
+                        <strong><Icon name={choice.icon} size={18} />{choice.title}</strong>
+                        <span>{choice.text}</span>
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          {active && paperForms[active.formNo] ? (
+            <div className="pdf-forms__paper-state">
+              <span className="pdf-forms__paper-icon" aria-hidden="true"><Icon name="upload" size={28} /></span>
               <h3>스캔본으로 제출하는 서식입니다</h3>
-              <p>상단 다운로드 메뉴에서 서식을 받은 뒤 작성하고 서명해 주세요.<br />작성한 서류는 다음 서류 업로드 단계에서 올릴 수 있습니다.</p>
-            </div> : viewerContent || <div className="pdf-forms__loading" role="status">{localError ? '페이지를 새로고침해 다시 시도해 주세요.' : '원본 서식을 준비하고 있습니다…'}</div>}
-            {active && !paperForms[active.formNo] && <p className="pdf-forms__mobile-hint">서식이 화면보다 넓으면 좌우로 스크롤해 주세요.</p>}
-          </section>
-        </div>
-      </>
-      <div className="flow__actions">
-        <button type="button" className="btn" onClick={() => window.scrollTo({ top: 0 })}>서식 목록</button>
-        {!readOnly && <button type="button" className="btn btn--primary" disabled={!allReady || continuing || saving} onClick={submitWorkspace}>
-          {continuing ? '저장 중…' : '서류 업로드로'}
-        </button>}
+              <p>위의 내려받기 메뉴에서 서식을 받아 작성하고 서명해 주세요.<br />작성한 서류는 다음 단계인 서류 업로드에서 올릴 수 있습니다.</p>
+            </div>
+          ) : viewerContent || (loadState === 'failed' ? (
+            <div className="pdf-forms__load-failed">
+              <Notice tone="danger" role="alert">
+                <p>{loadError}</p>
+                <button type="button" className="btn btn--small" onClick={() => { setLoadState('loading'); setLoadAttempt((count) => count + 1) }}>
+                  <Icon name="refresh" size={18} />다시 시도
+                </button>
+              </Notice>
+            </div>
+          ) : (
+            <Skeleton className="pdf-forms__loading" label="서식을 불러오는 중입니다">
+              <SheetPlaceholder />
+            </Skeleton>
+          ))}
+        </section>
       </div>
+
+      {!readOnly && incompleteNotice > 0 && !allReady && incompleteForms.length > 0 && (
+        <Notice ref={incompleteRef} tabIndex={-1} tone="warning" className="pdf-forms__incomplete" title="아직 작성하지 않은 서식이 있습니다">
+          <p>아래 서식을 누르면 빈칸이 있는 곳으로 이동합니다.</p>
+          <ul className="pdf-forms__incomplete-list">
+            {incompleteForms.map((formNo) => (
+              <li key={formNo}>
+                <button type="button" className="pdf-forms__incomplete-item" disabled={busy} onClick={() => void selectForm(formNo, true)}>
+                  <span>{formLabel(formNo)} — 남은 항목 {missing(formNo).length}개</span>
+                  <Icon name="chevronRight" size={18} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Notice>
+      )}
+      {!readOnly && (
+        <div className="flow__actions">
+          <button type="button" className={continuing ? 'btn btn--primary btn--lg btn--busy' : 'btn btn--primary btn--lg'} disabled={busy || loadState !== 'ready'} aria-busy={continuing || undefined} onClick={submitWorkspace}>
+            {continuing && <Spinner small />}서류 업로드로
+          </button>
+        </div>
+      )}
+
+      {confirmRequest && (
+        <ConfirmDialog
+          title={confirmRequest.title}
+          description={confirmRequest.description}
+          confirmLabel={confirmRequest.confirmLabel}
+          tone={confirmRequest.tone}
+          onConfirm={() => answerConfirm(true)}
+          onCancel={() => answerConfirm(false)}
+        />
+      )}
 
       {active?.mode === 'edit' && active.formNo === '서식5' && !readOnly && signatureTarget && createPortal(
         <div className="form-signature__overlay" onClick={() => setSignatureTarget(null)}>
-          <div ref={signatureDialogRef} className="form-signature" role="dialog" aria-modal="true" aria-label="서명하기" onClick={(event) => event.stopPropagation()}>
+          <div ref={signatureDialogRef} className="form-signature" role="dialog" aria-modal="true" aria-labelledby="form-signature-title" onClick={(event) => event.stopPropagation()}>
             <header className="form-signature__head">
-              <h3>서명하기</h3>
-              <button type="button" className="form-signature__close" aria-label="닫기" autoFocus onClick={() => setSignatureTarget(null)}>×</button>
+              <h2 id="form-signature-title" ref={signatureTitleRef} className="form-signature__title" tabIndex={-1}>서명하기</h2>
+              <button type="button" className="form-signature__close" aria-label="닫기" onClick={() => setSignatureTarget(null)}><Icon name="close" /></button>
             </header>
             <div className="form-signature__tabs" role="group" aria-label="서명 방식">
-              <button type="button" disabled={saving} aria-pressed={signMode === '화면에 서명'} className={signMode === '화면에 서명' ? 'is-active' : ''} onClick={() => void changeSignMode('화면에 서명')}>그리기</button>
-              <button type="button" disabled={saving} aria-pressed={signMode === '서명 이미지 올리기'} className={signMode === '서명 이미지 올리기' ? 'is-active' : ''} onClick={() => void changeSignMode('서명 이미지 올리기')}>서명 파일 업로드</button>
+              <button type="button" disabled={saving} aria-pressed={signMode === '화면에 서명'} className={signMode === '화면에 서명' ? 'is-active' : ''} onClick={() => void changeSignMode('화면에 서명')}>
+                {signMode === '화면에 서명' && <Icon name="check" size={18} />}직접 서명
+              </button>
+              <button type="button" disabled={saving} aria-pressed={signMode === '서명 이미지 올리기'} className={signMode === '서명 이미지 올리기' ? 'is-active' : ''} onClick={() => void changeSignMode('서명 이미지 올리기')}>
+                {signMode === '서명 이미지 올리기' && <Icon name="check" size={18} />}서명 파일 올리기
+              </button>
             </div>
             <div className="form-signature__body" inert={saving}>
               {signMode === '화면에 서명' ? (
                 <SignaturePad key={form5.signature ? 'signed' : 'empty'} value={form5.signature} onChange={(value) => setSignature('서식5', value)} width={Math.min(420, Math.max(220, window.innerWidth - 96))} height={210} />
               ) : (
                 <div className="form-signature__upload">
-                  {form5.signatureScanUploaded ? <img src={signatureValue('서식5')} alt="업로드한 서명 미리보기" /> : <span>JPG 또는 PNG 서명 파일을 올려 주세요.</span>}
-                  <label className="btn" htmlFor="form-signature-file">{form5.signatureScanUploaded ? '다른 파일 선택' : '파일 선택'}</label>
+                  {form5.signatureScanUploaded ? <img src={signatureValue('서식5')} alt="업로드한 서명 미리보기" /> : <span>JPG 또는 PNG 서명 파일을 올려 주세요. (10MB 이하)</span>}
+                  <label className="btn" htmlFor="form-signature-file"><Icon name="upload" size={18} />{form5.signatureScanUploaded ? '다른 파일 선택' : '파일 선택'}</label>
                   <input id="form-signature-file" type="file" disabled={saving} accept="image/jpeg,image/png,.jpg,.jpeg,.png" onChange={(event) => void uploadScan(event.currentTarget.files?.[0], event.currentTarget)} />
                 </div>
               )}
             </div>
-            {localError && <p className="form-signature__error" role="alert">{localError}</p>}
-            {saving && <p className="form-signature__status" role="status">서명을 저장하고 있습니다…</p>}
+            {localError && <p className="field__error form-signature__error" role="alert"><Icon name="alertCircle" size={18} />{localError.message}</p>}
+            {saving && <p className="form-signature__status"><Spinner small label="서명을 저장하고 있습니다…" /></p>}
             <footer className="form-signature__foot">
-              <button type="button" className="btn form-signature__clear" disabled={saving || (signMode === '화면에 서명' ? !form5.signature : !form5.signatureScanUploaded)} onClick={() => signMode === '화면에 서명' ? setSignature('서식5', '') : void removeScan()}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v6m4-6v6" /></svg>
-                지우기
+              <button type="button" className="btn btn--quiet form-signature__clear" disabled={saving || (signMode === '화면에 서명' ? !form5.signature : !form5.signatureScanUploaded)} onClick={() => signMode === '화면에 서명' ? setSignature('서식5', '') : void removeScan()}>
+                <Icon name="trash" size={18} />지우기
               </button>
               <button type="button" className="btn btn--primary" disabled={saving || (signMode === '화면에 서명' ? !form5.signature : !form5.signatureScanUploaded)} onClick={() => setSignatureTarget(null)}>확인</button>
             </footer>
@@ -935,6 +1316,37 @@ export default function PdfFormsWorkspace({
         </div>, document.body,
       )}
     </section>
+  )
+}
+
+/** 서식 쪽 그림이 오기 전에 보여 주는 빈 종이 모양의 자리 표시. */
+function SheetPlaceholder() {
+  return (
+    <span className="pdf-forms__sheet-placeholder" aria-hidden="true">
+      <SkeletonLine width="42%" />
+      <SkeletonBlock />
+      <SkeletonLine width="100%" />
+      <SkeletonLine width="94%" />
+      <SkeletonLine width="97%" />
+      <SkeletonLine width="60%" />
+      <SkeletonBlock />
+    </span>
+  )
+}
+
+/** 서식 상태 한 줄: 아이콘과 글자로 함께 알린다(목록과 문서 머리가 같이 쓴다). */
+function FormStatus({ state, label }: { state: string; label: string }) {
+  const icon = state === 'done' ? 'checkCircle'
+    : state === 'draft' ? 'pencil'
+      : state === 'paper' ? 'upload'
+        : state === 'preview' ? 'eye'
+          : state === 'locked' ? 'lock'
+            : null
+  return (
+    <span className={`pdf-forms__status pdf-forms__status--${state}`}>
+      {icon && <Icon name={icon} size={16} />}
+      {label}
+    </span>
   )
 }
 
@@ -952,9 +1364,4 @@ function fromISO(value: string): Form1Value['transferIn'] {
 function isAfterBasis(value: Form1Value['transferIn'], basis: string): boolean {
   const selected = isoDate(value)
   return !!selected && selected > basis
-}
-
-function koreanDate(value: string): string {
-  const [year, month, day] = value.split('-').map(Number)
-  return `${year}. ${month}. ${day}.`
 }

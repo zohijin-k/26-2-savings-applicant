@@ -1,698 +1,624 @@
 /*
- * 서류 업로드 화면. 서식 재현이 아니라 신청 도구 화면이므로 관공서 표 스타일을
- * 쓰지 않는다. 카드는 슬림하게 두고, 요건 설명은 ⓘ 모달로 뺀다 — 핵심 액션인
- * 파일 업로드가 안내문에 묻히지 않게 하는 것이 이 화면의 목표다.
+ * 3단계 서류 업로드 및 제출.
+ * 색 · 글자 · 간격은 styles/tokens.css의 변수만 쓴다. 버튼 · 안내 상자 · 배지 · 진행 막대는 styles/components.css의 것을 그대로 쓴다.
+ *
+ * 차례: 화면 틀 · 근로유형 · 진행 요약 · 서류 칸(머리 · 고르기 · 파일 한 줄 · 안내) ·
+ *       그 밖의 목록 · 제출 · 대화상자 안 내용
  */
 
-.dupload {
-  width: 100%;
-  margin: 0 auto;
-}
-
-.dupload__loading {
-  padding: 40px;
-  text-align: center;
-  color: var(--muted);
-}
-
-@media print {
-  body * { visibility: hidden !important; }
-  .modal-overlay--printable,
-  .modal-overlay--printable * { visibility: visible !important; }
-  .modal-overlay--printable {
-    position: absolute !important;
-    inset: 0 !important;
-    display: block !important;
-    padding: 0 !important;
-    background: #fff !important;
-  }
-  .modal-overlay--printable .modal {
-    width: auto !important;
-    height: auto !important;
-    max-width: none !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-  }
-  .modal-overlay--printable .modal__head,
-  .modal-overlay--printable .modal__foot,
-  .modal-overlay--printable .dupload__form-preview p { display: none !important; }
-  .modal-overlay--printable .modal__body { overflow: visible !important; }
-  .modal-overlay--printable .dupload__form-preview,
-  .modal-overlay--printable .pdfpages { display: block !important; }
-  .modal-overlay--printable canvas.pdfpages__page {
-    display: block !important;
-    width: 7.7in !important;
-    height: auto !important;
-    max-width: 100% !important;
-    margin: 0 auto !important;
-  }
-}
-
-.dupload h3 {
-  font-size: 15px;
-  margin: 0 0 8px;
-}
-
-.dupload__hint {
-  margin: 0 0 10px;
-  font-size: 12.5px;
-  color: var(--muted);
-}
-
-/* ---- 자주 틀리는 것 ---- */
-
-.dupload__mistakes {
-  border: 1px solid var(--fail);
-  border-radius: var(--radius-md);
-  background: var(--fail-tint);
-  padding: 16px 18px;
-  margin-bottom: 20px;
-}
-
-.dupload__mistake-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+/* ── 화면 틀 ──────────────────────────────────────────────────────────── */
+.dupload,
+.dupload__work {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px 20px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-4);
+  min-width: 0;
 }
 
-.dupload__mistakes li {
-  font-size: 12.5px;
+.dupload__title { scroll-margin-top: var(--sp-6); }
+
+.dupload__hint,
+.dupload__lead {
+  margin: 0;
+  color: var(--color-text-subtle);
+  font-size: var(--fs-15);
 }
 
-.dupload__mistakes strong {
-  display: inline-block;
-  min-width: 132px;
-  color: var(--fail);
+.dupload__status { margin: 0; }
+
+.dupload__skeleton {
+  display: grid;
+  gap: var(--sp-4);
 }
 
-/* TF 미확정 가정값 안내. 경고와 섞이지 않게 회색 각주로 깐다. */
-.dupload__assumptions {
-  margin: 10px 0 0;
-  padding: 8px 0 0;
-  list-style: none;
-  border-top: 1px dashed rgb(204 0 0 / 30%);
-  color: #555;
-  font-size: 11.5px;
-  line-height: 1.6;
+.dupload__skeleton-card {
+  display: grid;
+  align-content: start;
+  gap: var(--sp-4);
+  min-height: 136px;
+  padding: var(--sp-6);
 }
 
-/* ---- 근로유형 선택 ---- */
-
+/* ── 근로유형 ─────────────────────────────────────────────────────────── */
 .dupload__context {
-  border: 1px solid var(--brand);
-  border-radius: var(--radius-md);
-  background: var(--brand-tint);
-  padding: 16px 18px;
-  margin-bottom: 16px;
+  display: grid;
+  gap: var(--sp-3);
 }
+
+.dupload__context h3 { font-size: var(--fs-17); }
 
 .dupload__worktypes {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 16px;
-  margin: 12px 0 0;
+  gap: var(--sp-2);
+  min-width: 0;
+  margin: 0;
   padding: 0;
   border: 0;
 }
 
-.dupload__worktypes legend {
-  margin-bottom: 6px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.dupload__worktypes label {
-  display: inline-flex;
+/* 고를 수 있는 줄 전체가 눌린다. 고른 줄은 테두리 · 바탕 · 굵기로 함께 알린다. */
+.dupload__worktype {
   align-items: center;
-  gap: 7px;
-  min-height: 30px;
-  cursor: pointer;
+  min-height: var(--control-md);
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-8);
+  background: var(--color-surface);
+  transition: border-color var(--ease), background-color var(--ease);
 }
 
-.dupload__worktypes input,
-.dupload__opts input,
-.dupload__handwritten input {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: var(--brand);
-  flex: none;
+.dupload__worktype input { margin: 0; }
+.dupload__worktype:hover { border-color: var(--jb-blue-30); }
+
+.dupload__worktype.is-selected {
+  border-color: var(--color-primary);
+  background: var(--color-surface-brand);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+  font-weight: var(--fw-medium);
 }
 
-.dupload__worktypes input:focus-visible,
-.dupload__opts input:focus-visible,
-.dupload__handwritten input:focus-visible,
-.dupload__opts select:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--brand) 35%, transparent);
-  outline-offset: 2px;
-}
+.dupload__worktypes:disabled .dupload__worktype { background: var(--gray-5); }
+.dupload__worktypes:disabled .dupload__worktype.is-selected { border-color: var(--gray-40); box-shadow: inset 0 0 0 1px var(--gray-40); }
 
 .dupload__opts {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 24px;
-  margin-top: 10px;
-  font-size: 12.5px;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-8);
 }
 
-.dupload__opts label {
+.dupload__count {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  cursor: pointer;
+  gap: var(--sp-3);
 }
 
-.dupload__handwritten {
+.dupload__count .select { width: 96px; }
+
+/* ── 진행 요약 ────────────────────────────────────────────────────────── */
+/* 넓은 화면에서는 서류 칸을 내려 보는 동안 위에 붙어 있다. */
+.dupload__summary {
+  position: sticky;
+  top: var(--sp-2);
+  z-index: var(--z-sticky);
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-6);
+  box-shadow: var(--shadow-1);
+}
+
+.dupload__summary-row {
   display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 6px;
-  cursor: pointer;
-}
-
-.dupload__opts select {
-  font: inherit;
-  font-size: 12.5px;
-  padding: 3px 6px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-strong);
-}
-
-/* ---- 진행 상황 ---- */
-
-.dupload__progress {
-  display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 6px 16px;
-  font-size: 13px;
-  padding: 14px 16px;
-  margin-bottom: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-subtle);
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-1) var(--sp-4);
 }
 
-.dupload__progress strong {
-  font-size: 18px;
-  color: var(--brand);
+.dupload__summary-title { font-size: var(--fs-17); }
+
+.dupload__summary-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-4);
+  margin: 0;
+  color: var(--color-text-subtle);
+  font-size: var(--fs-15);
 }
 
-.dupload__progress-hint {
-  color: var(--muted);
-  font-size: 12.5px;
+.dupload__summary-text strong { color: var(--color-text); }
+
+.dupload__summary-issue,
+.dupload__summary-working {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-weight: var(--fw-bold);
 }
 
-.dupload__bar {
-  flex-basis: 100%;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--border);
-  overflow: hidden;
-}
+.dupload__summary-issue { color: var(--danger-60); }
+.dupload__summary-working { gap: 6px; color: var(--color-text-brand); }
 
-.dupload__bar-fill {
-  height: 100%;
-  background: var(--brand);
-  border-radius: 999px;
-  transition: width var(--ease);
-}
-
-/* ---- 슬롯 카드 ---- */
-
+/* ── 서류 칸 ──────────────────────────────────────────────────────────── */
 .dslots {
-  list-style: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-4);
   margin: 0;
   padding: 0;
-  display: grid;
-  gap: 10px;
+  list-style: none;
 }
 
 .dslot {
-  /* 상태 색. 왼쪽 가장자리 띠와 배지가 같은 색 체계를 쓴다. */
-  --state: transparent;
-  position: relative;
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--state);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  padding: 16px 18px 16px 16px;
-}
-
-.dslot--empty {
-  --state: var(--border);
-}
-
-.dslot--uploaded {
-  --state: var(--success);
-}
-
-.dslot--reupload_required {
-  --state: var(--fail);
-  border-color: var(--fail);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-3);
+  scroll-margin-top: 112px;
 }
 
 .dslot__head {
   display: flex;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  min-height: 24px;
+  gap: var(--sp-1) var(--sp-4);
 }
 
-.dslot__title {
+.dslot__heading {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-}
-
-.dslot__label {
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: -0.01em;
-}
-
-.dslot__req {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--brand);
-  border: 1px solid var(--brand);
-  padding: 1px 7px;
-  border-radius: 4px;
-}
-
-/* ⓘ 요건 안내 — 요건 설명은 여기서 모달로만 보여준다. */
-.dslot__info {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1;
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: border-color var(--ease), color var(--ease);
+  gap: var(--sp-2);
+  min-width: 0;
 }
 
-.dslot__info:hover,
-.dslot__info:focus-visible {
-  border-color: var(--brand);
-  color: var(--brand);
+.dslot__label { font-size: var(--fs-17); }
+
+.dslot__chip-spinner {
+  --spinner-track: var(--info-10);
+  --spinner-arc: var(--info-60);
+  width: 12px;
+  height: 12px;
 }
 
+.dslot__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--sp-3);
+}
+
+/* 조용한 버튼은 안쪽 여백만큼 당겨 글자가 제목 줄과 나란히 서게 한다. */
+.dslot__links > .btn--quiet { margin-left: calc(-1 * var(--sp-2)); }
+/* 옆의 "요건 보기" 버튼과 같은 높이로 눌린다. */
 .dslot__issuer {
-  flex: none;
-  font-size: 12.5px;
-  color: var(--brand);
-  text-underline-offset: 3px;
-}
-
-/* ---- 올리기 전: 발급일 → 파일 업로드 ---- */
-
-.dslot__action {
-  display: flex;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: 8px 18px;
-  margin-top: 12px;
-  padding: 12px 14px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-subtle);
-}
-
-/* 파일 입력은 버튼으로 대신 연다 — 기본 컨트롤 문구가 브라우저마다 다르다. */
-.dslot__file {
-  display: none;
-}
-
-.dslot__declared {
-  display: grid;
-  gap: 6px;
-}
-
-.dslot__declared-label {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #444;
-}
-
-/* 서식 화면의 밑줄 칸 대신 상자형 칸 — 여기서는 입력칸이 입력칸처럼 보여야 한다 */
-.dslot .form-date {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  min-height: var(--control-sm);
+  font-size: var(--fs-15);
 }
 
-.dslot .form-date input {
-  height: 36px;
-  padding: 0 6px;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  background: var(--surface);
-  font: inherit;
-  font-size: 14px;
-  text-align: center;
-  color: var(--text);
+.dslot__criteria {
+  margin: calc(-1 * var(--sp-2)) 0 0;
+  color: var(--color-text-subtle);
+  font-size: var(--fs-15);
 }
 
-.dslot .form-date__y {
-  width: 64px;
+.dslot__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-3);
+  min-width: 0;
 }
 
-.dslot .form-date__m,
-.dslot .form-date__d {
-  width: 44px;
+/* 고르기: ① 서류에 적힌 날짜 → ② 파일. 넓은 화면에서는 나란히, 좁은 화면에서는 위아래로. */
+.dslot__picker {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-4) var(--sp-6);
+  align-items: start;
+  padding-top: var(--sp-1);
 }
 
-.dslot .form-date input:focus {
-  outline: none;
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px var(--brand-tint);
+.dslot__picker--dated { grid-template-columns: minmax(0, 328px) minmax(0, 1fr); }
+.dslot__picker-notice { grid-column: 1 / -1; }
+
+.dslot__step {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--jb-blue-10);
+  color: var(--jb-blue-60);
+  font-size: var(--fs-13);
+  line-height: 1;
 }
 
-.dslot .form-date__unit {
-  font-size: 13px;
-  color: #444;
-}
-
-.dslot__upload {
-  margin-left: auto;
-  min-width: 128px;
-  height: 38px;
-  padding: 0 18px;
-  font-size: 14px;
-}
-
-.dslot__upload:disabled {
-  border-color: var(--border-strong);
-  background: var(--border);
-  color: #8a8a8a;
-  cursor: not-allowed;
-}
-
-.dslot__gate {
-  flex-basis: 100%;
-  margin: 0;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.dslot__criteria { margin: 4px 0 8px; color: var(--muted); font-size: 12px; }
-.dslot__date-warning { flex-basis: 100%; margin: 4px 0; color: #b45309; font-size: 12px; }
-
-/* ---- 올린 뒤: 파일과 읽은 값 ---- */
-
-.dresult {
-  margin-top: 12px;
-}
-
-.dresult--uploaded {
-  --accent: var(--success);
-}
-
-.dresult--reupload_required {
-  --accent: var(--fail);
-}
-
-.dresult__file {
+.dslot__date-warning {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--warning-60);
 }
 
-.dresult__kind {
+.dslot__date-warning .icon { margin-top: 2px; }
+
+/* 끌어다 놓는 자리. 버튼이 늘 함께 있다. */
+.dzone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3) var(--sp-4);
+  min-height: 72px;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px dashed var(--gray-40);
+  border-radius: var(--radius-8);
+  background: var(--color-surface);
+  transition: border-color var(--ease), background-color var(--ease);
+}
+
+.dzone__icon { color: var(--color-text-brand); }
+
+.dzone__copy {
+  flex: 1 1 168px;
+  min-width: 0;
+}
+
+.dzone__text {
+  margin: 0;
+  font-weight: var(--fw-medium);
+}
+
+.dzone__caption {
+  margin: 0;
+  color: var(--color-text-subtle);
+  font-size: var(--fs-15);
+}
+
+.dzone__button { flex: none; }
+
+.dzone--over {
+  border-style: solid;
+  border-color: var(--color-primary);
+  background: var(--color-surface-brand);
+}
+
+.dzone--disabled {
+  border-color: var(--gray-20);
+  background: var(--gray-5);
+}
+
+.dzone--disabled .dzone__icon { color: var(--color-text-disabled); }
+.dzone--disabled .dzone__text { color: var(--color-text-muted); font-weight: var(--fw-regular); }
+
+/* 바꾸는 중: 지금 올라가 있는 파일 한 줄. */
+.dslot__current {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-4);
+  border-radius: var(--radius-8);
+  background: var(--gray-5);
+  font-size: var(--fs-15);
+}
+
+.dslot__current > span { flex: 1 1 160px; min-width: 0; }
+.dslot__current .icon { color: var(--color-text-subtle); }
+
+/* 파일 한 줄: 미리보기 · 이름과 상태 · 동작 */
+.dfile {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: var(--sp-3) var(--sp-4);
+  align-items: start;
+}
+
+.dfile__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+}
+
+.dfile__name {
+  margin: 0;
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-tight);
+  overflow-wrap: anywhere;
+}
+
+.dfile__meta {
+  margin: 0;
+  color: var(--color-text-subtle);
+  font-size: var(--fs-15);
+}
+
+.dfile__bar { margin-top: var(--sp-1); }
+
+.dfile__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px var(--sp-4);
+  margin: 0;
+  font-size: var(--fs-15);
+}
+
+.dfile__time {
+  color: var(--color-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.dfile__notice { margin-top: var(--sp-1); }
+.dfile__extract { margin-top: 2px; }
+
+.dfile__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+}
+
+.dthumb {
   position: relative;
-  flex: none;
+  display: grid;
+  place-items: center;
   width: 56px;
   height: 76px;
-  border-radius: 4px;
-  border: 1px solid var(--border-strong);
-  background: #fff;
-  color: #fff;
   padding: 0;
   overflow: hidden;
-  font-family: inherit;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-4);
+  background: var(--gray-5);
+  color: var(--color-text-disabled);
+}
+
+.dthumb--button {
   cursor: zoom-in;
   transition: border-color var(--ease);
 }
 
-.dresult__kind:hover {
-  border-color: var(--brand);
-}
+.dthumb--button:hover { border-color: var(--jb-blue-40); }
 
-.dresult__image {
+.dthumb__image {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: top;
 }
 
-.dresult__pages {
-  display: grid;
-  width: 100%;
-  height: 100%;
-  place-items: center;
-  overflow: hidden;
-}
+.dthumb .pdfpages { gap: 0; }
+.dthumb .pdfpages__page { display: block; }
+.dthumb .pdfpages__loading { display: none; }
 
-.dresult__pages .pdfpages__loading,
-.dresult__pages .pdfpages__error {
-  display: none;
-}
-
-.dresult__pages .pdfpages__page {
-  display: block;
-  max-width: 100%;
-  max-height: 100%;
-}
-
-.dresult__badge {
+.dthumb__fallback {
   position: absolute;
+  inset: 0 0 18px;
+  display: grid;
+  place-items: center;
+}
+
+.dthumb__kind {
+  position: absolute;
+  right: 0;
   bottom: 0;
   left: 0;
-  padding: 2px 4px;
-  background: rgb(31 56 100 / 82%);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.2;
+  padding: 1px 0;
+  background: var(--gray-70);
+  color: var(--gray-0);
+  font-size: var(--fs-13);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  text-align: center;
 }
 
-.dresult__fallback {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: end center;
-  padding-bottom: 6px;
-  background: var(--surface-subtle);
-  color: #555;
-  font-size: 10.5px;
-  font-weight: 800;
+/* 칸 안의 안내: 다시 올려야 하는 까닭과 방법, 올리기 실패 */
+.dslot__reason + .dslot__reason {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--danger-10);
 }
 
-.dresult__body {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
+.notice__body .dslot__reason-title {
+  color: var(--danger-60);
+  font-size: var(--fs-16);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
 }
 
-.dresult__name {
-  justify-self: start;
-  max-width: 100%;
-  padding: 0;
-  border: none;
-  background: none;
-  font: inherit;
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--text);
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: zoom-in;
+.notice__body .dslot__auto {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--danger-10);
+  color: var(--color-text-subtle);
 }
 
-.dresult__name:hover {
-  color: var(--brand);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.dresult__detected,
-.dresult__meta {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.dresult__actions {
-  display: flex;
-  gap: 6px;
-  margin-left: auto;
-  flex: none;
-}
-
-.dfinding {
-  margin-top: 8px;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--accent, var(--border)) 7%, var(--surface));
-}
-
-.dfinding__msg {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--accent, var(--text));
-}
-
-.dfinding__fix {
-  margin: 4px 0 0;
-  font-size: 12.5px;
-  color: #333;
-}
-
-.dfinding__link {
-  display: inline-block;
-  margin-top: 6px;
-  font-size: 12.5px;
-  color: var(--brand);
-  text-underline-offset: 3px;
-}
-
-.dextract {
+.dslot__notice-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 16px;
-  margin: 0;
-  font-size: 12.5px;
-  color: #444;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
 }
 
-.dextract div {
-  display: flex;
-  gap: 6px;
+/* ── 그 밖의 목록 ─────────────────────────────────────────────────────── */
+.dupload__online {
+  padding: var(--sp-4) var(--sp-6);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-12);
 }
 
-.dextract dt {
-  color: var(--muted);
-}
-
-.dextract dd {
-  margin: 0;
-  font-weight: 700;
-}
-
-/* ---- 모달 내부(요건 안내) ---- */
-
-.dinfo__section {
-  margin: 0 0 16px;
-}
-
-.dinfo__section:last-child {
-  margin-bottom: 0;
-}
-
-.dinfo__section h4 {
-  margin: 0 0 6px;
-  font-size: 12.5px;
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.dinfo__section p,
-.dinfo__section ul {
-  margin: 0 0 4px;
-}
-
-.dinfo__section ul {
-  padding-left: 18px;
-}
-
-.dinfo__alt {
-  background: var(--brand-tint);
-  border-radius: var(--radius-sm);
-  padding: 8px 12px;
-  margin: 0 0 6px;
-}
-
-.dinfo__warn {
-  background: var(--warning-tint);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  margin: 0;
-  list-style: disc;
-}
-
-/* ---- 온라인 작성으로 대체된 서류 / 미배정 ---- */
-
-.dupload__online,
-.dupload__unassigned {
-  margin-top: 18px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-subtle);
-  padding: 14px 18px;
-  font-size: 12.5px;
-}
+.dupload__online h3,
+.dupload__leftover h3 { font-size: var(--fs-17); }
 
 .dupload__online ul,
-.dupload__unassigned ul {
+.dupload__leftover ul {
+  display: grid;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-15);
+}
+
+.dupload__online li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  color: var(--color-text-subtle);
+}
+
+.dupload__online li strong { color: var(--color-text); }
+.dupload__online li .icon { margin-top: 3px; color: var(--success-60); }
+
+.dupload__leftover li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-4);
+}
+
+.dupload__leftover li > span { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.dupload__leftover .notice { margin-top: var(--sp-3); }
+
+/* ── 제출 ─────────────────────────────────────────────────────────────── */
+.dupload__submission {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-4);
+  scroll-margin-top: var(--sp-6);
+}
+
+.dupload__lead { margin-top: calc(-1 * var(--sp-2)); }
+
+.dupload__blockers {
+  padding: var(--sp-4);
+  border-radius: var(--radius-8);
+  background: var(--gray-5);
+}
+
+.dupload__blockers h4 { font-size: var(--fs-16); }
+
+.dupload__blockers h5 {
+  margin: var(--sp-4) 0 var(--sp-1);
+  color: var(--color-text-subtle);
+  font-size: var(--fs-15);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+}
+
+.dupload__blocker-list {
   margin: 0;
-  padding-left: 18px;
+  padding: 0;
+  list-style: none;
 }
 
-.dupload__unassigned {
-  border-color: var(--warning);
-  background: var(--warning-tint);
-}
-
-.dupload__unassigned li {
+.dupload__blocker-list li {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 4px 0;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-1) 0;
+  border-top: 1px solid var(--color-divider);
 }
 
-.dupload__error {
-  margin-top: 14px;
-  color: var(--fail);
+.dupload__blocker-list p {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--fs-15);
 }
 
-@media (max-width: 560px) {
-  .dupload__mistake-list {
-    grid-template-columns: 1fr;
+.dupload__blocker-list strong { margin-right: var(--sp-1); }
+.dupload__blocker-list .btn { flex: none; margin-right: calc(-1 * var(--sp-2)); }
+
+.dupload__blocker-message {
+  color: var(--color-text-subtle);
+  white-space: pre-line;
+}
+
+.dupload__submission .flow__actions { margin-top: 0; }
+
+/* ── 대화상자 안 내용 ─────────────────────────────────────────────────── */
+.dupload__confirm {
+  display: grid;
+  gap: var(--sp-2);
+  margin: var(--sp-4) 0 0;
+  padding: var(--sp-4);
+  border-radius: var(--radius-8);
+  background: var(--gray-5);
+}
+
+.dupload__confirm > div {
+  display: flex;
+  gap: var(--sp-4);
+}
+
+.dupload__confirm dt {
+  flex: none;
+  width: 48px;
+  color: var(--color-text-subtle);
+}
+
+.dupload__confirm dd {
+  margin: 0;
+  font-weight: var(--fw-bold);
+}
+
+.dinfo {
+  display: grid;
+  gap: var(--sp-5);
+}
+
+.dinfo .dinfo__section h3 {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-16);
+}
+
+.dinfo .dinfo__section p { margin: 0; }
+
+.dinfo .dinfo__section ul {
+  margin: 0;
+  padding-left: var(--sp-5);
+}
+
+.dinfo .dinfo__section li + li { margin-top: var(--sp-1); }
+
+/* ── 화면 폭 ──────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .dupload__summary {
+    position: static;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .dupload__worktypes { grid-template-columns: minmax(0, 1fr); }
+  .dupload__summary,
+  .dupload__online { padding: var(--sp-4); }
+  .dupload__skeleton-card { padding: var(--sp-4); }
+
+  .dslot__picker--dated { grid-template-columns: minmax(0, 1fr); }
+
+  .dzone__button { width: 100%; }
+
+  .dfile { grid-template-columns: 56px minmax(0, 1fr); }
+
+  .dfile__actions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
   }
 
-  .dslot {
-    padding: 12px;
-  }
-}
-.dupload__form-preview { height: 100%; overflow: auto; background: #e9eaed; padding: 16px; }
-.dupload__form-preview p { margin: 0 auto 12px; max-width: 820px; color: var(--muted); }
-.dupload__form-page { display: block; width: min(820px, 100%); height: auto; margin: 0 auto; }
-.dslot__files-menu { display: inline-block; position: relative; margin: 4px 0; }
-.dslot__files-menu[open] { z-index: 3; }
-.dslot__files-menu > a, .dslot__files-menu > button { display: block; margin-top: 3px; }
+  .dfile__actions > .btn { flex: 1 1 auto; }
 
-.dupload__submission { margin-top: 28px; padding: 22px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); }
-.dupload__submission h3 { margin: 0 0 12px; font-size: 19px; }
-.dupload__blockers { margin-top: 20px; }
-.dupload__blockers ul { padding: 0; list-style: none; }
-.dupload__blockers li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
-.dupload__blockers li > span { min-width: 0; }
-.dupload__blockers li > button { flex-shrink: 0; }
-@media (max-width: 580px) { .dupload__blockers li { align-items: flex-start; flex-direction: column; } }
+  .dslot__notice-actions > .btn { flex: 1 1 auto; }
+
+  .dupload__blocker-list strong { display: block; }
+}

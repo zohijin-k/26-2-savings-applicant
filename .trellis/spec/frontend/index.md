@@ -19,6 +19,8 @@ This directory contains guidelines for frontend development. Fill in each file w
 | [Hook Guidelines](./hook-guidelines.md) | Custom hooks, data fetching patterns | To fill |
 | [State Management](./state-management.md) | Local state, global state, server state | To fill |
 | [Applicant PDF Workspace](./pdf-form-workspace.md) | Original PDF rendering, public numbering, save transitions, signature lifecycle | Documented |
+| [Applicant UI Foundation](./applicant-ui-foundation.md) | Tokens, component classes, error copy, copy rules, P4 token scan, Node tests | Documented |
+| [Document Upload Queue](./upload-queue.md) | Single-flight upload queue, waiting states, precheck, storage keys | Documented |
 | [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
 | [Type Safety](./type-safety.md) | Type patterns, validation | To fill |
 

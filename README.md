@@ -130,6 +130,7 @@ P4 시나리오는 `demo/` 아래 `.py`·`.ts`·`.tsx`·`.css`에 `download`, `a
 - [데모 안내](demo/README.md): 서식 작성·서류 업로드와 개발 도구
 - [엔진 안내](engine_v2/README.md): OCR·서류 추출 도구
 - [제3자 고지](THIRD_PARTY_NOTICES.md): 모델·글꼴·패키지 출처와 라이선스
+- [디자인 프롬프트](docs/DESIGN_PROMPT.md): 이 화면의 디자인을 다른 청년정책 신청 화면에 옮길 때 쓰는 프롬프트
 - 화면 규칙: [`.trellis/spec/frontend/`](.trellis/spec/frontend/index.md) — 디자인 체계, 서류 업로드 대기열, 원본 PDF 작업 화면
 
 본인인증·서류 업로드·접수 완료·마이페이지는 좁은 화면에서도 가로 스크롤 없이 보입니다.

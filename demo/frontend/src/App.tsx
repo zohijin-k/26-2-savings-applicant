@@ -74,7 +74,7 @@ export default function App() {
       </footer>
       {confirmingHome && (
         <ConfirmDialog
-          title="새 신청을 시작할까요?"
+          title="새 신청을 시작하시겠습니까?"
           description="지금 작성 중인 신청은 이 창에서 더 이어서 쓸 수 없습니다."
           confirmLabel="새 신청 시작"
           cancelLabel="계속 작성"

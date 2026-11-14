@@ -421,7 +421,7 @@ export default function PdfFormsWorkspace({
     if (readOnly || saving || continuing || !!paperForms[formNo] === next) return
     const hasOnlineContent = formNo === '서식5' ? hasStarted('서식5') : false
     if (next && hasOnlineContent && !(await askConfirm({
-      title: '스캔본 제출로 바꿀까요?',
+      title: '스캔본 제출로 바꾸시겠습니까?',
       description: '온라인으로 작성한 내용은 제출되지 않습니다.',
       confirmLabel: '바꾸기',
     }))) return
@@ -431,7 +431,7 @@ export default function PdfFormsWorkspace({
         if (!isCurrent()) return
         const scan = checklist.items.find((item) => item.slot_key === 'admin_info_consent')?.documents[0]
         if (scan && !(await askConfirm({
-          title: '온라인 작성으로 바꿀까요?',
+          title: '온라인 작성으로 바꾸시겠습니까?',
           description: '올린 스캔본은 제출되지 않습니다.',
           confirmLabel: '바꾸기',
         }))) return
@@ -619,7 +619,7 @@ export default function PdfFormsWorkspace({
     if (readOnly || next === signMode || pendingOperation.current !== null) return
     const hasSignature = !!form5.signature || form5.signatureScanUploaded
     if (hasSignature && !(await askConfirm({
-      title: '서명 방식을 바꿀까요?',
+      title: '서명 방식을 바꾸시겠습니까?',
       description: '서명 방식을 바꾸면 현재 서명이 지워집니다.',
       confirmLabel: '바꾸기',
     }))) return
@@ -665,7 +665,7 @@ export default function PdfFormsWorkspace({
   const resetForm = async (formNo: string) => {
     if (readOnly || pendingOperation.current !== null || continuing) return
     if (!(await askConfirm({
-      title: '다시 작성할까요?',
+      title: '다시 작성하시겠습니까?',
       description: '작성한 내용과 서명이 모두 지워집니다.',
       confirmLabel: '다시 작성',
       tone: 'danger',

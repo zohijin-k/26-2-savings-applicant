@@ -1142,7 +1142,10 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
     if (document.getElementById(`upload-${blocker.target}`)) { focusPicker(blocker.target); return }
     const target = document.getElementById(`slot-${blocker.target}`) ?? document.getElementById('work-context')
     target?.scrollIntoView({ behavior: scrollBehavior(), block: 'center' })
-    target?.querySelector<HTMLElement>('input:not([type="file"]):not(:disabled),button:not(:disabled),select:not(:disabled)')?.focus({ preventScroll: true })
+    // 다시 올려야 하는 칸이면 '다시 올리기' 단추로, 그 밖에는 칸의 첫 조작 요소로 보낸다.
+    const control = target?.querySelector<HTMLElement>('.notice .btn--primary:not(:disabled)')
+      ?? target?.querySelector<HTMLElement>('input:not([type="file"]):not(:disabled),button:not(:disabled),select:not(:disabled)')
+    control?.focus({ preventScroll: true })
   }
 
   // ── 제출 ──
@@ -1461,7 +1464,7 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
       {confirmingSubmit && (
         <ConfirmDialog
           size="md"
-          title="신청을 제출할까요?"
+          title="신청을 제출하시겠습니까?"
           description="제출한 뒤에는 서식과 서류를 수정할 수 없습니다."
           confirmLabel="제출하기"
           cancelLabel="돌아가기"

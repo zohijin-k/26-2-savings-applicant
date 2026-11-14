@@ -11,8 +11,7 @@
 
 - [26-2-capstone — 프로젝트 안내](https://github.com/zohijin-k/26-2-capstone)
 - [26-2-savings-officer — 두배적금 담당자](https://github.com/zohijin-k/26-2-savings-officer)
-- [26-2-youth-applicant — 청년 취업지원패키지 신청자](https://github.com/zohijin-k/26-2-youth-applicant)
-- [26-2-youth-officer — 청년 취업지원패키지 담당자](https://github.com/zohijin-k/26-2-youth-officer)
+- [26-2-youth — 청년 취업지원패키지 신청자·담당자](https://github.com/zohijin-k/26-2-youth)
 
 ## 실행 방법
 

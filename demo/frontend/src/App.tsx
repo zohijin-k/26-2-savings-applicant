@@ -1,7 +1,7 @@
 /** 두배적금 신청자 전용 진입점. 신청 내용은 ApplyFlow가 소유한다. */
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 
-import bannerUrl from './assets/brand/jb-banner.png'
+import logoUrl from './assets/brand/jb-logo.png'
 import ConfirmDialog from './components/ConfirmDialog.tsx'
 import ApplyFlow from './pages/applicant/ApplyFlow.tsx'
 import { goToHome } from './navigation-url.ts'
@@ -50,7 +50,7 @@ export default function App() {
             onClick={() => (hasProgress ? setConfirmingHome(true) : goHome())}
             aria-label="처음으로 (새 신청 시작)"
           >
-            <img className="shell__banner" src={bannerUrl} width={297} height={100} alt="전북특별자치도 2026 전북청년 함께 두배적금" />
+            <img className="shell__logo" src={logoUrl} width={279} height={71} alt="전북특별자치도 2026 전북청년 함께 두배적금" />
           </button>
           <div ref={setApplicantHeaderHost} className="shell__tools" />
         </div>

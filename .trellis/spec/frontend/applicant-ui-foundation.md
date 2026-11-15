@@ -2,6 +2,7 @@
 
 Design system for the applicant screens (`demo/frontend/src`). Introduced by task `11-14-applicant-public-redesign`.
 Brand reference: `demo/frontend/src/assets/brand/jb-banner.png` (전북특별자치도 · 전북청년 함께 두배적금 banner).
+Header logo: `demo/frontend/src/assets/brand/jb-logo.png` — the same banner with its mint/cream background made transparent and cropped (279×71). The header shows this file directly on white (no chip, border or background); do not put `jb-banner.png` back in the header.
 
 ## Files and import order
 

@@ -14,6 +14,7 @@
 | Noto Serif KR subset (`demo/frontend`) | Version 2.003-H1; Copyright Adobe 2017-2024 | SIL OFL 1.1 | 예 | [저작권 고지](demo/frontend/src/assets/fonts/NotoSerifKR/OFL.txt), [OFL 원문](https://openfontlicense.org) |
 | Pretendard GOV subset woff2 — Regular·Medium·Bold (`demo/frontend/src/assets/fonts/PretendardGOV/`) | npm `pretendard-gov` 1.3.9; Copyright (c) 2021, Kil Hyung-jin; Reserved Font Name Pretendard | SIL OFL 1.1 | 예 | [저작권 고지·라이선스](demo/frontend/src/assets/fonts/PretendardGOV/LICENSE.txt), [orioncactus/pretendard](https://github.com/orioncactus/pretendard) |
 | 사업 배너 이미지 `demo/frontend/src/assets/brand/jb-banner.png` | 전북특별자치도 「전북청년 함께 두배적금」 사업 배너. 제공: 프로젝트 소유자 (원본은 저장소 루트 `jb.png`) | 별도 라이선스 표기 없음 — 사용 조건은 제공 기관 확인 필요 | 예 | 프로젝트 소유자 제공 |
+| 머리글 로고 이미지 `demo/frontend/src/assets/brand/jb-logo.png` | 위 사업 배너에서 배경(연녹·크림)만 투명하게 빼고 여백을 잘라 낸 파생본. 글자·색은 바꾸지 않음 | 위 배너와 같음 | 예 | 프로젝트 소유자 제공 배너에서 파생 |
 
 두 Noto 글꼴의 저장소 포함 파일은 각 글꼴 디렉터리의 저작권 고지와 [OFL 원문](https://openfontlicense.org)을 함께 확인하세요. Noto Sans KR 서브셋에서 Reserved Font Name을 사용한 방식이 OFL 조건에 맞는지는 확인이 필요합니다.
 

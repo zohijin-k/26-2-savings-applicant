@@ -1,4 +1,4 @@
-/* 화면 틀: 머리글(기관·사업 배너, 신청번호·마이페이지 자리) · 본문 · 바닥글(문의처 자리). */
+/* 화면 틀: 머리글(기관·사업 로고, 신청번호·마이페이지 자리) · 본문 · 바닥글(문의처 자리). */
 
 .app-shell {
   display: flex;
@@ -26,40 +26,42 @@
   );
 }
 
+/* 아주 좁은 화면에서 신청번호·마이페이지가 한 줄에 안 들어가면 넘치지 않고 아랫줄로 내려간다. */
 .shell__inner {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-4);
   max-width: var(--shell-max);
   min-height: var(--shell-h);
   margin: 0 auto;
-  padding: 0 var(--gutter);
+  padding: var(--sp-2) var(--gutter);
 }
 
-/* 배너는 자체 배경(연녹 → 크림)이 있으므로 테두리를 두른 둥근 표지로 보여 준다. */
+/*
+ * 로고는 배너(jb-banner.png)에서 배경을 투명하게 뺀 파일(jb-logo.png)이라 머리글 흰 바탕에 바로 놓는다.
+ * 안쪽 여백만큼 왼쪽으로 당겨 글자 왼쪽 끝을 본문 여백 선에 맞춘다.
+ */
 .shell__home {
   display: block;
   flex: none;
-  padding: 0;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-8);
-  background: var(--jb-cream);
+  margin-left: calc(-1 * var(--sp-2));
+  padding: var(--sp-1) var(--sp-2);
+  border: 0;
+  border-radius: var(--radius-6);
+  background: transparent;
   line-height: 0;
   cursor: pointer;
-  transition: border-color var(--ease), box-shadow var(--ease);
+  transition: background-color var(--ease);
 }
 
-.shell__home:hover {
-  border-color: var(--jb-blue-30);
-  box-shadow: var(--shadow-1);
-}
+.shell__home:hover { background: var(--color-surface-brand); }
 
-.shell__banner {
+.shell__logo {
   display: block;
   width: auto;
-  height: 48px;
+  height: 36px;
 }
 
 /* ApplyFlow가 신청번호와 마이페이지 버튼을 그려 넣는 자리. */
@@ -67,6 +69,7 @@
   display: flex;
   justify-content: flex-end;
   min-width: 0;
+  margin-left: auto;
 }
 
 .shell__tools:empty { display: none; }
@@ -167,8 +170,9 @@
 .site-footer__contact:empty { display: none; }
 
 @media (max-width: 600px) {
-  .shell__inner { gap: var(--sp-3); }
-  .shell__banner { height: 40px; }
+  .shell__inner { gap: var(--sp-2); }
+  .shell__home { margin-left: calc(-1 * var(--sp-1)); padding: var(--sp-1); }
+  .shell__logo { height: 28px; }
   .shell__application-controls { gap: var(--sp-2); }
 
   /* 좁은 화면에서는 "신청번호"라는 글자를 숨기고 번호만 남긴다. */

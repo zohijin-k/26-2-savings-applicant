@@ -17,3 +17,8 @@ Both preparation and direct submission use the same blocker function. A previous
 
 ## Verification
 Use synthetic documents and temporary databases only. Cover each allowlist code in FAIL and NEEDS_REVIEW, hidden/unknown/legacy/mixed findings, identity masking, immutable original data, direct-API required-field/consent/document/work checks, readiness-to-submit changes, and real submission of hidden failures with unchanged Review/officer outcomes. Record every changed existing expectation with file, test, before/after and reason; delete no tests.
+
+## Second copy in the officer repository
+`26-2-savings-officer` serves this same applicant API from its own backend, so the applicant frontend and the officer frontend can run against one database (that repository's `.trellis/spec/backend/unified-backend.md`, merged 2026-11-17). The applicant boundary code exists in both repositories with the same content: `api/applications.py`, `api/documents.py`, `api/review.py` and the applicant projection in `api/common.py` (`REUPLOAD_CODES`, `applicant_findings`, `document_dict`), together with their tests.
+
+Apply every change to this boundary in both repositories. Otherwise the linked run answers this frontend with a different contract from the standalone run. Upload assessment (`rules/doc_check.py`, `ocr/localocr.py`, `engine_adapter.py`, `upload_assessment.py`, `engine_v2`) is not shared: the officer repository's is newer, and the linked run uses it.

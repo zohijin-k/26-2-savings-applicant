@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/applicant-submission.md", "reason": "The applicant API contract that this note extends"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "In the linked run this frontend is served by another repository backend; the applicant API has two copies"}

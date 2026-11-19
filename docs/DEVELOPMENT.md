@@ -109,9 +109,9 @@ npm run dev
 | 담당자 프런트 | `26-2-savings-officer/demo/frontend` | <http://localhost:5174> |
 
 ```bash
-# 터미널 1 — 담당자 저장소 루트
+# 터미널 1 — 담당자 저장소 루트 (.env에 OFFICER_PASSWORD, OFFICER_SESSION_SECRET을 채워 둔다)
 cd ../26-2-savings-officer
-uvicorn demo.backend.main:app --reload --port 8000
+python -m uvicorn demo.backend.main:app --env-file .env --reload --port 8000
 ```
 
 ```bash
@@ -130,6 +130,8 @@ npm run dev -- --port 5174
 - 신청은 담당자 저장소의 `demo/demo.db`와 `demo/storage/`에 쌓입니다. 제출한 건은 담당자 목록에 바로 나타나고, 담당자가 내린 결정은 이 화면의 마이페이지에 보입니다.
 - 이 저장소의 백엔드를 함께 띄우지 않습니다. 같은 8000번을 쓰므로 둘을 함께 띄울 수 없습니다. 이 저장소의 백엔드를 띄우면 신청이 이 저장소의 DB에 쌓여 담당자 화면에 보이지 않고, 업로드 판정도 이 저장소의 코드로 됩니다. 업로드 판정 코드는 담당자 저장소 쪽이 더 최신입니다.
 - 이 저장소의 백엔드는 신청자 화면만 따로 개발할 때 씁니다.
+- 연결 실행에서는 담당자 저장소의 백엔드가 접근 제어를 합니다. 신청을 만들 때 받은 소유자 쿠키(`applicant_access_{신청 번호}`, 경로 `/api`)가 있는 브라우저만 그 신청을 읽고 고칠 수 있고, 원본 서류(`/api/files/…`)도 그 신청자와 로그인한 담당자만 볼 수 있습니다. 이 화면은 로그인 없이 그대로 씁니다. 담당자 화면(5174)은 담당자 저장소 `.env`의 비밀번호로 로그인합니다. 자세한 내용은 담당자 저장소의 `docs/DEVELOPMENT.md` "담당자 로그인과 접근 제어"에 있습니다.
+- 접근 제어를 넣기 전에 만든 작성 중 신청은 연결 실행에서 이어 쓸 수 없습니다(403). 새 탭에서 다시 시작합니다. 이 저장소의 백엔드만 띄우면 이런 검사는 없습니다.
 
 신청자 API 코드(`demo/backend/api/applications.py`, `documents.py`, `review.py`와 `common.py`의 신청자 응답 부분)는 담당자 저장소에도 같은 내용으로 있습니다. 이 저장소에서 신청자 API를 고치면 담당자 저장소에도 반영합니다. 반영하지 않으면 연결해서 실행할 때 이 화면이 기대하는 응답과 달라집니다.
 

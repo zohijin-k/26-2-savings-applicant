@@ -204,7 +204,7 @@ def create(body: CreateRequest, response: Response, request: Request) -> dict[st
     response.set_cookie(
         key=f"applicant_access_{app.id}",
         value=applicant_token,
-        path=f"/api/applications/{app.id}/forms/files",
+        path="/api",
         max_age=5 * 365 * 24 * 60 * 60,
         httponly=True,
         secure=request.url.scheme == "https",

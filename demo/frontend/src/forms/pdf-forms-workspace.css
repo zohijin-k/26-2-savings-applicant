@@ -431,6 +431,7 @@
 .pdf-forms__legend--error { color: var(--danger-60); }
 
 .pdf-forms__legend--error .pdf-forms__legend-swatch {
+  border-width: 2.5px;
   border-color: var(--danger-50);
   background: var(--color-surface);
 }
@@ -930,7 +931,8 @@
 .pdf-form__text.is-missing:focus { outline-color: var(--brand); }
 .pdf-form__sign.is-missing { background: color-mix(in srgb, var(--jb-blue-40) 12%, transparent); }
 .pdf-form__group-missing { position: absolute; border: 1px solid var(--jb-blue-40); background: color-mix(in srgb, var(--jb-blue-40) 8%, transparent); box-shadow: 0 0 0 1px var(--jb-blue-40); pointer-events: none; z-index: 6; }
-.pdf-forms--show-errors .pdf-form__text.is-missing, .pdf-forms--show-errors .pdf-form__check.is-missing, .pdf-forms--show-errors .pdf-form__sign.is-missing { outline-color: #c33; }
+/* 오류 표시는 눈에 잘 띄도록 파란 "작성할 칸" 표시보다 두껍게 그린다. */
+.pdf-forms--show-errors .pdf-form__text.is-missing, .pdf-forms--show-errors .pdf-form__check.is-missing, .pdf-forms--show-errors .pdf-form__sign.is-missing { outline: 2.5px solid #c33; outline-offset: 1px; }
 .pdf-forms--show-errors .pdf-form__text.is-missing { background: rgb(242 247 255 / 72%); }
 .pdf-forms--show-errors .pdf-form__sign.is-missing { background: transparent; }
-.pdf-forms--show-errors .pdf-form__group-missing { border-color: #c33; background: transparent; box-shadow: none; }
+.pdf-forms--show-errors .pdf-form__group-missing { border: 1.5px solid #c33; background: transparent; box-shadow: 0 0 0 1px #c33; }

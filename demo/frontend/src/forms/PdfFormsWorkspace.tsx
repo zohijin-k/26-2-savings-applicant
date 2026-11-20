@@ -16,6 +16,7 @@ import {
   type Program,
 } from '../api.ts'
 import ConfirmDialog from '../components/ConfirmDialog.tsx'
+import CalendarDateInput from '../components/CalendarDateInput.tsx'
 import Icon from '../components/Icon.tsx'
 import Notice from '../components/Notice.tsx'
 import SignaturePad from '../components/SignaturePad.tsx'
@@ -31,6 +32,7 @@ import { formatPhone, isValidPhone, phoneCursorPosition } from './phone.ts'
 import { EMPTY_FORM1, type Form1Value } from './form1-model.ts'
 import type { SelfCheckAnswers } from './form2-model.ts'
 import { EMPTY_FORM5, type Form5Value, type SignMode } from './form5-model.ts'
+import { isCompleteYMD } from './ymd.ts'
 import './pdf-forms-workspace.css'
 
 type ActiveForm = { formNo: string; mode: 'edit' | 'preview' }
@@ -105,12 +107,20 @@ function autoDateText(layout: FormLayout, field: FormFieldLayout): string {
   return String(Number(field.date_part === 'month' ? month : day))
 }
 
+function todayInSeoul(): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date())
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? ''
+  return `${part('year')}-${part('month')}-${part('day')}`
+}
+
 function readForm(form1: Form1Value, key: string): unknown {
   return (form1 as unknown as Record<string, unknown>)[key]
 }
 
 function durationBand(value: Form1Value['transferIn'], basis: string, work: boolean): string {
-  if (!value.y || !value.m || !value.d) return ''
+  if (!isCompleteYMD(value)) return ''
   const start = new Date(Number(value.y), Number(value.m) - 1, Number(value.d))
   const end = new Date(`${basis}T00:00:00`)
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return ''
@@ -243,13 +253,14 @@ export default function PdfFormsWorkspace({
   const [pendingFormNo, setPendingFormNo] = useState<string | null>(null)
   const [jump, setJump] = useState(0)
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null)
-  const [imageStatus, setImageStatus] = useState<{ key: string; status: 'loaded' | 'error' } | null>(null)
+  const [imageStatus, setImageStatus] = useState<Partial<Record<string, 'loaded' | 'error'>>>({})
   const [imageRetry, setImageRetry] = useState(0)
   const [signatureTarget, setSignatureTarget] = useState<string | null>(null)
   const [previewKey, setPreviewKey] = useState(0)
   const [thumbnailVersion, setThumbnailVersion] = useState(0)
   const [scanVersion, setScanVersion] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const completionRef = useRef<{ formNo: string; remaining: number } | null>(null)
   const navListRef = useRef<HTMLUListElement>(null)
   const incompleteRef = useRef<HTMLDivElement>(null)
   const confirmRef = useRef<ConfirmRequest | null>(null)
@@ -262,6 +273,7 @@ export default function PdfFormsWorkspace({
   const paperFormsChangeRef = useRef(onPaperFormsChange)
   const resetPending = useRef<number | null>(null)
   const [availablePageWidth, setAvailablePageWidth] = useState(794)
+  const [calendarToday, setCalendarToday] = useState(todayInSeoul)
   const draftValues = [form1, answers, consent, form5, signMode]
   const currentSaveNotice = saveNotice?.values.every((value, index) => value === draftValues[index]) ? saveNotice.message : ''
   const hasUnflushedChanges = !readOnly && (
@@ -272,6 +284,18 @@ export default function PdfFormsWorkspace({
   const parentError = error && error !== dismissedParentError ? (isCitizenSafe(error) ? error : REQUEST_FAILED_COPY) : ''
 
   useBeforeUnload(saving || hasUnflushedChanges)
+
+  useEffect(() => {
+    const update = () => setCalendarToday(todayInSeoul())
+    const timer = window.setInterval(update, 60_000)
+    window.addEventListener('focus', update)
+    document.addEventListener('visibilitychange', update)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', update)
+      document.removeEventListener('visibilitychange', update)
+    }
+  }, [])
 
   useEffect(() => { paperFormsChangeRef.current = onPaperFormsChange }, [onPaperFormsChange])
 
@@ -475,9 +499,7 @@ export default function PdfFormsWorkspace({
   }, [active, paperForms])
 
   const currentLayout = active ? layouts[active.formNo] : undefined
-  const pageSize = currentLayout?.page_sizes[page]
   const pageWidth = Math.min(794, Math.max(620, availablePageWidth))
-  const scale = pageSize ? pageWidth / pageSize.width : 1
 
   const readChoice = (key: string): boolean => {
     const [group, option] = [fieldGroup(key), key.split('.').slice(-1)[0]]
@@ -763,6 +785,27 @@ export default function PdfFormsWorkspace({
     setPendingFormNo(null)
   }
 
+  // 실제 입력으로 미완료 상태에서 완료 상태가 된 경우에만 다음 서식으로 이동한다.
+  // 처음 불러온 완료 서식이나 목록에서 다시 연 완료 서식은 그대로 보여 준다.
+  useEffect(() => {
+    if (!active || !layouts[active.formNo] || readOnly || paperForms[active.formNo]) {
+      completionRef.current = null
+      return
+    }
+    const remaining = missing(active.formNo).length
+    const previous = completionRef.current
+    if (previous?.formNo !== active.formNo) {
+      completionRef.current = { formNo: active.formNo, remaining }
+      return
+    }
+    if (signatureTarget || saving || continuing) return
+    completionRef.current = { formNo: active.formNo, remaining }
+    const nextFormNo = formNos[formNos.indexOf(active.formNo) + 1]
+    if (active.mode === 'edit' && previous.remaining > 0 && remaining === 0 && nextFormNo) {
+      void selectForm(nextFormNo)
+    }
+  })
+
   const incompleteForms = formNos.filter((formNo) => !!layouts[formNo] && !paperForms[formNo] && missing(formNo).length > 0)
 
   const submitWorkspace = () => {
@@ -776,18 +819,22 @@ export default function PdfFormsWorkspace({
     onContinue()
   }
 
-  const changePage = (next: number) => {
-    setPage(next)
-    scrollRef.current?.scrollTo({ top: 0 })
+  const scrollToPage = (next: number) => {
+    const viewport = scrollRef.current
+    const target = viewport?.querySelector<HTMLElement>(`[data-page-index="${next}"]`)
+    if (viewport && target) {
+      viewport.scrollTo({ top: viewport.scrollTop + target.getBoundingClientRect().top - viewport.getBoundingClientRect().top })
+      setPage(next)
+    }
   }
 
-  const pageImageUrl = active
-    ? `/api/applications/${applicationId}/forms/${encodeURIComponent(active.formNo)}/pages/${page + 1}.png?preview=${active.mode === 'preview' ? 'true' : 'false'}&v=${previewKey}`
+  const pageImageUrl = (pageIndex: number) => active
+    ? `/api/applications/${applicationId}/forms/${encodeURIComponent(active.formNo)}/pages/${pageIndex + 1}.png?preview=${active.mode === 'preview' ? 'true' : 'false'}&v=${previewKey}`
     : ''
-  // 쪽 그림이 올 때까지 자리 표시를 보여 주고, 입력 칸은 그림이 온 뒤에 보인다.
-  const imageKey = `${pageImageUrl}#${imageRetry}`
-  const imageState = !active ? 'loaded' : imageStatus?.key === imageKey ? imageStatus.status : 'loading'
-  const showPageSkeleton = useDelayedFlag(imageState === 'loading')
+  const pageImageKey = (pageIndex: number) => `${pageImageUrl(pageIndex)}#${imageRetry}`
+  const pageCount = currentLayout?.page_sizes.length ?? 0
+  const imageFailed = Array.from({ length: pageCount }, (_, index) => imageStatus[pageImageKey(index)]).includes('error')
+  const showPageSkeleton = useDelayedFlag(Array.from({ length: pageCount }, (_, index) => !imageStatus[pageImageKey(index)]).includes(true))
 
   // 덜 쓴 서식 안내가 나오면 그 안내로 포커스를 옮긴다.
   useEffect(() => {
@@ -836,8 +883,8 @@ export default function PdfFormsWorkspace({
     }
   }, [activeFormNo, loadState])
 
-  const renderField = ([key, field]: [string, FormFieldLayout], fieldIndex: number) => {
-    if (!active || field.page !== page) return null
+  const renderField = (targetPage: number, scale: number) => ([key, field]: [string, FormFieldLayout], fieldIndex: number) => {
+    if (!active || field.page !== targetPage) return null
     const [x0, y0, x1, y1] = field.box
     const boxStyle = {
       left: x0 * scale,
@@ -1005,7 +1052,16 @@ export default function PdfFormsWorkspace({
   // 저장이나 다음 단계를 시도한 서식에서만 남은 빈칸을 오류 색으로 보여 준다.
   const showErrors = editing && !!attemptedForms[active.formNo]
   const hasMissing = editing && (activeStatus?.remaining ?? 0) > 0
-  const pageCount = currentLayout?.page_sizes.length ?? 0
+  const previousFormNo = active ? formNos[formNos.indexOf(active.formNo) - 1] : undefined
+  const nextFormNo = active ? formNos[formNos.indexOf(active.formNo) + 1] : undefined
+  const periodDateError = (value: Form1Value['transferIn']) => {
+    if (!value.y || !value.m || !value.d) return ''
+    if (!isCompleteYMD(value)) return '실제 달력에 있는 날짜를 입력해 주세요.'
+    if (isoDate(value) > calendarToday) return '오늘 이후 날짜는 입력할 수 없습니다.'
+    return ''
+  }
+  const transferInError = periodDateError(form1.transferIn)
+  const employedAtError = periodDateError(form1.employedAt)
 
   const viewerContent = active && currentLayout ? (
     <fieldset className="pdf-form__contents" disabled={saving || continuing}>
@@ -1014,17 +1070,17 @@ export default function PdfFormsWorkspace({
           ? <p className="pdf-forms__legend pdf-forms__legend--error"><span className="pdf-forms__legend-swatch" aria-hidden="true" />빨간 테두리 칸이 아직 비어 있습니다.</p>
           : <p className="pdf-forms__legend"><span className="pdf-forms__legend-swatch" aria-hidden="true" />파란 테두리 칸은 작성해야 하는 칸입니다.</p>)}
         <div className="pdf-forms__pager">
-          {pageCount > 1 && <button type="button" className="btn btn--small" disabled={page <= 0} onClick={() => changePage(Math.max(0, page - 1))}>
+          {pageCount > 1 && <button type="button" className="btn btn--small" disabled={page <= 0} onClick={() => scrollToPage(Math.max(0, page - 1))}>
             <Icon name="chevronLeft" size={18} /><span className="pdf-forms__pager-label">이전 쪽</span>
           </button>}
           <span className="pdf-forms__pager-count">{page + 1} / {pageCount}쪽</span>
-          {pageCount > 1 && <button type="button" className="btn btn--small" disabled={page >= pageCount - 1} onClick={() => changePage(Math.min(pageCount - 1, page + 1))}>
+          {pageCount > 1 && <button type="button" className="btn btn--small" disabled={page >= pageCount - 1} onClick={() => scrollToPage(Math.min(pageCount - 1, page + 1))}>
             <span className="pdf-forms__pager-label">다음 쪽</span><Icon name="chevronRight" size={18} />
           </button>}
         </div>
       </div>
       <p className="pdf-forms__mobile-hint"><Icon name="info" size={18} />서식이 화면보다 넓으면 좌우로 스크롤해 주세요.</p>
-      {imageState === 'error' && (
+      {imageFailed && (
         <div className="pdf-forms__page-error">
           <Notice tone="danger" role="alert" title="서식 화면을 불러오지 못했습니다.">
             <button type="button" className="btn btn--small" onClick={() => setImageRetry((count) => count + 1)}>
@@ -1033,64 +1089,80 @@ export default function PdfFormsWorkspace({
           </Notice>
         </div>
       )}
-      <div className="pdf-form__scroll" ref={scrollRef} data-form-scroll>
-        <div
-          className={imageState === 'loaded' ? 'pdf-form__page' : 'pdf-form__page pdf-form__page--pending'}
-          data-form-page
-          style={{ width: pageWidth, height: pageSize ? pageSize.height * scale : 'auto' }}
-        >
-          <img
-            key={imageKey}
-            className="pdf-form__background"
-            src={pageImageUrl}
-            alt={`${formLabel(active.formNo)} ${page + 1}쪽 원본 서식`}
-            draggable={false}
-            onLoad={() => setImageStatus({ key: imageKey, status: 'loaded' })}
-            onError={() => setImageStatus({ key: imageKey, status: 'error' })}
-          />
-          {showPageSkeleton && (
-            <Skeleton className="pdf-forms__page-skeleton" label="서식 화면을 불러오는 중입니다">
-              <SheetPlaceholder />
-            </Skeleton>
-          )}
-          {active.mode === 'edit' && (
-            <div className="pdf-form__overlay" style={{ width: pageWidth, height: pageSize ? pageSize.height * scale : 'auto' }}>
-              {(currentLayout.masks || []).filter((mask) => mask.page === page).map((mask, index) => {
-                const [x0, y0, x1, y1] = mask.box
-                return <div
-                  key={`mask-${index}`}
-                  className="pdf-form__mask"
-                  aria-hidden="true"
-                  style={{ left: x0 * scale, top: y0 * scale, width: (x1 - x0) * scale, height: (y1 - y0) * scale }}
-                />
-              })}
-              {Array.from(new Map(Object.entries(currentLayout.fields).filter(([, field]) => field.control === 'radio_text' && field.group_box).map(([, field]) => [JSON.stringify([field.page, field.group_box]), { page: field.page, box: field.group_box! }])).values()).filter((mask) => mask.page === page).map((mask, index) => {
-                const [x0, y0, x1, y1] = mask.box
-                return <span key={`selfcheck-cover-${index}`} className="pdf-form__mask" aria-hidden="true" style={{ left: x0 * scale, top: y0 * scale, width: (x1 - x0) * scale, height: (y1 - y0) * scale }} />
-              })}
-              {missingGroupBoxes(active.formNo, page).map((box, index) => {
-                const [x0, y0, x1, y1] = box
-                return <span key={`missing-choice-${index}`} className="pdf-form__group-missing" aria-hidden="true" style={{ left: x0 * scale, top: y0 * scale, width: (x1 - x0) * scale, height: (y1 - y0) * scale }} />
-              })}
-              {Object.entries(currentLayout.fields)
-                .sort((a, b) => a[1].page - b[1].page || a[1].box[1] - b[1].box[1] || a[1].box[0] - b[1].box[0])
-                .map(renderField)}
-            </div>
-          )}
-        </div>
+      <div className="pdf-form__scroll" ref={scrollRef} data-form-scroll onScroll={(event) => {
+        const viewport = event.currentTarget
+        const pages = Array.from(viewport.querySelectorAll<HTMLElement>('[data-page-index]'))
+        const viewportTop = viewport.getBoundingClientRect().top
+        const visible = pages.reduce((closest, item, index) =>
+          item.getBoundingClientRect().top <= viewportTop + 80 ? index : closest, 0)
+        if (visible !== page) setPage(visible)
+      }}>
+        {currentLayout.page_sizes.map((pageSize, pageIndex) => {
+          const scale = pageWidth / pageSize.width
+          const imageKey = pageImageKey(pageIndex)
+          const imageState = imageStatus[imageKey] || 'loading'
+          return <div
+            key={pageIndex}
+            className={imageState === 'loaded' ? 'pdf-form__page' : 'pdf-form__page pdf-form__page--pending'}
+            data-form-page
+            data-page-index={pageIndex}
+            style={{ width: pageWidth, height: pageSize.height * scale }}
+          >
+            <img
+              key={imageKey}
+              className="pdf-form__background"
+              src={pageImageUrl(pageIndex)}
+              alt={`${formLabel(active.formNo)} ${pageIndex + 1}쪽 원본 서식`}
+              draggable={false}
+              onLoad={() => setImageStatus((current) => ({ ...current, [imageKey]: 'loaded' }))}
+              onError={() => setImageStatus((current) => ({ ...current, [imageKey]: 'error' }))}
+            />
+            {imageState === 'loading' && showPageSkeleton && (
+              <Skeleton className="pdf-forms__page-skeleton" label="서식 화면을 불러오는 중입니다">
+                <SheetPlaceholder />
+              </Skeleton>
+            )}
+            {active.mode === 'edit' && (
+              <div className="pdf-form__overlay" style={{ width: pageWidth, height: pageSize.height * scale }}>
+                {(currentLayout.masks || []).filter((mask) => mask.page === pageIndex).map((mask, index) => {
+                  const [x0, y0, x1, y1] = mask.box
+                  return <div
+                    key={`mask-${index}`}
+                    className="pdf-form__mask"
+                    aria-hidden="true"
+                    style={{ left: x0 * scale, top: y0 * scale, width: (x1 - x0) * scale, height: (y1 - y0) * scale }}
+                  />
+                })}
+                {Array.from(new Map(Object.entries(currentLayout.fields).filter(([, field]) => field.control === 'radio_text' && field.group_box).map(([, field]) => [JSON.stringify([field.page, field.group_box]), { page: field.page, box: field.group_box! }])).values()).filter((mask) => mask.page === pageIndex).map((mask, index) => {
+                  const [x0, y0, x1, y1] = mask.box
+                  return <span key={`selfcheck-cover-${index}`} className="pdf-form__mask" aria-hidden="true" style={{ left: x0 * scale, top: y0 * scale, width: (x1 - x0) * scale, height: (y1 - y0) * scale }} />
+                })}
+                {missingGroupBoxes(active.formNo, pageIndex).map((box, index) => {
+                  const [x0, y0, x1, y1] = box
+                  return <span key={`missing-choice-${index}`} className="pdf-form__group-missing" aria-hidden="true" style={{ left: x0 * scale, top: y0 * scale, width: (x1 - x0) * scale, height: (y1 - y0) * scale }} />
+                })}
+                {Object.entries(currentLayout.fields)
+                  .sort((a, b) => a[1].page - b[1].page || a[1].box[1] - b[1].box[1] || a[1].box[0] - b[1].box[0])
+                  .map(renderField(pageIndex, scale))}
+              </div>
+            )}
+          </div>
+        })}
       </div>
       {active.mode === 'edit' && !readOnly && active.formNo === '서식1' && (
         <div className="pdf-forms__extra">
           <h3 className="pdf-forms__extra-title">기간 산정에 쓰는 날짜</h3>
           <div className="pdf-forms__extra-fields">
-            <label className="field">
+            <div className="field">
               <span className="field__label">전북 최종 전입일</span>
-              <input className="input" type="date" max={currentLayout?.auto_date} value={isoDate(form1.transferIn)} onChange={(event) => onForm1({ ...form1, transferIn: fromISO(event.currentTarget.value) })} />
-            </label>
-            <label className="field">
+              <CalendarDateInput value={isoDate(form1.transferIn)} max={calendarToday} onChange={(value) => onForm1({ ...form1, transferIn: fromISO(value) })} label="전북 최종 전입일" disabled={saving || continuing} invalid={!!transferInError} describedBy={transferInError ? 'form1-transfer-in-error' : undefined} />
+              {transferInError && <span className="field__error" id="form1-transfer-in-error">{transferInError}</span>}
+            </div>
+            <div className="field">
               <span className="field__label">현 직장 입사일</span>
-              <input className="input" type="date" max={currentLayout?.auto_date} value={isoDate(form1.employedAt)} onChange={(event) => onForm1({ ...form1, employedAt: fromISO(event.currentTarget.value) })} />
-            </label>
+              <CalendarDateInput value={isoDate(form1.employedAt)} max={calendarToday} onChange={(value) => onForm1({ ...form1, employedAt: fromISO(value) })} label="현 직장 입사일" disabled={saving || continuing} invalid={!!employedAtError} describedBy={employedAtError ? 'form1-employed-at-error' : undefined} />
+              {employedAtError && <span className="field__error" id="form1-employed-at-error">{employedAtError}</span>}
+            </div>
           </div>
           <p className="field__hint">날짜를 넣으면 서식의 거주기간·근무기간 칸이 공고일 기준으로 자동 표시됩니다.</p>
           {(isAfterBasis(form1.transferIn, program.announcement_date) || isAfterBasis(form1.employedAt, program.announcement_date)) && (
@@ -1098,6 +1170,14 @@ export default function PdfFormsWorkspace({
           )}
         </div>
       )}
+      {(previousFormNo || nextFormNo) && !readOnly && <div className="pdf-forms__form-navigation" aria-label="서식 이동">
+        {previousFormNo && <button type="button" className="btn btn--small" disabled={saving || continuing} onClick={() => void selectForm(previousFormNo)}>
+          이전으로
+        </button>}
+        {nextFormNo && <button type="button" className="btn btn--primary btn--small" disabled={saving || continuing} onClick={() => void selectForm(nextFormNo)}>
+          다음으로
+        </button>}
+      </div>}
     </fieldset>
   ) : null
 
@@ -1295,7 +1375,7 @@ export default function PdfFormsWorkspace({
             </div>
             <div className="form-signature__body" inert={saving}>
               {signMode === '화면에 서명' ? (
-                <SignaturePad key={form5.signature ? 'signed' : 'empty'} value={form5.signature} onChange={(value) => setSignature('서식5', value)} width={Math.min(420, Math.max(220, window.innerWidth - 96))} height={210} />
+                <SignaturePad value={form5.signature} onChange={(value) => setSignature('서식5', value)} width={Math.min(420, Math.max(220, window.innerWidth - 96))} height={210} strokeWidth={3.2} cropOnSave />
               ) : (
                 <div className="form-signature__upload">
                   {form5.signatureScanUploaded ? <img src={signatureValue('서식5')} alt="업로드한 서명 미리보기" /> : <span>JPG 또는 PNG 서명 파일을 올려 주세요. (10MB 이하)</span>}
@@ -1362,6 +1442,7 @@ function fromISO(value: string): Form1Value['transferIn'] {
 }
 
 function isAfterBasis(value: Form1Value['transferIn'], basis: string): boolean {
+  if (!isCompleteYMD(value)) return false
   const selected = isoDate(value)
   return !!selected && selected > basis
 }

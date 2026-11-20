@@ -9,6 +9,7 @@
 ## Original document contract
 
 - Render the existing form-page image endpoint with the existing layout fields and masks. Scale the PDF background, masks, inputs, check hit areas, and page height using the same `pageWidth / pageSize.width` ratio. A narrow viewport may scroll the document; do not reflow its cells into a replacement form.
+- Show every page of the selected form in the same vertical viewport. Keep each page's background and overlay at its own layout scale; the page controls scroll to a page and the count follows the page in view.
 - Reuse the existing field renderer and validation helpers for the savings workspace. Updating the surrounding layout is not a reason to edit templates or coordinate maps.
 - Public form numbers/order come from the API/layout `public_form`, backed by `demo/form_numbers.py`. Internal `서식1` is public form 2; internal `서식2` is public form 1. Explicitly sort the savings display list by the same public metadata used for labels, then initialize the active document from that ordered list; response order alone is not a guarantee. Do not sort internal identifiers or duplicate the mapping client-side. Use a stable fallback after known public forms if metadata is absent.
 
@@ -21,6 +22,8 @@ onFlush: () => Promise<void>
 ```
 
 Flush before switching documents or requesting a written preview. Ordinary field patches do not persist every consent: `ApplyFlow` posts the selected consents and signature metadata in `onFlush`. Removing a modal's close action must not remove this persistence step.
+
+The compact navigation row below the document places "이전으로" on the left and "다음으로" on the right. Both use the same flush-first selection path as the form list. When an actively edited form changes from incomplete to complete, advance once to the next form through that path. Do not advance merely because a previously complete form was opened, and do not advance past the last form into upload automatically.
 
 | Condition | Required behavior |
 | --- | --- |
@@ -36,6 +39,8 @@ For example, selecting public form 4 from public form 1 must save the existing v
 
 Form 5's signature portal remains a dialog above the inline PDF. It must own its Escape handling, body-scroll lock/cleanup, keyboard focus containment, and focus return to the signature trigger. Those effects previously came partly from the parent viewer modal and cannot be assumed after removing that modal. Preserve drawing, image-upload validation, clearing, confirmation, and signature-mode behavior.
 
+The form 5 canvas signature is saved as a transparent PNG cropped to the ink bounds with a small margin. Its PDF image field is much wider and shorter than the drawing canvas; retaining the canvas whitespace makes the ink appear tiny when the PDF fits the full image. Use a thicker form 5 pen while leaving other `SignaturePad` uses at their default width.
+
 ## Compact workspace chrome
 
 Savings step 2 uses the application title/compact step strip above a document heading in the panel; do not restore a second workspace heading/subtitle or an always-reserved save-guidance row. Keep downloads in the document actions, including read-only and paper modes. The selected original PDF remains in the existing independently scrolling viewport, with a viewport-based height and the same coordinate scale. Changing the surrounding spacing must not change the PDF renderer. The shared top-bar application controls are owned by `ApplyFlow` through a portal as specified in [state management](./state-management.md).
@@ -49,6 +54,8 @@ Applicant chrome reads the tokens and component classes in [Applicant UI Foundat
 Missing required fields on the sheet are the one sheet colour state that changes with interaction: a calm blue outline/fill by default, and the red state only under `.pdf-forms--show-errors`, set per form after the applicant presses save or continue (or leaves a started form) with fields missing. Geometry, sizes and fonts of the fields do not change between the two states. The continue action is never disabled for incompleteness: pressing it while forms are incomplete lists each incomplete form with its remaining count, and each entry switches through the normal flush-first path. The gating rule itself is unchanged.
 
 The application title is an `h1` at 24px bold in the head band on every stage. Do not add per-stage or per-breakpoint title size overrides.
+
+The two period-calculation dates below internal form 1 retain calendar selection. Their compact calendar uses a scrollable year list owned by the application, then a month grid, then the day grid. The browser-native date picker's year-scrolling menu cannot be tuned. Its last selectable day follows the current Seoul calendar day while the workspace stays open, including after a month changes. Validate complete calendar dates before calculating a residence or work period.
 
 Stage captions are centred under their markers on every stage. Narrow screens may wrap the name and drop the count to its own line; never truncate or overlap.
 

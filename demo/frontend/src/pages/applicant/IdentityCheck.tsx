@@ -309,7 +309,7 @@ export default function IdentityCheck({ appId, identity, onVerified, onNext }: P
       <Notice tone="info" title="신청 전에 확인해 주세요">
         <ul>
           <li>신청은 본인인증 → 서식 작성 → 서류 업로드 및 제출 순서로 진행합니다.</li>
-          <li>증빙서류는 발급처에서 받은 PDF 파일로 준비하면 가장 빠르고 정확하게 확인됩니다.</li>
+          <li>증빙서류는 선명한 PDF 파일로 준비하면 정확하게 확인됩니다.</li>
           <li>작성 중인 신청은 이 창(탭)에서만 이어서 쓸 수 있습니다. 제출을 마칠 때까지 창을 닫지 마세요.</li>
           <li>본인인증에 입력한 성명·생년월일은 신청서에 그대로 들어가며 나중에 고칠 수 없습니다.</li>
         </ul>

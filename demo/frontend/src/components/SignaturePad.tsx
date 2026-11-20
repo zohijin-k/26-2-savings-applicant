@@ -14,9 +14,11 @@ interface Props {
   onChange: (dataUrl: string) => void
   width?: number
   height?: number
+  strokeWidth?: number
+  cropOnSave?: boolean
 }
 
-export default function SignaturePad({ value, onChange, width = 260, height = 90 }: Props) {
+export default function SignaturePad({ value, onChange, width = 260, height = 90, strokeWidth = 2.2, cropOnSave = false }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false)
   const [empty, setEmpty] = useState(!value)
@@ -27,8 +29,16 @@ export default function SignaturePad({ value, onChange, width = 260, height = 90
   // 되살리는 그림이 늦게 도착해 새로 그은 획을 덮지 않도록, 다시 그릴 때마다 번호를 올린다.
   const restoreTurn = useRef(0)
   useEffect(() => {
+    // 바깥의 지우기 버튼이 값을 비우면 현재 열린 캔버스도 함께 비운다.
+    // 획을 저장하며 값이 바뀔 때는 다시 그리지 않아 다음 획을 이어 그릴 수 있다.
+    if (!value && latestValue.current) {
+      restoreTurn.current += 1
+      drawing.current = false
+      ref.current?.getContext('2d')?.clearRect(0, 0, width, height)
+      setEmpty(true)
+    }
     latestValue.current = value
-  }, [value])
+  }, [value, width, height])
 
   // 저장된 서명이 있으면 되살린다 (임시저장 후 복귀 등).
   // 캔버스 크기가 바뀌면 브라우저가 그림을 지우므로, 그때도 지금 서명을 다시 그린다.
@@ -49,7 +59,9 @@ export default function SignaturePad({ value, onChange, width = 260, height = 90
     const img = new Image()
     img.onload = () => {
       if (turn !== restoreTurn.current || !img.naturalWidth || !img.naturalHeight) return
-      const fit = Math.min(width / img.naturalWidth, height / img.naturalHeight)
+      // 저장된 이미지는 이미 잉크 부분만 잘려 있을 수 있다. 입력창에서는
+      // 원래 그린 크기보다 확대하지 않고, PDF에 넣을 때만 잘린 이미지를 맞춘다.
+      const fit = Math.min(1 / dpr, width / img.naturalWidth, height / img.naturalHeight)
       const drawWidth = img.naturalWidth * fit
       const drawHeight = img.naturalHeight * fit
       ctx.clearRect(0, 0, width, height)
@@ -57,7 +69,7 @@ export default function SignaturePad({ value, onChange, width = 260, height = 90
     }
     img.src = current
     setEmpty(false)
-    // value 는 복원에만 쓴다. 그리는 중에 다시 그리면 획이 끊기므로 값이 바뀔 때는 다시 그리지 않는다.
+    // 값이 바뀔 때 다시 그리면 이어 그리는 획이 끊기므로 크기가 바뀔 때만 복원한다.
   }, [width, height, dpr])
 
   const pos = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -72,7 +84,7 @@ export default function SignaturePad({ value, onChange, width = 260, height = 90
     restoreTurn.current += 1
     drawing.current = true
     const { x, y } = pos(e)
-    ctx.lineWidth = 2.2
+    ctx.lineWidth = strokeWidth
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     ctx.strokeStyle = '#111'
@@ -94,7 +106,42 @@ export default function SignaturePad({ value, onChange, width = 260, height = 90
     if (!drawing.current) return
     drawing.current = false
     const canvas = ref.current
-    if (canvas) onChange(canvas.toDataURL('image/png'))
+    if (!canvas) return
+    if (!cropOnSave) {
+      onChange(canvas.toDataURL('image/png'))
+      return
+    }
+
+    const context = canvas.getContext('2d')
+    if (!context) return
+    const { width: pixelsWide, height: pixelsHigh } = canvas
+    const pixels = context.getImageData(0, 0, pixelsWide, pixelsHigh).data
+    let left = pixelsWide
+    let top = pixelsHigh
+    let right = -1
+    let bottom = -1
+    for (let y = 0; y < pixelsHigh; y++) {
+      for (let x = 0; x < pixelsWide; x++) {
+        if (pixels[(y * pixelsWide + x) * 4 + 3] < 16) continue
+        left = Math.min(left, x)
+        top = Math.min(top, y)
+        right = Math.max(right, x)
+        bottom = Math.max(bottom, y)
+      }
+    }
+    if (right < left || bottom < top) return
+    const padding = Math.round(8 * dpr)
+    left = Math.max(0, left - padding)
+    top = Math.max(0, top - padding)
+    right = Math.min(pixelsWide, right + padding + 1)
+    bottom = Math.min(pixelsHigh, bottom + padding + 1)
+    const trimmed = document.createElement('canvas')
+    trimmed.width = right - left
+    trimmed.height = bottom - top
+    const trimmedContext = trimmed.getContext('2d')
+    if (!trimmedContext) return
+    trimmedContext.drawImage(canvas, left, top, trimmed.width, trimmed.height, 0, 0, trimmed.width, trimmed.height)
+    onChange(trimmed.toDataURL('image/png'))
   }
 
   const clear = () => {
@@ -118,7 +165,6 @@ export default function SignaturePad({ value, onChange, width = 260, height = 90
           onPointerDown={start}
           onPointerMove={move}
           onPointerUp={end}
-          onPointerLeave={end}
           onPointerCancel={end}
           aria-label="전자서명 입력란"
         />

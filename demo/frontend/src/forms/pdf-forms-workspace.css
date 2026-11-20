@@ -467,6 +467,19 @@
 }
 
 .pdf-forms__panel .pdf-form__page { box-shadow: var(--shadow-1); }
+.pdf-forms__panel .pdf-form__page + .pdf-form__page { margin-top: var(--sp-4); }
+
+.pdf-forms__form-navigation {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-5);
+  border-top: 1px solid var(--color-divider);
+}
+
+.pdf-forms__form-navigation .btn:not(.btn--primary) { justify-self: start; }
+.pdf-forms__form-navigation .btn--primary { grid-column: 2; justify-self: end; }
 
 /* 쪽 그림이 오기 전: 자리 표시를 보여 주고 입력 칸은 그림이 온 뒤에 보인다. */
 .pdf-form__page--pending .pdf-form__background,
@@ -638,6 +651,7 @@
   .pdf-forms__toolbar,
   .pdf-forms__paper-options,
   .pdf-forms__extra,
+  .pdf-forms__form-navigation,
   .pdf-forms__page-error,
   .pdf-forms__mobile-hint { padding-right: var(--sp-4); padding-left: var(--sp-4); }
 

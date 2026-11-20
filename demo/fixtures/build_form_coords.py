@@ -688,7 +688,8 @@ def _build_form5(doc: Any):
     sheet = read_sheet(doc[0], 0)
     fields = _text_fields(sheet, FORM5_TEXTS)
     fields.update(_choice_line(sheet, "agree", 442.8))
-    fields["signature"] = _image_field(sheet, ImageField("signature", "(서명또는인)", y_hint=615.5, grow=(1.5, 1.5, 1.5, 1.5)))
+    # 실제 사인처럼 인쇄된 서명 문구 위에 얹되, 바로 위 날짜 줄은 가리지 않는다.
+    fields["signature"] = _image_field(sheet, ImageField("signature", "(서명또는인)", y_hint=615.5, grow=(1.5, 22.5, 13.5, 17.5)))
     fields["name"]["box"][2] = round(fields["signature"]["box"][0] - 2.0, 2)
     return fields, []
 

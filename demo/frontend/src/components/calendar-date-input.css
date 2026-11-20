@@ -1,0 +1,166 @@
+.calendar-date__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar-date__trigger .icon { flex: none; color: var(--color-text-subtle); }
+
+.calendar-date__popover {
+  position: fixed;
+  z-index: 1000;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(280px, calc(100vw - 16px));
+  height: min(320px, calc(100dvh - 16px));
+  padding: 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-8);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-2);
+  font-family: var(--font-ui);
+}
+
+.calendar-date__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+  margin-bottom: 6px;
+}
+
+.calendar-date__header button,
+.calendar-date__grid button,
+.calendar-date__months button,
+.calendar-date__years button {
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.calendar-date__header button:hover,
+.calendar-date__grid button:hover:not(:disabled),
+.calendar-date__months button:hover:not(:disabled),
+.calendar-date__years button:hover { background: var(--gray-5); }
+
+.calendar-date__header button:focus-visible,
+.calendar-date__grid button:focus-visible,
+.calendar-date__months button:focus-visible,
+.calendar-date__years button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+
+.calendar-date__arrow {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-6);
+}
+
+.calendar-date__heading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: var(--radius-6);
+  font-size: var(--fs-16);
+  font-weight: var(--fw-bold);
+  white-space: nowrap;
+}
+
+.calendar-date__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: repeat(7, 1fr);
+  align-items: stretch;
+  min-height: 0;
+  gap: 2px;
+}
+
+.calendar-date__weekday {
+  display: grid;
+  place-items: center;
+  color: var(--color-text-subtle);
+  font-size: var(--fs-13);
+}
+
+.calendar-date__grid button {
+  min-width: 0;
+  border-radius: var(--radius-6);
+  font-size: var(--fs-15);
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar-date__grid button[aria-pressed="true"] { background: var(--color-primary); color: var(--color-text-on-primary); }
+.calendar-date__grid button:disabled,
+.calendar-date__months button:disabled,
+.calendar-date__arrow:disabled { opacity: .4; cursor: not-allowed; }
+
+.calendar-date__months {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(4, 1fr);
+  min-height: 0;
+  gap: 6px;
+  padding: 6px 2px;
+}
+
+.calendar-date__months button {
+  border-radius: var(--radius-6);
+  font-size: var(--fs-15);
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar-date__months button[aria-pressed="true"] { background: var(--jb-blue-5); color: var(--color-primary); font-weight: var(--fw-bold); }
+
+.calendar-date__years {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: auto;
+  touch-action: pan-y;
+}
+
+.calendar-date__years button {
+  display: block;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: var(--radius-6);
+  font-size: var(--fs-15);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
+.calendar-date__years button[aria-current="date"] { background: var(--jb-blue-5); color: var(--color-primary); font-weight: var(--fw-bold); }
+
+.calendar-date__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 6px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.calendar-date__footer button {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-6);
+  background: transparent;
+  color: var(--color-text-subtle);
+  font: inherit;
+  font-size: var(--fs-13);
+  cursor: pointer;
+}
+
+.calendar-date__footer button:hover { background: var(--gray-5); }
+.calendar-date__footer button:focus-visible { outline: 2px solid var(--color-focus); }

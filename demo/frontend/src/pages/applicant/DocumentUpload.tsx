@@ -49,7 +49,7 @@ import useDelayedFlag from '../../hooks/useDelayedFlag.ts'
 import useElapsed from '../../hooks/useElapsed.ts'
 import { friendlyError } from '../../lib/error-copy.ts'
 import { fileExtension, precheckFile, type PdfProbe } from '../../lib/file-precheck.ts'
-import { formatBytes, formatDate, formatDuration } from '../../lib/format.ts'
+import { formatBytes, formatDate } from '../../lib/format.ts'
 import { estimateSeconds, rememberObservation, slowThresholdSec, type Observation } from '../../lib/upload-estimate.ts'
 import { issuerLink, reuploadFindings, REUPLOAD_GUIDANCE } from './reupload-guidance.ts'
 import { isActive, nextRunnable, queueReducer, slotItem, type QueueItem } from './upload-queue.ts'
@@ -285,7 +285,10 @@ function localMeta(file: File, pages: number | null): string {
   return [formatLabel(file.name), pages ? `${pages}쪽` : '', formatBytes(file.size)].filter(Boolean).join(' · ')
 }
 
-/** 파일을 다 보낸 뒤 서버가 읽고 확인하는 동안. 지어낸 퍼센트 대신 흐른 시간과 예상 시간을 보여 준다. */
+/**
+ * 파일을 다 보낸 뒤 서버가 읽고 확인하는 동안. 시간 숫자 대신 로딩 표시만 보여 준다.
+ * 예상보다 한참 늦어지면 창을 닫지 말라는 안내만 덧붙인다(예상 시간은 그 기준으로만 쓴다).
+ */
 function ReadingStatus({ item, label }: { item: QueueItem; label: string }) {
   const elapsed = useElapsed(item.sentAt)
   const estimate = item.estimateSec ?? estimateSeconds(item.kind, item.pages, [])
@@ -294,10 +297,7 @@ function ReadingStatus({ item, label }: { item: QueueItem; label: string }) {
     <>
       <ProgressBar indeterminate label={`${label} 읽고 확인하는 중`} className="dfile__bar" />
       <p className="dfile__status">
-        <span>서류를 읽고 확인하고 있습니다.</span>
-        <span className="dfile__time">
-          {elapsed}초 경과{!slow && (item.kind === 'pdf-text' ? ' · 곧 끝납니다.' : ` · 예상 ${formatDuration(estimate)}`)}
-        </span>
+        <span className="spinner-row"><Spinner small />서류를 읽고 확인하고 있습니다.</span>
       </p>
       {slow && (
         <Notice tone="info" role="status" className="dfile__notice">
@@ -672,7 +672,7 @@ function SlotCard({
               return (
                 <div key={finding.code} className="dslot__reason">
                   <p className="dslot__reason-title">{copy.title}</p>
-                  <p>{copy.reason}</p>
+                  <p><mark className="reason-mark">{copy.reason}</mark></p>
                   <p>{copy.fix}</p>
                 </div>
               )
@@ -1514,7 +1514,7 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
                 <ol>
                   {findings.map((finding) => {
                     const copy = REUPLOAD_GUIDANCE[finding.code]
-                    return <li key={finding.code}><h4>{copy.title}</h4><p>{copy.reason}</p><p>{copy.fix}</p></li>
+                    return <li key={finding.code}><h4>{copy.title}</h4><p><mark className="reason-mark">{copy.reason}</mark></p><p>{copy.fix}</p></li>
                   })}
                 </ol>
                 <div className="reupload-doc__actions">

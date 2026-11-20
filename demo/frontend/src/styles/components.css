@@ -364,11 +364,12 @@ textarea.input {
 .badge--info { border-color: var(--info-10); background: var(--info-5); color: var(--info-60); }
 .badge--warning { border-color: var(--warning-10); background: var(--warning-5); color: var(--warning-60); }
 
-.badge--success,
-.status-badge--uploaded { border-color: var(--success-10); background: var(--success-5); color: var(--success-60); }
+.badge--success { border-color: var(--success-10); background: var(--success-5); color: var(--success-60); }
+.badge--danger { border-color: var(--danger-10); background: var(--danger-5); color: var(--danger-60); }
 
-.badge--danger,
-.status-badge--reupload_required { border-color: var(--danger-10); background: var(--danger-5); color: var(--danger-60); }
+/* 서류 확인 결과는 한눈에 갈리도록 초록(완료) · 빨강(다시 올리기) 바탕에 흰 글씨로 보여 준다. */
+.status-badge--uploaded { border-color: var(--success-60); background: var(--success-60); color: #fff; }
+.status-badge--reupload_required { border-color: var(--danger-60); background: var(--danger-60); color: #fff; }
 
 /* ── card ─────────────────────────────────────────────────────────────── */
 .card {

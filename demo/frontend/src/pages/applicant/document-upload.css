@@ -158,6 +158,30 @@
   scroll-margin-top: 112px;
 }
 
+/* 확인 결과가 나온 칸은 카드 전체를 초록(완료) · 빨강(다시 올리기)으로 칠해 목록에서 바로 갈리게 한다. */
+.dslot--uploaded {
+  border-color: var(--success-50);
+  background: var(--success-5);
+}
+
+.dslot--reupload {
+  border-color: var(--danger-50);
+  background: var(--danger-5);
+}
+
+/* 빨간 카드 안의 안내 상자는 흰 바탕으로 띄워 카드 바탕과 섞이지 않게 한다. */
+.dslot--reupload .dslot__guide { background: var(--color-surface); }
+
+/* 다시 올려야 하는 핵심 원인 한 줄은 형광펜처럼 노랗게 칠한다. 줄이 넘어가도 줄마다 칠해진다. */
+.reason-mark {
+  padding: 0 2px;
+  border-radius: 2px;
+  background: #ffeb3b;
+  color: var(--color-text);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
 .dslot__head {
   display: flex;
   flex-wrap: wrap;
@@ -349,11 +373,6 @@
   gap: 2px var(--sp-4);
   margin: 0;
   font-size: var(--fs-15);
-}
-
-.dfile__time {
-  color: var(--color-text-subtle);
-  font-variant-numeric: tabular-nums;
 }
 
 .dfile__notice { margin-top: var(--sp-1); }

@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 import * as pdfjs from 'pdfjs-dist'
 import { Skeleton, SkeletonBlock } from './Skeleton.tsx'
 import useDelayedFlag from '../hooks/useDelayedFlag.ts'
+import { pdfjsOptions } from '../lib/pdfjs-options.ts'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import './file-preview.css'
 
@@ -43,6 +44,7 @@ export default function PdfPages({
   onError,
   className,
 }: Props) {
+  const [attempt, setAttempt] = useState(0)
   const [loaded, setLoaded] = useState<{
     url: string
     pdf: pdfjs.PDFDocumentProxy | null
@@ -57,7 +59,7 @@ export default function PdfPages({
 
   useEffect(() => {
     let cancelled = false
-    const task = pdfjs.getDocument({ url })
+    const task = pdfjs.getDocument({ url, ...pdfjsOptions() })
     task.promise
       .then((doc) => {
         if (cancelled) return
@@ -74,15 +76,18 @@ export default function PdfPages({
       cancelled = true
       void task.destroy()
     }
-  }, [url])
+  }, [url, attempt])
 
   const pdf = loaded?.url === url ? loaded.pdf : null
   const showLoading = useDelayedFlag(!pdf && !(loaded?.url === url && loaded.error))
   const error = loaded?.url === url ? loaded.error : ''
-  if (error) return <p className="pdfpages__error" role="status">PDF를 열 수 없습니다.</p>
+  if (error) return <div className="pdfpages__error" role="alert">
+    <p>PDF를 열 수 없습니다. 접근 권한과 파일을 확인해 주세요.</p>
+    <button type="button" onClick={() => { setLoaded(null); setAttempt(a => a + 1) }}>다시 시도</button>
+  </div>
   const pageWidth = maxHeight ? Math.min(width, Math.round(maxHeight / 1.414)) : width
   if (!pdf) return showLoading ? (
-    <div className={className ? `pdfpages ${className}` : 'pdfpages'}>
+    <div role="status" aria-label="PDF를 불러오고 있습니다" className={className ? `pdfpages ${className}` : 'pdfpages'}>
       <Skeleton className="pdfpages__loading" style={{ width: pageWidth }}>
         <SkeletonBlock className="pdfpages__placeholder" />
       </Skeleton>
@@ -96,7 +101,7 @@ export default function PdfPages({
     <div className={className ? `pdfpages ${className}` : 'pdfpages'}>
       {pages.map((currentPage) => (
         <PdfPage
-          key={currentPage}
+          key={`${url}:${currentPage}`}
           pdf={pdf}
           pageNo={currentPage}
           width={width}
@@ -127,6 +132,8 @@ function PdfPage({
   const ref = useRef<HTMLCanvasElement>(null)
   const readyRef = useRef(onReady)
   const errorRef = useRef(onError)
+  const [failed, setFailed] = useState(false)
+  const [retry, setRetry] = useState(0)
   const [size, setSize] = useState({ width, height: Math.round(width * 1.414) })
 
   useEffect(() => {
@@ -137,6 +144,7 @@ function PdfPage({
   useEffect(() => {
     let cancelled = false
     let task: pdfjs.RenderTask | null = null
+    const fail = () => { if (!cancelled) { setFailed(true); errorRef.current?.() } }
     void pdf.getPage(pageNo).then((page) => {
       const canvas = ref.current
       if (cancelled || !canvas) return
@@ -152,15 +160,19 @@ function PdfPage({
         height: Math.round(viewport.height / dpr),
       })
       task = page.render({ canvas, viewport })
-      task.promise.then(() => readyRef.current?.()).catch(() => errorRef.current?.())
+      task.promise.then(() => { if (!cancelled) readyRef.current?.() }).catch(fail)
     })
-    .catch(() => errorRef.current?.())
+    .catch(fail)
     return () => {
       cancelled = true
       task?.cancel()
     }
-  }, [pdf, pageNo, width, maxHeight])
+  }, [pdf, pageNo, width, maxHeight, retry])
 
+  if (failed) return <div role="alert">
+    <p>{pageNo}쪽을 표시하지 못했습니다.</p>
+    <button type="button" onClick={() => { setFailed(false); setRetry(r => r + 1) }}>다시 시도</button>
+  </div>
   return (
     <canvas
       ref={ref}

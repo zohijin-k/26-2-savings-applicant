@@ -23,8 +23,8 @@
   min-height: var(--control-md);
   margin: 0;
   padding: 0 var(--sp-5);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-8);
+  border: 1px solid var(--ui-color-border-strong);
+  border-radius: var(--ui-radius-6);
   background: var(--color-surface);
   color: var(--color-text);
   font-family: inherit;
@@ -43,6 +43,7 @@
 
 /* 주 버튼: 한 화면에 하나. */
 .btn--primary {
+  font-weight: var(--ui-font-weight-bold);
   border-color: var(--color-primary);
   background: var(--color-primary);
   color: var(--color-text-on-primary);
@@ -60,7 +61,7 @@
 }
 
 .btn--quiet:hover { background: var(--color-surface-brand); text-decoration: underline; text-underline-offset: 3px; }
-.btn--quiet:active { background: var(--jb-blue-10); }
+.btn--quiet:active { background: var(--ui-color-primary-tint); }
 
 /* 되돌릴 수 없는 동작을 확인할 때만 쓴다. */
 .btn--danger {
@@ -188,7 +189,7 @@
   margin: 0;
   padding: 0 14px;
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-8);
+  border-radius: var(--ui-radius-6);
   background-color: var(--color-surface);
   color: var(--color-text);
   font-family: inherit;
@@ -296,7 +297,7 @@ textarea.input {
   gap: var(--sp-3);
   padding: var(--sp-4);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-8);
+  border-radius: var(--ui-radius-8);
   background: var(--color-surface-subtle);
   color: var(--color-text);
 }
@@ -360,7 +361,7 @@ textarea.input {
 }
 
 .badge--neutral { border-color: var(--gray-10); background: var(--gray-5); color: var(--color-text-subtle); }
-.badge--brand { border-color: var(--jb-blue-10); background: var(--jb-blue-5); color: var(--jb-blue-60); }
+.badge--brand { border-color: var(--ui-color-primary-tint); background: var(--ui-color-primary-tint); color: var(--ui-color-primary); }
 .badge--info { border-color: var(--info-10); background: var(--info-5); color: var(--info-60); }
 .badge--warning { border-color: var(--warning-10); background: var(--warning-5); color: var(--warning-60); }
 
@@ -376,7 +377,7 @@ textarea.input {
   min-width: 0;
   padding: var(--sp-6);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-12);
+  border-radius: var(--ui-radius-8);
   background: var(--color-surface);
 }
 
@@ -384,7 +385,7 @@ textarea.input {
 .card__panel {
   min-width: 0;
   padding: var(--sp-4);
-  border-radius: var(--radius-8);
+  border-radius: var(--ui-radius-8);
   background: var(--gray-5);
 }
 

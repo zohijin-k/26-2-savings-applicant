@@ -1,3 +1,5 @@
+@import './ui-tokens.css';
+
 /*
  * 신청자 화면 디자인 토큰.
  * 색은 전북특별자치도 배너(jb.png)에서 뽑은 전북 블루 계열과 KRDS 회색·상태 색을 쓴다.
@@ -62,4 +64,66 @@
 /* 좁은 화면에서는 화면 여백과 머리글 높이만 줄인다. */
 @media (max-width: 600px) {
   :root { --gutter:16px; --shell-h:64px; }
+}
+
+/* 6B compatibility bindings; preserve policy and PDF-only variables above. */
+:root {
+  --color-primary: var(--ui-color-primary);
+  --color-primary-hover: var(--ui-color-primary-hover);
+  --color-primary-pressed: var(--ui-color-primary-pressed);
+  --color-surface: var(--ui-color-surface);
+  --color-text: var(--ui-color-text);
+  --color-text-muted: var(--ui-color-text-muted);
+  --color-border: var(--ui-color-border);
+  --color-divider: var(--ui-color-divider);
+  --color-bg: var(--ui-color-page);
+  --color-surface-subtle: var(--ui-color-head);
+  --color-surface-brand: var(--ui-color-primary-tint);
+  --color-text-brand: var(--ui-color-primary);
+  --color-text-on-primary: var(--ui-color-on-primary);
+  --color-focus: var(--ui-color-focus);
+  --color-border-strong: var(--ui-color-input-border);
+  --font-ui: var(--ui-font-family);
+  --lh-base: var(--ui-line-height-body);
+  --lh-tight: var(--ui-line-height-heading);
+  --fw-medium: var(--ui-font-weight-medium);
+  --fw-bold: var(--ui-font-weight-bold);
+  --ease: var(--ui-transition);
+  --radius-pill: var(--ui-radius-pill);
+  --control-sm: var(--ui-control-height);
+  --control-md: var(--ui-control-applicant);
+  --control-lg: var(--ui-control-large);
+  --fs-13: var(--ui-fs-13);
+  --fs-15: var(--ui-fs-15);
+  --fs-16: var(--ui-fs-16);
+  --fs-17: var(--ui-fs-17);
+  --fs-19: var(--ui-fs-19);
+  --fs-22: var(--ui-fs-22);
+  --fs-24: var(--ui-fs-24);
+  --fs-28: var(--ui-fs-28);
+  --sp-1: var(--ui-space-1);
+  --sp-2: var(--ui-space-2);
+  --sp-3: var(--ui-space-3);
+  --sp-4: var(--ui-space-4);
+  --sp-5: var(--ui-space-5);
+  --sp-6: var(--ui-space-6);
+  --sp-8: var(--ui-space-8);
+  --radius-4: var(--ui-radius-4);
+  --radius-6: var(--ui-radius-6);
+  --radius-8: var(--ui-radius-8);
+  --radius-12: var(--ui-radius-12);
+  --success-5: var(--ui-color-success-bg);
+  --success-10: var(--ui-color-success-border);
+  --success-50: var(--ui-color-success-strong);
+  --success-60: var(--ui-color-success-text);
+  --warning-5: var(--ui-color-warning-bg);
+  --warning-10: var(--ui-color-warning-border);
+  --warning-60: var(--ui-color-warning-text);
+  --danger-5: var(--ui-color-danger-bg);
+  --danger-10: var(--ui-color-danger-border);
+  --danger-50: var(--ui-color-danger-strong);
+  --danger-60: var(--ui-color-danger-text);
+  --info-5: var(--ui-color-info-bg);
+  --info-10: var(--ui-color-info-border);
+  --info-60: var(--ui-color-info-text);
 }

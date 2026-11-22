@@ -256,8 +256,8 @@
   height: 22px;
   margin-right: 6px;
   border-radius: 50%;
-  background: var(--jb-blue-10);
-  color: var(--jb-blue-60);
+  background: var(--ui-color-primary-tint);
+  color: var(--ui-color-primary);
   font-size: var(--fs-13);
   line-height: 1;
 }

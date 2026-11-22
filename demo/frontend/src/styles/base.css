@@ -76,8 +76,8 @@ h4 { font-size: var(--fs-17); }
 
 /* 포커스 표시는 이 규칙 하나다. */
 :focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 2px;
+  outline: var(--ui-focus-width) solid var(--ui-color-focus);
+  outline-offset: var(--ui-focus-offset);
 }
 
 :focus:not(:focus-visible) {

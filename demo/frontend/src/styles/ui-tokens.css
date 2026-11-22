@@ -1,0 +1,69 @@
+/* Shared Design Foundation 6B.1.0 — keep byte-identical in applicant and youth.
+ * Canonical meanings follow officer Phase 6A; literals live only here.
+ * Legacy names point to ui tokens, never in the opposite direction.
+ * Role layouts, decorative logo colors and original PDF ink/geometry stay local.
+ * Input borders keep the stronger applicant contrast; 40/48/56px are role variants.
+ * Update both copies and their contract checks together; no runtime dependency.
+ */
+:root, .om, .program-officer-workspace {
+  --ui-color-primary: #173975;
+  --ui-color-primary-hover: #102956;
+  --ui-color-primary-pressed: #0b1d3d;
+  --ui-color-primary-tint: #f2f5fa;
+  --ui-color-page: #f7f8f5;
+  --ui-color-surface: #fff;
+  --ui-color-text: #1c1f24;
+  --ui-color-text-muted: #5a6170;
+  --ui-color-border: #dfe2e7;
+  --ui-color-border-strong: #b9c0cb;
+  --ui-color-input-border: #58616a;
+  --ui-color-divider: #eef0f2;
+  --ui-color-head: #f4f5f6;
+  --ui-color-on-primary: #fff;
+  --ui-color-focus: #0b7fd4;
+  --ui-font-family: 'Pretendard GOV', 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', system-ui, sans-serif;
+  --ui-font-weight-medium: 500;
+  --ui-font-weight-bold: 700;
+  --ui-line-height-body: 1.6;
+  --ui-line-height-heading: 1.35;
+  --ui-focus-width: 3px;
+  --ui-focus-offset: 2px;
+  --ui-radius-pill: 999px;
+  --ui-transition: 160ms ease;
+  --ui-control-height: 40px;
+  --ui-control-applicant: 48px;
+  --ui-control-large: 56px;
+  --ui-color-success-bg: #eaf6ec;
+  --ui-color-success-border: #c6e6cd;
+  --ui-color-success-strong: #2f8a43;
+  --ui-color-success-text: #267337;
+  --ui-color-warning-bg: #fff3db;
+  --ui-color-warning-border: #f2d79c;
+  --ui-color-warning-text: #8a5c00;
+  --ui-color-danger-bg: #fdefec;
+  --ui-color-danger-border: #f6cbc1;
+  --ui-color-danger-strong: #d63d1d;
+  --ui-color-danger-text: #bd2c0f;
+  --ui-color-info-bg: #e7f4fe;
+  --ui-color-info-border: #bcdff9;
+  --ui-color-info-text: #096ab3;
+  --ui-fs-13: 13px;
+  --ui-fs-15: 15px;
+  --ui-fs-16: 16px;
+  --ui-fs-17: 17px;
+  --ui-fs-19: 19px;
+  --ui-fs-22: 22px;
+  --ui-fs-24: 24px;
+  --ui-fs-28: 28px;
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-5: 20px;
+  --ui-space-6: 24px;
+  --ui-space-8: 32px;
+  --ui-radius-4: 4px;
+  --ui-radius-6: 6px;
+  --ui-radius-8: 8px;
+  --ui-radius-12: 12px;
+}

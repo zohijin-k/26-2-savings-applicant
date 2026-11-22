@@ -26,9 +26,16 @@ export function routeUrl(path: string, params: Record<string, string | null> = {
   for (const [key, value] of Object.entries(params)) {
     if (value) url.searchParams.set(key, value)
   }
-  if (url.href === window.location.href) return
+  if (url.href === window.location.href) {
+    if (window.history.state?.applicantIndex === undefined) window.history.replaceState({ ...window.history.state, applicantIndex: 0 }, '', window.location.href)
+    window.dispatchEvent?.(new Event('applicant:route'))
+    return
+  }
+  const index = Number(window.history.state?.applicantIndex ?? 0)
+  if (window.history.state?.applicantIndex === undefined) window.history.replaceState({ ...window.history.state, applicantIndex: index }, '', window.location.href)
   const method = replace ? 'replaceState' : 'pushState'
-  window.history[method](null, '', `${url.pathname}${url.search}${url.hash}`)
+  window.history[method]({ ...window.history.state, applicantIndex: replace ? index : index + 1 }, '', `${url.pathname}${url.search}${url.hash}`)
+  window.dispatchEvent?.(new Event('applicant:route'))
 }
 
 export function goToHome(): void {

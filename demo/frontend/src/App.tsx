@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type MouseEvent } from 'react'
 
 import logoUrl from './assets/brand/jb-logo.png'
 import ConfirmDialog from './components/ConfirmDialog.tsx'
+import { requestApplicantLeave, handleApplicantHistory } from './lib/applicant-navigation.ts'
 import ApplyFlow from './pages/applicant/ApplyFlow.tsx'
 import { goToHome } from './navigation-url.ts'
 import './app-shell.css'
@@ -17,7 +18,7 @@ export default function App() {
   const homeButton = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    const onHistoryChange = () => setApplicantKey((key) => key + 1)
+    const onHistoryChange = (event: PopStateEvent) => { if (!handleApplicantHistory(event)) setApplicantKey((key) => key + 1) }
     window.addEventListener('popstate', onHistoryChange)
     return () => window.removeEventListener('popstate', onHistoryChange)
   }, [])
@@ -79,7 +80,7 @@ export default function App() {
           confirmLabel="새 신청 시작"
           cancelLabel="계속 작성"
           tone="danger"
-          onConfirm={goHome}
+          onConfirm={() => requestApplicantLeave(goHome)}
           onCancel={() => setConfirmingHome(false)}
           returnFocus={() => homeButton.current}
         />

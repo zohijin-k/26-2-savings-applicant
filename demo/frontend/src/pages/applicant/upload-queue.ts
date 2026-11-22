@@ -22,6 +22,8 @@ export interface QueueItem {
   status: QueueStatus
   sent: number
   total: number
+  /** A computable transport progress event has supplied the byte count. */
+  progressKnown: boolean
   enqueuedAt: number
   startedAt: number | null
   /** 파일을 모두 보낸 시각. 이때부터가 서버가 읽고 확인하는 시간이다. */
@@ -60,6 +62,7 @@ function waiting(item: NewQueueItem, now: number): QueueItem {
     status: 'queued',
     sent: 0,
     total: item.file.size,
+    progressKnown: false,
     enqueuedAt: now,
     startedAt: null,
     sentAt: null,
@@ -90,14 +93,15 @@ export function queueReducer(state: QueueItem[], action: QueueAction): QueueItem
       // 이미 나가 있는 요청이 있으면 시작하지 않는다.
       if (inFlight(state)) return state
       return update(state, action.id, (item) => (item.status === 'queued'
-        ? { ...item, status: 'sending', startedAt: action.now, sent: 0 }
+        ? { ...item, status: 'sending', startedAt: action.now, sent: 0, progressKnown: false }
         : item))
     case 'progress':
       return update(state, action.id, (item) => {
         if (item.status !== 'sending') return item
+        if (!Number.isFinite(action.sent) || !Number.isFinite(action.total) || action.total <= 0) return item
         const total = action.total > 0 ? action.total : item.total
         const sent = Math.min(Math.max(action.sent, item.sent), total)
-        return sent === item.sent && total === item.total ? item : { ...item, sent, total }
+        return item.progressKnown && sent === item.sent && total === item.total ? item : { ...item, sent, total, progressKnown: true }
       })
     case 'sent':
       return update(state, action.id, (item) => (item.status === 'sending'
@@ -119,6 +123,7 @@ export function queueReducer(state: QueueItem[], action: QueueAction): QueueItem
         error: undefined,
         status: 'queued',
         sent: 0,
+        progressKnown: false,
         enqueuedAt: action.now,
         startedAt: null,
         sentAt: null,
@@ -159,4 +164,10 @@ export function isActive(state: readonly QueueItem[]): boolean {
 /** 처리 중인 항목 수. */
 export function activeCount(state: readonly QueueItem[]): number {
   return state.filter((item) => item.status !== 'failed').length
+}
+
+/** Unknown transport length has no percentage, including the initial frame. */
+export function transferPercentage(item: QueueItem): number | null {
+  if (item.status !== 'sending' || !item.progressKnown || item.total <= 0) return null
+  return Math.round(item.sent / item.total * 100)
 }

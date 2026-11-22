@@ -20,7 +20,6 @@ import {
   deleteDocument,
   fetchChecklist,
   fetchFinalCheck,
-  submitApplication,
   putDocContext,
   uploadDocumentWithProgress,
   type Checklist,
@@ -52,7 +51,9 @@ import { fileExtension, precheckFile, type PdfProbe } from '../../lib/file-prech
 import { formatBytes, formatDate } from '../../lib/format.ts'
 import { estimateSeconds, rememberObservation, slowThresholdSec, type Observation } from '../../lib/upload-estimate.ts'
 import { issuerLink, reuploadFindings, REUPLOAD_GUIDANCE } from './reupload-guidance.ts'
-import { isActive, nextRunnable, queueReducer, slotItem, type QueueItem } from './upload-queue.ts'
+import { isActive, nextRunnable, queueReducer, slotItem, transferPercentage, type QueueItem } from './upload-queue.ts'
+import { mutationError, slotChange } from '../../lib/applicant-mutation.ts'
+import useApplicantSubmission from '../../hooks/useApplicantSubmission.ts'
 import './document-upload.css'
 
 const WORKPLACE_COUNTS = ['1개', '2개', '3개'] as const
@@ -541,10 +542,10 @@ function SlotCard({
         meta={localMeta(queued.file, queued.pages)}
       />
       <Notice tone="danger" role="alert" title="파일을 올리지 못했습니다">
-        <p>{queued.error || UPLOAD_FAILED_COPY}</p>
+        <p>{queued.error || UPLOAD_FAILED_COPY}</p><p>이 화면을 떠나면 파일을 다시 선택해야 합니다. 서버의 서류 상태를 먼저 확인해 주세요.</p>
         <div className="dslot__notice-actions">
-          <button type="button" className="btn btn--primary btn--small" onClick={act(onRetrySame)}>
-            <Icon name="refresh" size={18} />같은 파일로 다시 시도
+          <button type="button" className="btn btn--primary btn--small" data-upload-retry onClick={act(onRetrySame)}>
+            <Icon name="refresh" size={18} />서버 상태 확인 후 재시도
           </button>
           <button type="button" className="btn btn--small" onClick={act(onChooseOther)}>다른 파일 선택</button>
         </div>
@@ -638,11 +639,11 @@ function SlotCard({
           >
             {phase === 'queued' && <p className="dfile__status">대기 중 — 앞 서류 확인이 끝나면 바로 시작합니다.</p>}
             {phase === 'sending' && (() => {
-              const percent = queued.total > 0 ? Math.round((queued.sent / queued.total) * 100) : 0
+              const percent = transferPercentage(queued)
               return (
                 <>
-                  <ProgressBar value={queued.sent} max={queued.total || 1} label={`${item.label} 올리는 중`} valueText={`${percent}%`} className="dfile__bar" />
-                  <p className="dfile__status">올리는 중 {percent}%</p>
+                  <ProgressBar indeterminate={percent === null} value={queued.sent} max={queued.total || 1} label={`${item.label} 올리는 중`} valueText={percent === null ? '전송량 확인 중' : `${percent}%`} className="dfile__bar" />
+                  <p className="dfile__status">올리는 중 {percent === null ? '전송량 확인 중' : `${percent}%`}</p>
                 </>
               )
             })()}
@@ -728,10 +729,13 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
   const [loadError, setLoadError] = useState('')
   const [readinessFailed, setReadinessFailed] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const submission = useApplicantSubmission(applicationId, onSubmitted)
+  const [recoveryNotice, setRecoveryNotice] = useState('')
+  const [retryConfirm, setRetryConfirm] = useState<QueueItem | null>(null)
   const [foundBlockers, setFoundBlockers] = useState(false)
   const [contextError, setContextError] = useState('')
   const [leftoverError, setLeftoverError] = useState('')
-  /** 화면 전체를 잠그는 작업(근로유형 변경 · 남은 쪽 삭제 · 제출 준비 다시 확인)의 이름. */
+  /** 화면 전체를 잠그는 작업(근로유형 변경 · 남은 쪽 삭제 · 접수 상태와 제출 준비 다시 확인)의 이름. */
   const [busyScope, setBusyScope] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -834,7 +838,7 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
 
   const queueBusy = isActive(queue) || Object.keys(checking).length > 0
   const locked = !!busyScope || submitting
-  useBeforeUnload(queueBusy)
+  useBeforeUnload(queueBusy || queue.some((item) => item.status === 'failed'))
 
   useEffect(() => {
     onBusyChange(queueBusy || locked)
@@ -882,7 +886,7 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
         })
       } catch (error: unknown) {
         if (controller.signal.aborted) return
-        failure = friendlyError(error, UPLOAD_FAILED_COPY)
+        failure = mutationError(error, '응답을 확인하지 못했습니다. 서버 상태를 확인한 뒤 재시도해 주세요.')
       }
       if (abort.current === controller) abort.current = null
       if (running.current === next.id) running.current = null
@@ -944,30 +948,24 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
     if (hasChecklist) onProgress(doneCount, totalCount)
   }, [hasChecklist, doneCount, totalCount, onProgress])
 
-  // 실패로 남은 항목을 서버 기준 목록과 맞춘다.
-  useEffect(() => {
-    if (!checklist) return
-    for (const item of queue) {
-      if (item.status !== 'failed') continue
-      const row = checklist.items.find((candidate) => candidate.slot_key === item.slotKey)
-      // 근로유형을 바꿔 사라진 칸이면 치운다.
-      if (!row) { dispatch({ type: 'clearSlot', slotKey: item.slotKey }); continue }
-      // 응답은 못 받았지만 서버에는 올라간 경우: 그 칸의 서류가 시도 전과 달라져 있다. 실패 표시를 거두고 결과를 보여 준다.
-      const current = row.documents[0]
-      if (!attempts.current.has(item.id) || !current || current.document_id === attempts.current.get(item.id)) continue
-      attempts.current.delete(item.id)
-      const { slotKey, previewUrl, kind } = item
-      const reupload = current.status === 'REUPLOAD_REQUIRED'
-      window.setTimeout(() => {
-        if (!active.current) return
-        setLocalPreviews((previews) => ({ ...previews, [slotKey]: { documentId: current.document_id, url: previewUrl, pdf: kind !== 'image' } }))
-        setReplacing((slots) => omit(slots, slotKey))
-        setDeclared((dates) => omit(dates, slotKey))
-        dispatch({ type: 'clearSlot', slotKey })
-        announce(slotKey, reupload ? `${row.label} 다시 올려야 합니다. 안내를 확인해 주세요.` : `${row.label} 업로드 완료`)
-      }, 0)
-    }
-  }, [checklist, queue, announce])
+  // A new document ID proves that the slot changed, not which browser's bytes were committed.
+  // Keep the failed File in memory until an explicit status check; never bind its preview to another document.
+  const reconcileUpload = async (item: QueueItem) => {
+    if (mutation.current || running.current || isActive(queueRef.current)) return
+    mutation.current = true; setBusyScope('retry-check'); setRecoveryNotice('서버의 현재 서류 상태를 확인하고 있습니다.')
+    const version = ++latestRequest.current
+    try {
+      const next = await fetchChecklist(applicationId)
+      if (!active.current || version !== latestRequest.current) return
+      setChecklist(next)
+      const row = next.items.find((entry) => entry.slot_key === item.slotKey)
+      if (!row || slotChange(attempts.current.get(item.id) ?? null, row.documents) === 'changed') {
+        attempts.current.delete(item.id); dispatch({ type: 'clearSlot', slotKey: item.slotKey })
+        setRecoveryNotice('서버의 서류 상태가 변경되었습니다. 원본과 결과를 확인해 주세요. 파일은 다시 전송하지 않았습니다.')
+      } else { setRecoveryNotice('서버 목록을 확인했습니다. 재전송 전에 안내를 확인해 주세요.'); setRetryConfirm(item) }
+    } catch (problem: unknown) { if (active.current) setRecoveryNotice(mutationError(problem, '서버 상태를 확인하지 못했습니다. 재전송하지 않았습니다. 잠시 후 다시 확인해 주세요.')) }
+    finally { mutation.current = false; if (active.current) setBusyScope('') }
+  }
 
   // ── 다시 올려야 할 서류 ──
   const issueItems = (checklist?.items ?? []).map((item) => ({
@@ -1150,27 +1148,11 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
 
   // ── 제출 ──
   const submit = async () => {
-    if (mutation.current || running.current || queueBusy || !readiness?.can_submit) return
-    mutation.current = true
-    setSubmitting(true)
-    setSubmitError('')
-    setFoundBlockers(false)
-    try {
-      await onBeforeSubmit()
-      if (!active.current) return
-      const latest = await refresh()
-      if (!active.current) return
-      if (!latest.can_submit) { setFoundBlockers(true); return }
-      const result = await submitApplication(applicationId)
-      if (active.current) onSubmitted(result)
-    } catch (error: unknown) {
-      if (active.current) setSubmitError(friendlyError(error, SUBMIT_FAILED_COPY))
-      setReadiness(null)
-      try { await refresh() } catch { if (active.current) setReadinessFailed(true) }
-    } finally {
-      mutation.current = false
-      if (active.current) setSubmitting(false)
-    }
+    if (mutation.current || running.current || queueBusy || submission.busy || !readiness?.can_submit) return
+    mutation.current = true; setSubmitting(true); setSubmitError('')
+    try { await onBeforeSubmit(); if (active.current) await submission.submit() }
+    catch (problem: unknown) { if (active.current) setSubmitError(mutationError(problem, SUBMIT_FAILED_COPY)) }
+    finally { mutation.current = false; if (active.current) setSubmitting(false) }
   }
 
   if (loadError && !checklist) {
@@ -1212,7 +1194,7 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
   const formBlockers = blockers.filter((blocker) => blocker.goto !== 'upload')
   const uploadBlockers = blockers.filter((blocker) => blocker.goto === 'upload')
   const contextLocked = queueBusy || busyScope === 'work-context'
-  const submitBlocked = !readiness?.can_submit || pageBusy || !!submitError || readinessFailed
+  const submitBlocked = !readiness?.can_submit || pageBusy || !!submitError || readinessFailed || submission.unknown
 
   const blockerRows = (rows: Blocker[]) => (
     <ul className="dupload__blocker-list">
@@ -1336,9 +1318,9 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
               }}
               onRetrySame={() => {
                 const failed = slotItem(queueRef.current, item.slot_key)
-                if (failed) dispatch({ type: 'retry', id: failed.id, now: Date.now(), estimateSec: estimateSeconds(failed.kind, failed.pages, estimateHistory) })
+                if (failed) void reconcileUpload(failed)
               }}
-              onChooseOther={() => startReplace(item)}
+              onChooseOther={() => { const failed = slotItem(queueRef.current, item.slot_key); if (failed?.status === 'failed') void reconcileUpload(failed); else startReplace(item) }}
               onReplace={() => startReplace(item)}
               onLeaveReplace={() => {
                 setReplacing((current) => omit(current, item.slot_key))
@@ -1435,12 +1417,12 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
         {foundBlockers && blockers.length > 0 && (
           <Notice tone="warning" role="alert">제출 전에 채워야 할 항목이 있습니다. 위 목록을 확인해 주세요.</Notice>
         )}
-        {(submitError || readinessFailed) && (
+        {(submitError || submission.error || readinessFailed) && (
           <Notice tone="danger" role="alert" title={submitError ? '신청을 제출하지 못했습니다' : '제출 준비 상태를 확인하지 못했습니다'}>
-            <p>{submitError || '잠시 후 다시 확인해 주세요.'}</p>
+            <p>{submission.error || submitError || '잠시 후 다시 확인해 주세요.'}</p>
             <div className="dslot__notice-actions">
-              <button type="button" className="btn btn--small" disabled={pageBusy} onClick={recheck}>
-                <Icon name="refresh" size={18} />제출 준비 다시 확인
+              <button type="button" className="btn btn--small" disabled={pageBusy} onClick={() => { void submission.check(); recheck() }}>
+                <Icon name="refresh" size={18} />접수 상태와 제출 준비 다시 확인
               </button>
             </div>
           </Notice>
@@ -1461,6 +1443,15 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
         </div>
       </section>
 
+      {recoveryNotice && <Notice tone="info" role="status">{recoveryNotice}</Notice>}
+      {retryConfirm && <ConfirmDialog returnFocus={() => document.getElementById(`slot-${retryConfirm.slotKey}`)?.querySelector<HTMLElement>('[data-upload-retry]') ?? null} title="서버 상태를 확인했습니다. 다시 전송하시겠습니까?" description="이전 요청의 응답은 확인되지 않았습니다. 다시 전송하면 기존 서류가 교체될 수 있습니다. 서버의 원본을 먼저 확인해 주세요." confirmLabel="같은 파일 다시 전송" onCancel={() => setRetryConfirm(null)} onConfirm={() => {
+        const failed = retryConfirm; setRetryConfirm(null)
+        dispatch({ type: 'retry', id: failed.id, now: Date.now(), estimateSec: estimateSeconds(failed.kind, failed.pages, estimateHistory) })
+      }}><button type="button" className="btn" onClick={() => {
+        const failed = retryConfirm; setRetryConfirm(null)
+        const row = checklist?.items.find((item) => item.slot_key === failed.slotKey)
+        if (row) startReplace(row)
+      }}>다른 파일 선택</button></ConfirmDialog>}
       {confirmingSubmit && (
         <ConfirmDialog
           size="md"

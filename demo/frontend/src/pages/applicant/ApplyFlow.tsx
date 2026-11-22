@@ -19,6 +19,9 @@ import {
   type SubmitResult,
 } from '../../api.ts'
 import Icon from '../../components/Icon.tsx'
+import SaveStatus, { type SavePhase } from '../../components/SaveStatus.tsx'
+import useSaveBeforeLeave from '../../hooks/useSaveBeforeLeave.ts'
+import { mutationError } from '../../lib/applicant-mutation.ts'
 import Notice from '../../components/Notice.tsx'
 import PhoneLink from '../../components/PhoneLink.tsx'
 import Spinner from '../../components/Spinner.tsx'
@@ -152,6 +155,7 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
   const [paperForms, setPaperForms] = useState<Record<string, boolean>>({})
 
   const [submitted, setSubmitted] = useState<SubmitResult | null>(null)
+  const [workspaceBusy, setWorkspaceBusy] = useState(false)
   const [formContinuing, setFormContinuing] = useState(false)
   const [formError, setFormError] = useState('')
   const [formProgress, setFormProgress] = useState<StepperProgress>({ completed: 0, total: 0 })
@@ -161,6 +165,12 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
   // 아직 끝나지 않은 저장 요청 수. 남아 있는 동안 탭을 떠나려 하면 이탈 확인을 띄운다.
   const pendingSaves = useRef(0)
   const [saving, setSaving] = useState(false)
+  const [savePhase, setSavePhase] = useState<SavePhase>('idle')
+  const [consentDirty, setConsentDirty] = useState(false)
+  const saveFailed = useRef(false)
+  const flushPending = useRef<Promise<void> | null>(null)
+  const [flushing, setFlushing] = useState(false)
+  const navigation = useSaveBeforeLeave(!submitted && (stage === 'forms' || savePhase === 'failed'), () => flushForms(), uploadBusy || formContinuing || workspaceBusy)
   const body = useRef<HTMLDivElement>(null)
   const focusedStage = useRef<Stage | null>(null)
   const showLoading = useDelayedFlag(restoring && !error)
@@ -291,21 +301,23 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
 
   const save = (body: { form1?: unknown; self_check?: unknown; form5?: unknown }): Promise<void> => {
     if (appId === null) return Promise.resolve()
-    // 저장에 성공하면 앞선 자동 저장 실패 안내를 지운다. 저장 순서와 통과 조건은 그대로다.
-    const next = saveQueue.current.catch(() => undefined).then(() => patchApplication(appId, body)).then(() => { setFormError('') })
+    // 부분 저장의 성공은 앞선 실패나 미저장 동의를 해제하지 않는다. 전체 flush에서 확인한다.
+    const next = saveQueue.current.catch(() => undefined).then(() => patchApplication(appId, body)).then(() => undefined)
     saveQueue.current = next.catch(() => undefined)
     pendingSaves.current += 1
     setSaving(true)
+    setSavePhase('saving')
+    void next.catch(() => { saveFailed.current = true; setSavePhase('failed') })
     void saveQueue.current.then(() => {
       pendingSaves.current -= 1
-      if (pendingSaves.current === 0) setSaving(false)
+      if (pendingSaves.current === 0) { setSaving(false); setSavePhase(saveFailed.current ? 'failed' : 'saved') }
     })
     return next
   }
-  const reportSaveError = (e: unknown) => setFormError(friendlyError(e, SAVE_ERROR_COPY))
+  const reportSaveError = (e: unknown) => setFormError(mutationError(e, SAVE_ERROR_COPY))
 
   const continueFromForms = async () => {
-    if (appId === null || program === null) return
+    if (appId === null || program === null || formContinuing) return
     setFormContinuing(true)
     setFormError('')
     try {
@@ -381,7 +393,7 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
   const identityMissing = identity === null && !submittedDone && currentIndex > 0
 
   const openMyPage = async () => {
-    if (formContinuing || uploadBusy) return
+    if (formContinuing || uploadBusy || workspaceBusy) return
     if (stage === 'forms') {
       setFormContinuing(true)
       setFormError('')
@@ -410,7 +422,7 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
 
   const stepperNavigate = async (index: number) => {
     const previouslyReachedUpload = index === 2 && uploadProgress.total > 0
-    if (submittedDone || stage === 'mypage' || index === 0 || formContinuing || uploadBusy) return
+    if (submittedDone || stage === 'mypage' || index === 0 || formContinuing || uploadBusy || workspaceBusy) return
     if (index >= currentIndex && !previouslyReachedUpload) return
     if (stage === 'forms') {
       setFormContinuing(true)
@@ -431,7 +443,7 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
     void save({ form1: locked }).catch(reportSaveError)
   }
 
-  const flushForms = async () => {
+  const persistForms = async () => {
     if (appId === null) return
     await saveQueue.current
     await patchApplication(appId, { form1, self_check: answers, form5 })
@@ -456,7 +468,20 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
       .filter((type) => !(type === 'admin_info' && paperForms['서식5']))
       .filter((type) => selectedConsent[type] === '동의함' || selectedConsent[type] === '동의하지 않음')
       .map((type) => values[type]))
+    saveFailed.current = false
+    setConsentDirty(false)
+    setSavePhase('saved')
     setFormError('')
+  }
+
+  function flushForms(): Promise<void> {
+    if (flushPending.current) return flushPending.current
+    setFlushing(true); setSavePhase('saving')
+    const operation = persistForms().catch((problem: unknown) => {
+      saveFailed.current = true; setSavePhase('failed'); reportSaveError(problem); throw problem
+    }).finally(() => { flushPending.current = null; setFlushing(false) })
+    flushPending.current = operation
+    return operation
   }
 
   const leaveMyPage = () => setStage(stageBeforeMypage === 'complete' && !submittedDone ? 'upload' : stageBeforeMypage)
@@ -526,6 +551,7 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
         </ol>
       </div>
 
+      {stage !== 'forms' && navigation.error && <Notice tone="danger" role="alert">{navigation.error}</Notice>}
       <div className="flow__body" ref={body}>
         {/* ── 본인인증 (데모) ── */}
         {stage === 'identity' && appId !== null && (
@@ -558,14 +584,16 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
             signMode={signMode}
             onForm1={onForm1}
             onAnswers={(next) => { setAnswers(next); void save({ self_check: next }).catch(reportSaveError) }}
-            onConsent={setConsent}
-            onForm5={(next) => { setForm5(next); void save({ form5: next }).catch(reportSaveError) }}
-            onSignMode={setSignMode}
+            onConsent={(next) => { setConsent(next); setConsentDirty(true) }}
+            onForm5={(next) => { setConsentDirty(true); setForm5(next); void save({ form5: next }).catch(reportSaveError) }}
+            onSignMode={(next) => { setConsentDirty(true); setSignMode(next) }}
+            onBusyChange={setWorkspaceBusy}
             onFlush={flushForms}
             onPaperFormsChange={setPaperForms}
             onContinue={() => void continueFromForms()}
-            continuing={formContinuing}
-            error={formError}
+            continuing={formContinuing || flushing || navigation.pending}
+            error={navigation.error || formError}
+            saveStatus={<SaveStatus phase={flushing || navigation.pending ? 'saving' : savePhase} dirty={consentDirty} />}
             readOnly={!!submitted}
             onProgress={reportFormProgress}
           />

@@ -260,7 +260,8 @@ function apiError(status: number, data: unknown, fallback: string): ApiError {
 async function request(path: string, init?: RequestInit): Promise<Response> {
   try {
     return await fetch(path, init)
-  } catch {
+  } catch (error: unknown) {
+    if (error instanceof Error && ['AbortError', 'TimeoutError'].includes(error.name)) throw error
     throw new ApiError(NETWORK_ERROR_COPY, 0)
   }
 }
@@ -493,6 +494,8 @@ export function uploadDocumentWithProgress(
     const settle = () => signal?.removeEventListener('abort', abort)
 
     xhr.open('POST', `/api/applications/${id}/documents`)
+    xhr.timeout = 120000
+    xhr.ontimeout = () => { settle(); reject(new DOMException('Response timeout', 'TimeoutError')) }
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress?.(event.loaded, event.total)
     }
@@ -537,7 +540,7 @@ export const fetchFinalCheck = (id: number) =>
   json<FinalCheck>(`/api/applications/${id}/final-check`)
 
 export const submitApplication = (id: number) =>
-  json<SubmitResult>(`/api/applications/${id}/submit`, { method: 'POST' })
+  json<SubmitResult>(`/api/applications/${id}/submit`, { method: 'POST', signal: AbortSignal.timeout(15000) })
 
 export const fetchStatus = (id: number) =>
-  json<ApplicationStatus>(`/api/applications/${id}/status`)
+  json<ApplicationStatus>(`/api/applications/${id}/status`, { signal: AbortSignal.timeout(15000) })

@@ -67,11 +67,13 @@ interface Props {
   onConsent: (value: ConsentValue) => void
   onForm5: (value: Form5Value) => void
   onSignMode: (value: SignMode) => void
+  onBusyChange?: (busy: boolean) => void
   onFlush: () => Promise<void>
   onPaperFormsChange?: (paperForms: Record<string, boolean>) => void
   onContinue: () => void
   continuing: boolean
   error: string
+  saveStatus?: import('react').ReactNode
   readOnly?: boolean
   onProgress: (completed: number, total: number) => void
 }
@@ -229,7 +231,7 @@ export function ApplicantFormsBulkMenu({ applicationId, refreshKey, label = '서
 export default function PdfFormsWorkspace({
   applicationId, program, identity, form1, answers, consent, form5, signMode,
   onForm1, onAnswers, onConsent, onForm5, onSignMode,
-  onFlush, onPaperFormsChange, onContinue, continuing, error, readOnly = false, onProgress,
+  onBusyChange, onFlush, onPaperFormsChange, onContinue, continuing, error, saveStatus, readOnly = false, onProgress,
 }: Props) {
   const [formNos, setFormNos] = useState<string[]>([])
   const [layouts, setLayouts] = useState<Record<string, FormLayout>>({})
@@ -245,6 +247,7 @@ export default function PdfFormsWorkspace({
   const [dismissedParentError, setDismissedParentError] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveNotice, setSaveNotice] = useState<{ message: string; values: unknown[] } | null>(null)
+  useEffect(() => { onBusyChange?.(saving); return () => onBusyChange?.(false) }, [saving, onBusyChange])
   // 서버에 마지막으로 보낸 동의 선택. 동의 선택은 저장·서식 전환·미리보기 때에만 서버로 간다.
   const [flushedConsent, setFlushedConsent] = useState(consent)
   // 빈칸을 오류 색으로 보여 줄지: 저장·다음 단계를 시도한 서식에서만 켠다.
@@ -1259,7 +1262,7 @@ export default function PdfFormsWorkspace({
                     : active.mode === 'preview'
                       ? <FormStatus state="preview" label="미리보기" />
                       : <FormStatus state={activeStatus.state} label={activeStatus.label} />)}
-                <span className="pdf-forms__save-state" role="status">{!readOnly && saveState}</span>
+                <span className="pdf-forms__save-state">{!readOnly && (saveStatus ?? saveState)}</span>
               </p>
             </div>
             {loadState === 'ready' && <div className="pdf-forms__panel-actions">

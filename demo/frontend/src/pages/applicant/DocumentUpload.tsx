@@ -900,7 +900,7 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
       estimateHistory = rememberObservation(estimateHistory, {
         kind: next.kind,
         pages: next.pages ?? 1,
-        ms: Math.max(waited, doc.elapsed_ms ?? 0),
+        ms: waited,
       })
       // 결과는 응답으로 바로 그린다. 서버 기준 목록은 대기열이 비면 다시 읽어 맞춘다.
       setChecklist((current) => current && {

@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 import Icon from './Icon.tsx'
+import { guardDialogTab } from '../lib/dialog-tab.ts'
 import './modal.css'
 
 const openDialogs: HTMLElement[] = []
@@ -39,6 +40,9 @@ export default function Modal({ title, description, onClose, returnFocus, childr
     document.body.style.overflow = 'hidden'
     openDialogs.push(host)
     heading.current?.focus()
+    const dialogControls = () => Array.from(dialog.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])
+      .filter((node) => node.getClientRects().length > 0 && !node.closest('[inert]'))
+      .sort((a, b) => (a.tabIndex > 0 ? a.tabIndex : Infinity) - (b.tabIndex > 0 ? b.tabIndex : Infinity))
     const onKey = (event: KeyboardEvent) => {
       if (openDialogs.at(-1) !== host) return
       if (event.key === 'Escape') {
@@ -47,9 +51,7 @@ export default function Modal({ title, description, onClose, returnFocus, childr
         close.current()
       }
       if (event.key !== 'Tab') return
-      const controls = Array.from(dialog.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])
-        .filter((node) => node.getClientRects().length > 0 && !node.closest('[inert]'))
-        .sort((a, b) => (a.tabIndex > 0 ? a.tabIndex : Infinity) - (b.tabIndex > 0 ? b.tabIndex : Infinity))
+      const controls = dialogControls()
       const first = controls[0]
       const last = controls.at(-1)
       if (!first) { event.preventDefault(); heading.current?.focus(); return }
@@ -64,7 +66,9 @@ export default function Modal({ title, description, onClose, returnFocus, childr
     }
     document.addEventListener('keydown', onKey, true)
     document.addEventListener('focusin', onFocus)
+    const releaseTab = guardDialogTab(() => (openDialogs.at(-1) === host ? dialog.current : null), dialogControls)
     return () => {
+      releaseTab()
       document.removeEventListener('keydown', onKey, true)
       document.removeEventListener('focusin', onFocus)
       openDialogs.splice(openDialogs.indexOf(host), 1)

@@ -33,6 +33,7 @@ import { EMPTY_FORM1, type Form1Value } from './form1-model.ts'
 import type { SelfCheckAnswers } from './form2-model.ts'
 import { EMPTY_FORM5, type Form5Value, type SignMode } from './form5-model.ts'
 import { isCompleteYMD } from './ymd.ts'
+import { guardDialogTab } from '../lib/dialog-tab.ts'
 import './pdf-forms-workspace.css'
 
 type ActiveForm = { formNo: string; mode: 'edit' | 'preview' }
@@ -396,7 +397,10 @@ export default function PdfFormsWorkspace({
       }
     }
     window.addEventListener('keydown', onKey, true)
+    // 확인 대화상자가 위에 떠 있는 동안에는 그 대화상자가 Tab을 맡는다.
+    const releaseTab = guardDialogTab(() => (dialog.closest('[inert]') ? null : dialog), focusable)
     return () => {
+      releaseTab()
       window.removeEventListener('keydown', onKey, true)
       document.body.style.overflow = previousOverflow
       signatureFocusReturnRef.current = trigger

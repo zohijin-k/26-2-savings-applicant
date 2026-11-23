@@ -53,7 +53,7 @@ demo/
 ## 2. 준비 (최초 1회)
 
 검증에 쓴 환경: **Python 3.14.0 · Node 22.19.0** (Windows 11).
-Python은 3.12 이상, Node는 20 이상이면 된다.
+Python은 3.12 이상, Node는 22.13 이상(`.ts` 단위 시험은 22.18 이상)이면 된다.
 
 ```bash
 # 저장소 루트에서
@@ -63,7 +63,7 @@ cd demo/frontend
 npm install
 ```
 
-시연용 더미 서류를 만든다. `demo/fixtures/samples/`에 25개 PDF가 생긴다.
+시연용 더미 서류를 만든다. `demo/fixtures/samples/`에 30개 PDF가 생긴다.
 
 ```bash
 # 저장소 루트에서

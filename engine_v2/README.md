@@ -320,7 +320,7 @@ x 범위가 겹치는 아래쪽에서 값을 찾는다. 행 표는 페이지마�
 
 ## 5. 초본 상세 (5단계)
 
-구현: [`extractors/resident_abstract.py`](extractors/resident_abstract.py) · 테스트: [`tests/test_resident_abstract.py`](tests/test_resident_abstract.py) (7개 통과)
+구현: [`extractors/resident_abstract.py`](extractors/resident_abstract.py) · 테스트: [`tests/test_resident_abstract.py`](tests/test_resident_abstract.py) (10개 통과)
 
 ### 초본 레이아웃 구조
 
@@ -456,7 +456,7 @@ view = result.to_applicant_view()      # 신청자용 — 판정 + 보완 안내
 
 ## 진행 상황
 
-엔진 테스트: `python -m pytest engine_v2/tests` (260개 통과, 3개 건너뜀). 맥에는 합성 글꼴이 없어 일부 테스트가 건너뛰어질 수 있다. 시나리오 스크립트 18개에서 1,776개 확인이 통과했다.
+엔진 테스트: `python -m pytest engine_v2/tests` (2026-11-23 기준 1,264개 통과, 합성 글꼴이 없을 때 3개 건너뜀). 맥에는 합성 글꼴이 없어 일부 테스트가 건너뛰어질 수 있다. 시나리오 스크립트 18개에서 1,776개 확인이 통과했다.
 
 - [x] 1. 범위와 가정
 - [x] 2. 입출력 계약 — `schemas/models.py`

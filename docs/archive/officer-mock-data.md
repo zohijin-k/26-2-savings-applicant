@@ -17,7 +17,7 @@
 
 ## 1. 프론트엔드 하드코딩 — 현재 구현
 
-파일: [`demo/frontend/src/pages/officer/mock-data.ts`](../../demo/frontend/src/pages/officer/mock-data.ts)
+파일: `demo/frontend/src/pages/officer/mock-data.ts`(이 저장소에서는 제거됨 — [26-2-savings-officer](https://github.com/zohijin-k/26-2-savings-officer/blob/main/demo/frontend/src/pages/officer/mock-data.ts))
 
 ### 켜지는 조건
 

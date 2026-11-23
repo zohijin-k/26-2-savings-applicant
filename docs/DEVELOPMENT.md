@@ -65,7 +65,7 @@ OCR은 서류 사진이나 PDF에서 글자를 읽는 기술입니다.
 
 ## 개발 환경과 실행
 
-Python 3.12 이상, Node.js 20 이상이 필요합니다. macOS와 Linux에서 백엔드·프론트엔드를 실행할 수 있습니다. 데모 로컬 OCR은 macOS를 포함한 모든 환경에서 own이 기본이므로 macOS에서도 `python engine_v2/tools/fetch_own_models.py`로 모델을 설치해야 합니다.
+Python 3.12 이상, Node.js 22.13 이상(`.ts` 단위 시험은 22.18 이상)이 필요합니다. macOS와 Linux에서 백엔드·프론트엔드를 실행할 수 있습니다. 데모 로컬 OCR은 macOS를 포함한 모든 환경에서 own이 기본이므로 macOS에서도 `python engine_v2/tools/fetch_own_models.py`로 모델을 설치해야 합니다.
 
 저장소 루트에서 설치하고 시연 샘플을 생성합니다.
 

@@ -44,7 +44,7 @@
 
 ## 실행 방법
 
-필요 환경은 Python 3.12 이상, Node.js 20 이상입니다. 저장소 루트에서 준비합니다.
+필요 환경은 Python 3.12 이상, Node.js 22.13 이상(단위 시험 `node --test`·`node src/forms/phone.test.ts`는 22.18 이상)입니다. 저장소 루트에서 준비합니다.
 
 ```bash
 python3 -m venv .venv
@@ -110,7 +110,7 @@ API 문서는 <http://localhost:8000/docs>에서 확인할 수 있습니다.
 ```bash
 npm run lint                 # 경고 1개(StatusBadge)·오류 0개가 기준
 npx tsc -b                   # 타입 검사
-node --test tests/           # 단위 시험 76개
+node --test tests/           # 단위 시험 97개
 node src/forms/phone.test.ts
 npx vite build
 ```

@@ -53,7 +53,7 @@ demo/
 ## 2. 준비 (최초 1회)
 
 검증에 쓴 환경: **Python 3.14.0 · Node 22.19.0** (Windows 11).
-Python은 3.12 이상, Node는 20 이상이면 된다.
+Python은 3.12 이상, Node는 22.13 이상(`.ts` 단위 시험은 22.18 이상)이면 된다.
 
 ```bash
 # 저장소 루트에서
@@ -63,7 +63,7 @@ cd demo/frontend
 npm install
 ```
 
-시연용 더미 서류를 만든다. `demo/fixtures/samples/`에 25개 PDF가 생긴다.
+시연용 더미 서류를 만든다. `demo/fixtures/samples/`에 30개 PDF가 생긴다.
 
 ```bash
 # 저장소 루트에서
@@ -224,7 +224,7 @@ for f in demo/backend/tests/run_p*_scenarios.py; do echo "== $f"; python -m demo
 PYTHONIOENCODING=utf-8 PYTHONUTF8=1 python -m demo.backend.tests.run_p6_scenarios --live
 ```
 
-검증 기준선은 engine_v2 1,264개 통과·3개 건너뜀, 백엔드 1,339개 통과, 시나리오 18개 모듈 1,885개 통과·실패 0이다. 17개 모듈이 통과 건수를 출력하며 나머지 1개는 종료 코드로 확인한다. 담당자·취업지원패키지 백엔드 시험도 계속 실행한다. 프런트 lint는 경고 1개·오류 0개이며 build는 통과했다.
+검증 기준선은 engine_v2 1,264개 통과·3개 건너뜀, 백엔드 1,339개 통과, 시나리오 18개 모듈 1,955개 통과(2026-11-23 실측)·실패 0이다. 17개 모듈이 통과 건수를 출력하며 나머지 1개는 종료 코드로 확인한다. 담당자·취업지원패키지 백엔드 시험도 계속 실행한다. 프런트 lint는 경고 1개·오류 0개이며 build는 통과했다.
 
 프론트엔드 점검:
 

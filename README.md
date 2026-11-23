@@ -2,7 +2,7 @@
 
 이 프로젝트는 **전북대학교 캡스톤디자인 교과목에서 전북특별자치도청과 협력하여 수행한 학생 팀 프로젝트**입니다. 학교 수업의 일부로 실제 행정 업무의 기술적 개선을 탐구한 결과물이며, 도청 공식 운영 시스템으로 배포되었거나 운영 승인을 받은 서비스라는 뜻은 아닙니다.
 
-**PRODUCTION_NOT_READY.** 본인인증 데모 → 원본 서식 작성·서명 → 서류 업로드·제출 → 접수증·마이페이지를 제공하는 신청자 전용 화면입니다. 실제 본인인증 서비스는 연결되지 않았습니다. 담당자 목록과 심사는 [officer](https://github.com/zohijin-k/26-2-savings-officer)에서 엽니다.
+본인인증 데모 → 원본 서식 작성·서명 → 서류 업로드·제출 → 접수증·마이페이지를 제공하는 신청자 전용 화면입니다. 실제 본인인증 서비스는 연결되지 않았습니다. 담당자 목록과 심사는 [officer](https://github.com/zohijin-k/26-2-savings-officer)에서 엽니다.
 
 ## 저장소 역할과 연결 실행
 
@@ -122,6 +122,6 @@ git ls-remote origin refs/heads/main
 
 프로젝트 LICENSE와 기여자·기관의 재배포 권한은 **미확정**입니다. 기존 공개 저장소도 신규 소스 공개 권한의 근거가 아닙니다. Noto subset 출처·조건, Pretendard GOV 고지, 기관 브랜드, PDF/HWP 서식 재사용, PyMuPDF의 AGPL/상용 조건 및 의존성 고지는 별도 확인이 필요합니다. [제3자 고지](THIRD_PARTY_NOTICES.md)를 확인하되 전체 프로젝트의 재배포 허가로 해석하지 마세요. 비공개 소스 스냅샷은 공개하지 않습니다.
 
-**PRODUCTION_NOT_READY.** 운영 DB migration·배포·인프라 변경은 이 안내의 범위가 아닙니다.
+운영 DB migration·배포·인프라 변경은 이 안내의 범위가 아닙니다.
 
 [개발 안내](docs/DEVELOPMENT.md) · [사용 안내](docs/USER_GUIDE.md) · [엔진](engine_v2/README.md). 이전 단독 실행·테스트 수치는 위 연결 기준과 구분하세요.

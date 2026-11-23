@@ -1,142 +1,125 @@
-# 두배적금 신청자 화면
+# 두배적금 신청자 프런트엔드
 
-`26-2-savings-applicant`는 **전북청년 함께 두배적금 신청자 전용 화면 저장소**입니다.
-앱을 열면 두배적금 신청 1단계인 본인인증으로 바로 이동합니다.
+**PRODUCTION_NOT_READY.** 본인인증 데모 → 원본 서식 작성·서명 → 서류 업로드·제출 → 접수증·마이페이지를 제공하는 신청자 전용 화면입니다. 실제 본인인증 서비스는 연결되지 않았습니다. 담당자 목록과 심사는 [officer](https://github.com/zohijin-k/26-2-savings-officer)에서 엽니다.
 
-신청자는 공고문 서식을 작성·서명하고 서류를 올린 뒤 신청을 제출할 수 있습니다.
-현재 신청 흐름은 **1. 본인인증 → 2. 서식 작성 → 3. 서류 업로드 및 제출**입니다.
-본인인증은 실제 인증 서비스 연동 전의 데모 방식입니다.
+## 저장소 역할과 연결 실행
 
-## 화면 구성
+| 저장소 | 현재 역할 |
+|---|---|
+| [capstone](https://github.com/zohijin-k/26-2-capstone) | 전체 안내·분리 전 코드와 이력 보관 |
+| [officer](https://github.com/zohijin-k/26-2-savings-officer) | 두배적금 공용 백엔드 + 담당자 프런트 |
+| [applicant](https://github.com/zohijin-k/26-2-savings-applicant) | 두배적금 신청자 프런트 |
+| [youth](https://github.com/zohijin-k/26-2-youth) | 취업지원패키지·범용 청년사업의 독립 백엔드 + 신청자·담당자 프런트 |
 
-신청자 화면은 사업 배너(`demo/frontend/src/assets/brand/jb-banner.png`)의 색을 기준으로 한
-하나의 디자인 체계를 씁니다. 글꼴은 Pretendard GOV를 저장소에 포함해 쓰며 외부 서버를 호출하지 않습니다.
-모든 단계에 같은 머리글·단계 표시·바닥글(문의 전화)이 나옵니다.
+이 저장소의 주 실행 대상은 `demo/frontend`입니다. 두배적금은 **officer의 백엔드 하나(8000)**를 사용하며 applicant(5173)와 officer(5174)가 그 API·DB를 공유합니다. 여기 보존된 백엔드는 officer의 소유자·담당자 인증 미들웨어와 동일한 서비스가 아니므로 연결 실행 기준으로 사용하지 않습니다. youth는 독립 백엔드입니다.
 
-| 단계 | 신청자가 하는 일 | 화면이 돕는 것 |
-|---|---|---|
-| 1. 본인인증 | 성명·생년월일·휴대폰 입력, 서약, 서명 | 빠진 항목을 칸마다 알려 주고, 고칠 수 없는 정보는 보내기 전에 다시 확인받습니다. |
-| 2. 서식 작성 | 원본 PDF 위에서 서식 5종 작성·서명 | 작성할 칸을 표시하고, 덜 쓴 서식과 남은 항목 수를 알려 줍니다. 저장 상태를 항상 보여 줍니다. |
-| 3. 서류 업로드 및 제출 | 근로유형 선택, 증빙서류 업로드, 제출 | 아래 "서류 확인을 기다리는 동안" 참고. 제출 전에 확인 창을 거칩니다. |
-| 접수 완료 | 접수 내용 확인 | 신청번호·접수 일시·다음 절차·문의처를 접수증 형태로 보여 주고 인쇄할 수 있습니다. |
-| 마이페이지 | 진행 상황 확인 | 진행 단계, 제출한 서류, 동의 이력을 보여 줍니다. 심사 점수는 보여 주지 않습니다. |
+## 프런트 실행
 
-### 서류 확인을 기다리는 동안
+검증 환경은 **CPython 3.14.6 / macOS 26.6.2 / arm64, Node 26.13.1 / npm 11.20.0**입니다. 최신 코드의 Python 3.12·Linux·Windows 전체 실행은 미검증입니다. 과거 WSL 결과를 최신 main의 보장으로 사용하지 않습니다. Node의 직접 TypeScript 시험은 22.18 이상이 필요하며, 여기서는 위 실측 버전을 기준으로 합니다.
 
-서류를 올리면 서버가 서류 종류와 발급일 등을 자동으로 확인합니다. 이 확인은 서류에 따라
-1초 미만에서 수십 초까지 걸립니다. 화면은 기다리는 시간이 짧게 느껴지도록 다음과 같이 동작합니다.
-서버 쪽 판독 속도 자체는 이 저장소의 화면 작업으로 바뀌지 않습니다.
-
-- 파일을 고르면 그 칸에 파일 이름·크기·미리보기와 진행 상태가 바로 나옵니다.
-- 서버로 보내는 동안에는 실제 전송률을, 확인하는 동안에는 경과 시간과 예상 시간을 보여 줍니다.
-- 한 서류를 확인하는 동안에도 다른 서류의 발급일을 적고 파일을 골라 둘 수 있습니다.
-  고른 파일은 "대기 중"으로 줄을 서서 한 건씩 차례로 올라갑니다.
-- 지원하지 않는 형식(HEIC 포함), 빈 파일, 암호가 걸린 PDF는 서버로 보내기 전에 그 칸에서 안내합니다.
-- 다시 올려야 하는 서류는 사유와 해결 방법을 그 칸 안에서 바로 보여 줍니다.
-
-발급처에서 받은 PDF 원본이 가장 빠르고 정확하게 확인됩니다. 스캔본이나 사진은 쪽수에 비례해 더 걸립니다.
-
-## 관련 저장소
-
-- [26-2-capstone — 프로젝트 안내](https://github.com/zohijin-k/26-2-capstone)
-- [26-2-savings-officer — 두배적금 담당자](https://github.com/zohijin-k/26-2-savings-officer)
-- [26-2-youth — 청년 취업지원패키지 신청자·담당자](https://github.com/zohijin-k/26-2-youth)
-
-## 실행 방법
-
-필요 환경은 Python 3.12 이상, Node.js 22.13 이상(단위 시험 `node --test`·`node src/forms/phone.test.ts`는 22.18 이상)입니다. 저장소 루트에서 준비합니다.
+[`package-lock.json`](demo/frontend/package-lock.json)의 실제 잠금 버전은 React **19.3.0**, Vite **8.3.0**, TypeScript **6.0.3**, pdfjs-dist **5.7.284**입니다. Python 잠금은 FastAPI **0.162.2**, uvicorn **0.54.0**, SQLModel **0.0.44**, ONNX Runtime **1.31.1**, pytest **9.2.0** 등 55개 패키지를 포함합니다. [hash lock](demo/backend/locks/macos-arm64-py314.txt)과 [재현 범위](demo/backend/locks/README.md)를 확인하세요. 이 macOS 전용 lock을 다른 OS에 적용하거나 기존 requirements의 하한을 지원 보장으로 해석하지 않습니다. 프런트 package `0.0.0`·API 선언 `0.1.0`은 제품 릴리스 번호가 아닙니다.
 
 ```bash
-python3 -m venv .venv
+# 이 저장소 루트; 신청자 프런트만 준비
+cd demo/frontend
+npm ci
+npm run dev -- --port 5173 --strictPort
+```
+
+먼저 [officer 실행 안내](https://github.com/zohijin-k/26-2-savings-officer#readme)에 따라 그 저장소의 venv와 `.env`를 준비하고 아래 백엔드를 실행합니다.
+
+```bash
+# officer 저장소 루트, officer venv 활성화 상태
+python -m uvicorn demo.backend.main:app --env-file .env --reload --host 127.0.0.1 --port 8000
+```
+
+officer의 `.env`에는 `OFFICER_PASSWORD`·`OFFICER_SESSION_SECRET`이 필요합니다. 이 저장소의 `.env.example`에는 두 키가 없으며 여기에 officer 인증을 구성하지 않습니다. 연결 백엔드에서 `JBAI_API_KEY`를 비우고 `JBAI_ALLOW_REAL_DOCS=false`, `PROGRAM_LLM_ENABLED=false`로 둡니다. 프런트에 비밀키를 넣지 않습니다. 두 Vite 설정은 `/api`를 8000으로 프록시합니다. 같은 `localhost` 호스트명으로 <http://localhost:5173>과 <http://localhost:5174>를 사용하고, API 문서는 <http://localhost:8000/docs>에서 봅니다.
+
+작성 중 신청은 같은 브라우저 탭에서 이어갑니다. 소유자 쿠키·동일 출처를 유지해야 합니다. 파일 미리보기·업로드 대기열·불확실한 요청 재시도를 지원하며, 화면 진행률을 판독 정확도나 속도 보장으로 해석하지 않습니다. 원본 PDF 서식은 PC 기준 배치를 유지합니다.
+
+## OCR·Document AI와 심사 경계
+
+일반 문서의 구현 체인은 **fixture → 조건부 JBAI → LocalOcr → PDF text → 상용 스텁**입니다. [`demo/backend/ocr/`](demo/backend/ocr/__init__.py)가 순서를 정하고, [`engine_v2/`](engine_v2/README.md)가 OCR·분류·문서별 필드 추출, `engine/`과 백엔드 규칙이 자격·제출 판정을 담당합니다. Document AI의 필드·좌표·신뢰도 추출과 규칙 판정, 담당자 최종 판단은 구분합니다. Upstage 계층은 실제 연동 완료가 아닌 스텁입니다.
+
+로컬 기본 선택은 own입니다. 현재 코드는 **기본 선택에서 모델이 없을 때** easyocr를 선택하지만 easyocr는 기본 requirements에 설치되지 않습니다. 명시한 `ENGINE_V2_OCR=own`의 모델 누락·해시·추론 오류를 다른 엔진으로 대체하지 않습니다. 자동 대체를 설치 성공이나 정확도 보장으로 설명하지 않습니다. 아래 명령은 선택한 own 모델을 다운로드·검증하므로, 로컬 OCR을 시험할 때만 별도로 실행합니다.
+
+```bash
+python -m engine_v2.tools.fetch_own_models
+python -c "from engine_v2.tools.fetch_own_models import verify_models; verify_models()"
+```
+
+[`fetch_own_models.py`](engine_v2/tools/fetch_own_models.py)의 고정 SHA-256:
+
+| 파일 (`engine_v2/models/own/`) | SHA-256 |
+|---|---|
+| `det.onnx` | `4d97c44a20d30a81aad087d6a396b08f786c4635742afc391f6621f5c6ae78ae` |
+| `rec.onnx` | `cd6e2ea50f6943ca7271eb8c56a877a5a90720b7047fe9c41a2e541a25773c9b` |
+| `korean_dict.txt` | `a88071c68c01707489baa79ebe0405b7beb5cca229f4fc94cc3ef992328802d7` |
+
+위 모델 설치 명령은 실제 API를 실행하는 **officer 저장소**에서 실행하세요. 아래 보존 백엔드 회귀 시험을 재현할 때만 이 저장소에도 별도 모델·시험 자산이 필요합니다.
+
+두배적금 신청자 응답은 `UPLOADED`/`REUPLOAD_REQUIRED`와 허용된 재업로드 사유입니다. 내부 `PASS`/`FAIL`/`NEEDS_REVIEW`, 점수·신뢰도·담당자 이유를 노출하거나 공개 상태값으로 추정하지 않습니다. 직접 submit도 서버에서 기존 차단 조건을 재검사합니다. 연결 백엔드는 소유자 쿠키로 신청을 보호하며 원본은 소유자 또는 로그인한 담당자만 봅니다.
+
+담당자 결정·메모는 `expected_revision`, 일괄 처리는 `expected_revisions`를 보내는 Review CAS(compare-and-swap)를 사용합니다. 오래된 revision은 충돌로 처리하며 전체 심사 내용을 덮어쓰지 않습니다. 제출 후 문서 변경 잠금과 트랜잭션 회귀도 유지합니다. 세션은 단일 프로세스 가정을 포함하므로 다중 worker 안전성을 보장하지 않습니다.
+
+이 화면은 담당자 CAS를 대신하지 않습니다. youth 영수증은 canonical `PAYMENT_RECEIPT`에 대해 OCR·Document AI 없이 수동 검토하며 두배적금 응답 계약과 다릅니다. [youth P1–P19](https://github.com/zohijin-k/26-2-youth/blob/main/docs/phase7-policy-decisions.md)는 미결 상태와 현재 판정을 유지합니다. JBAI는 키·허용 플래그를 켜면 이미지 외부 전송이 가능한 별도 옵션이며 기관 승인 완료로 취급하지 않습니다.
+
+## 검증
+
+```bash
+# demo/frontend에서; tests와 함께 배치된 .test.ts도 포함
+npm run lint
+npm run build
+python3 - <<'NODE_TESTS'
+from pathlib import Path
+import subprocess
+roots = ['tests', 'src/lib', 'src/forms', 'src/pages/officer']
+files = sorted(str(f) for root in roots for f in Path(root).glob('*.test.ts'))
+assert files, 'No Node tests found'
+subprocess.run(['node', '--test', *files], check=True)
+NODE_TESTS
+```
+
+보존 백엔드·엔진 자체 회귀를 재현할 경우에만 이 저장소 루트에서 별도 venv를 만듭니다. 연결 실행 백엔드의 검증을 대체하지 않습니다.
+
+```bash
+# 새 로컬 개발 사본의 루트; 위 macOS/arm64·CPython 3.14.6 환경
+python3.14 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r demo/backend/requirements.txt
-python -m pip install -r engine_v2/requirements.txt
-python engine_v2/tools/fetch_own_models.py
-cd demo/frontend && npm install && cd ../..
-python -m demo.fixtures.make_samples
+python -m pip install --require-hashes --only-binary=:all: -r demo/backend/locks/macos-arm64-py314.txt
+python -m pip check
+cp .env.example .env
+cd demo/frontend
+npm ci
+cd ../..
 ```
 
-터미널 두 개에서 각각 실행합니다.
+기존 [`demo/backend/requirements.txt`](demo/backend/requirements.txt)·[`engine_v2/requirements.txt`](engine_v2/requirements.txt)는 일반 의존성 선언이며 위 재현용 lock과 목적이 다릅니다. 모델·합성 시험용 글꼴은 lock에 포함되지 않습니다.
+```bash
+# 저장소 루트, 위 venv 활성화, 외부 공급자 비활성화
+JBAI_API_KEY= JBAI_ALLOW_REAL_DOCS=false PROGRAM_LLM_ENABLED=false python -m pytest -q demo/backend/tests engine_v2/tests
+```
+
+전체 suite에는 별도 모델·합성 글꼴 등 자산이 필요합니다. 합성 글꼴 도구는 `python -m engine_v2.tools.fetch_synth_fonts`이며 출처·사용 조건을 확인한 별도 로컬 자산입니다. 자산 없는 사본의 skip/failure를 숨기거나 hash/시험 규칙을 완화하지 않습니다.
+
+Phase 8 [#17](https://github.com/zohijin-k/26-2-savings-applicant/pull/17)의 기존 결과는 Python **2,606**, 프런트 **98**개 통과(실패·오류·skip 0)입니다. 코드 main의 신청자 재업로드 투영 핵심 **41**개도 확인했습니다. 과거 검증 HEAD와 코드 main의 실행 코드·테스트 동일성을 대조한 결과이며 이번 README 작업의 전체 재실행 결과가 아닙니다. 이 저장소에는 GitHub Actions가 없으므로 hosted CI 성공을 주장하지 않습니다. 기존 Fast Refresh export·bundle·deprecation 경고를 유지합니다.
+
+## 버전과 release-manifest
+
+README 정리 직전 확인한 최신 코드 main은 [`a3baa5efe948800568c645c7736f2839f2af3e07`](https://github.com/zohijin-k/26-2-savings-applicant/commit/a3baa5efe948800568c645c7736f2839f2af3e07)입니다. 문서 전용 병합 이후의 현재 main SHA는 [GitHub main 조회](https://api.github.com/repos/zohijin-k/26-2-savings-applicant/commits/main) 또는 아래 명령으로 확인합니다. 문서 커밋 SHA와 코드 검증 기준 SHA를 혼동하지 않습니다.
 
 ```bash
-# 백엔드 — 저장소 루트에서
-uvicorn demo.backend.main:app --reload --port 8000
+git rev-parse HEAD
+git ls-remote origin refs/heads/main
 ```
 
-```bash
-# 프런트엔드
-cd demo/frontend && npm run dev
-```
+[전체 release-manifest](https://github.com/zohijin-k/26-2-capstone#release-manifest)는 네 코드 기준 SHA와 검증 범위를 연결합니다. 전체 내부 `release-manifest.final.json`과 증거·소스 아카이브는 비공개로 보존하며 공개 링크를 만들지 않습니다.
+## 개인정보·권리·검증 한계
 
-브라우저에서 <http://localhost:5173>을 엽니다. Vite가 `/api` 요청을 백엔드로 전달합니다.
-API 문서는 <http://localhost:8000/docs>에서 확인할 수 있습니다.
+시험에는 합성 정보와 임시 DB·저장소만 사용합니다. 실서류·주민번호·OCR 원문·환경변수·쿠키·DB·업로드·모델·비공개 증거와 소스 스냅샷을 Git/PR에 올리지 않습니다. 마스킹이 원본 파일을 익명화한다는 뜻은 아닙니다. 실제 외부 OCR/LLM 호출과 실서류 정확도·신뢰도 보정, 최종 SHA 전체 브라우저 흐름, 다중 worker 세션·잠금은 이번 문서 검증으로 승인하지 않습니다.
 
-로컬 OCR은 macOS를 포함해 own이 기본이며 모델 파일은 별도로 내려받습니다.
-기본 모델 경로에 파일이 없으면 easyocr로 대체합니다. 전북AI 연동은 이번 실행에서
-사용하지 않으므로 JBAI_* 설정은 비워 둡니다. 시연용 문서는 합성 데이터로 만듭니다.
+프로젝트 LICENSE와 기여자·기관의 재배포 권한은 **미확정**입니다. 기존 공개 저장소도 신규 소스 공개 권한의 근거가 아닙니다. Noto subset 출처·조건, Pretendard GOV 고지, 기관 브랜드, PDF/HWP 서식 재사용, PyMuPDF의 AGPL/상용 조건 및 의존성 고지는 별도 확인이 필요합니다. [제3자 고지](THIRD_PARTY_NOTICES.md)를 확인하되 전체 프로젝트의 재배포 허가로 해석하지 마세요. 비공개 소스 스냅샷은 공개하지 않습니다.
 
-작성 중인 신청은 **같은 브라우저 탭**에서만 이어서 쓸 수 있습니다. 새 탭을 열면 새 신청이 시작됩니다.
+**PRODUCTION_NOT_READY.** 운영 DB migration·배포·인프라 변경은 이 안내의 범위가 아닙니다.
 
-### 담당자 화면과 이어서 볼 때
-
-이 화면에서 낸 신청을 담당자 화면([26-2-savings-officer](https://github.com/zohijin-k/26-2-savings-officer))에서 보려면 이 저장소의 백엔드 대신 담당자 저장소의 백엔드를 8000번에 띄우고(`--env-file .env`로, 담당자 비밀번호 설정 필요), 이 저장소의 프런트(5173)와 담당자 프런트(5174)를 함께 실행합니다. 신청은 담당자 저장소의 DB에 쌓입니다. 그 백엔드는 신청을 만든 브라우저에만 그 신청을 열어 주고, 담당자 화면은 로그인해야 열립니다. 순서와 주의점은 [개발 안내](docs/DEVELOPMENT.md#담당자-화면과-연결해서-실행)에 있습니다.
-
-### 서류 업로드만 시험할 때 (개발용)
-
-1단계 본인인증을 마친 신청의 2단계(서식·동의·서명)를 가짜 값으로 채워, 서식 작성 없이 서류 업로드로 넘어갈 수 있습니다. 데모 DB에서만 동작합니다.
-
-1. 화면에서 1단계 본인인증을 마칩니다.
-2. 저장소 루트에서 실행합니다.
-   ```bash
-   PYTHONPATH=. python -B -m demo.backend.tools.seed_application
-   ```
-3. **1단계를 한 같은 탭** 주소창에 출력된 `/apply/upload` 주소를 입력합니다. 새 탭에서는 열리지 않습니다.
-4. 근로유형을 고르고 서류를 올립니다.
-5. 시험이 끝나면 정리합니다.
-   ```bash
-   PYTHONPATH=. python -B -m demo.backend.tools.seed_application --clean
-   ```
-
-시드한 신청은 2단계를 화면에서 다시 저장하지 마세요. 정리 표시가 지워져 `--clean`이 그 신청을 놓칩니다. 옵션과 자세한 동작은 [데모 안내](demo/README.md)를 참고하세요.
-
-`--clean`은 **가장 최근에 만든 신청일 때만** 실행하세요. 신청번호를 전체 건수로 매기기 때문에,
-그 뒤에 만들어진 신청이 있는 상태에서 지우면 새 신청 생성이 번호 중복으로 실패합니다.
-그럴 때는 `python -m demo.backend.reset`으로 데모 데이터를 초기화합니다.
-
-## 시험
-
-프런트엔드는 `demo/frontend`에서 실행합니다.
-
-```bash
-npm run lint                 # 경고 1개(StatusBadge)·오류 0개가 기준
-npx tsc -b                   # 타입 검사
-node --test tests/           # 단위 시험 97개
-node src/forms/phone.test.ts
-npx vite build
-```
-
-백엔드와 시나리오는 저장소 루트에서 실행합니다. 백엔드 전체 시험은 임시 파일을 약 5GB 씁니다.
-
-```bash
-python -m pytest demo/backend/tests -q                       # 1,339개 통과가 기준
-python -m demo.backend.tests.run_p4_scenarios                # 통과 195 / 실패 0
-python -m demo.backend.tests.run_p14_pdf_forms_scenarios     # 원본 서식 좌표·렌더링
-```
-
-P4 시나리오는 `demo/` 아래 `.py`·`.ts`·`.tsx`·`.css`에 `download`, `attachment`라는 문자열이 있으면 실패합니다.
-화면 코드에서는 이 두 단어를 쓰지 않습니다. 전체 시험 방법은 [개발 안내](docs/DEVELOPMENT.md)에 있습니다.
-
-## 개발과 참고 문서
-
-- [개발 안내](docs/DEVELOPMENT.md): 환경, 실행 및 시험 방법
-- [사용 안내](docs/USER_GUIDE.md): 신청자 화면 사용 순서
-- [데모 안내](demo/README.md): 서식 작성·서류 업로드와 개발 도구
-- [엔진 안내](engine_v2/README.md): OCR·서류 추출 도구
-- [제3자 고지](THIRD_PARTY_NOTICES.md): 모델·글꼴·패키지 출처와 라이선스
-- [디자인 프롬프트](docs/DESIGN_PROMPT.md): 이 화면의 디자인을 다른 청년정책 신청 화면에 옮길 때 쓰는 프롬프트
-- 화면 규칙: [`.trellis/spec/frontend/`](.trellis/spec/frontend/index.md) — 디자인 체계, 서류 업로드 대기열, 원본 PDF 작업 화면
-
-본인인증·서류 업로드·접수 완료·마이페이지는 좁은 화면에서도 가로 스크롤 없이 보입니다.
-서식 작성은 PC 사용을 기준으로 합니다. 서식은 원본 PDF 배치를 유지하므로 좁은 화면에서는
-서식 영역 안에서 가로 스크롤이 생깁니다. OCR 판독 결과는 오류가 있을 수 있으며, 신청자에게
-심사 점수는 공개하지 않습니다. 시험에는 가상 정보와 합성 서류만 사용합니다.
+[개발 안내](docs/DEVELOPMENT.md) · [사용 안내](docs/USER_GUIDE.md) · [엔진](engine_v2/README.md). 이전 단독 실행·테스트 수치는 위 연결 기준과 구분하세요.

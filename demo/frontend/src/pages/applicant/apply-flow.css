@@ -3,7 +3,8 @@
  * 변수는 styles/tokens.css에서만 가져온다. 버튼 · 입력 · 안내 상자 같은 공용 모양은 styles/components.css에 있다.
  * 서식 내부(원본 PDF 위 입력 칸)는 forms/ 쪽 CSS가 담당한다.
  *
- * 차례: flow · flow__head · step-marker · flow__stages · flow__body · fact-list · receipt · print
+ * 차례: flow · flow__head · step-marker · flow__stages · flow__body · receipt · print
+ * ("항목 이름 — 값" 목록 .fact-list는 공용 styles/components.css에 있다.)
  */
 
 /* ── flow ─────────────────────────────────────────────────────────────── */
@@ -202,33 +203,6 @@ button.flow__stage:not([aria-disabled="true"]):hover .flow__stage-label {
 
 .flow__back { margin-bottom: var(--sp-4); }
 
-/* ── fact-list ────────────────────────────────────────────────────────── */
-/* "항목 이름 — 값" 목록. 확인 대화상자 · 본인인증 결과 · 접수증이 쓴다(대화상자 안에서도 같아야 하므로 전역). */
-.fact-list {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  align-items: baseline;
-  gap: var(--sp-2) var(--sp-5);
-  margin: 0;
-  padding: 0;
-}
-
-.fact-list > div { display: contents; }
-
-.fact-list dt {
-  color: var(--color-text-subtle);
-  font-size: var(--fs-15);
-  line-height: var(--lh-base);
-}
-
-.fact-list dd {
-  min-width: 0;
-  margin: 0;
-  color: var(--color-text);
-  font-size: var(--fs-16);
-  font-weight: var(--fw-medium);
-}
-
 /* ── receipt ──────────────────────────────────────────────────────────── */
 /* 접수 완료 화면은 접수증 한 장이다. */
 /* 넘치는 부분을 자르지 않는다: 아래 서식 메뉴가 카드 밖으로 펼쳐져야 한다. */
@@ -242,7 +216,7 @@ button.flow__stage:not([aria-disabled="true"]):hover .flow__stage-label {
   padding: var(--sp-8) var(--sp-6);
   border-bottom: 1px solid var(--color-divider);
   border-radius: var(--radius-12) var(--radius-12) 0 0;
-  background: linear-gradient(100deg, var(--jb-mint), var(--jb-cream));
+  background: linear-gradient(100deg, var(--brand-tint-a), var(--brand-tint-b));
 }
 
 .receipt__mark { color: var(--success-60); }
@@ -318,7 +292,6 @@ button.flow__stage:not([aria-disabled="true"]):hover .flow__stage-label {
   .flow__stage-caption > .flow__stage-count { flex-basis: 100%; }
   .flow__stage-caption > .flow__stage-count::before { content: none; }
 
-  .fact-list { gap: var(--sp-2) var(--sp-4); }
 
   .receipt__head {
     align-items: flex-start;

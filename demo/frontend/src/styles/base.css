@@ -1,6 +1,11 @@
 /*
  * 바탕 규칙: 화면 글꼴, 본문, 제목 크기, 포커스 표시, 화면 낭독기 전용 글자, 건너뛰기 링크, 움직임 줄이기.
  * 변수는 tokens.css에서만 가져온다.
+ *
+ * 두배적금(26-2-savings-applicant)과 청년정책(26-2-youth)이 같은 파일을 쓴다. 원본은 26-2-youth에 있다.
+ * 고칠 때는 원본을 고치고 demo/frontend/scripts/sync-shared-styles.mjs로 복사한다.
+ * 청년정책은 신청자 쪽 입구(pages/applicant/ApplicantApp.tsx)만 불러온다. 담당자 화면은 다른 문서로 열리므로
+ * 여기의 요소 규칙(html, body, h1…)이 담당자 화면에 닿지 않는다.
  */
 
 /* Pretendard GOV (SIL OFL 1.1) — 저장소에 함께 둔 파일만 쓴다. 외부 요청은 없다. */
@@ -32,7 +37,7 @@
   box-sizing: border-box;
 }
 
-html {
+:root {
   font-family: var(--font-ui);
   color: var(--color-text);
   background: var(--color-bg);
@@ -84,13 +89,19 @@ h4 { font-size: var(--fs-17); }
   outline: none;
 }
 
-/* 단계가 바뀌거나 대화상자가 열릴 때 포커스를 옮겨 받는 제목·본문 영역은 조작 요소가 아니므로 고리를 그리지 않는다. */
+/* 단계가 바뀔 때 포커스를 옮겨 받는 제목·본문 영역은 조작 요소가 아니므로 고리를 그리지 않는다. */
 h1[tabindex="-1"]:focus-visible,
 h2[tabindex="-1"]:focus-visible,
 h3[tabindex="-1"]:focus-visible,
 h4[tabindex="-1"]:focus-visible,
 main[tabindex="-1"]:focus-visible {
   outline: none;
+}
+
+/* 원본 서식 PDF 위의 입력 칸은 이전과 똑같이 줄을 바꾼다(위의 keep-all을 물려받지 않게 기본값으로 되돌린다). */
+.pdf-form__page {
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
 /* 화면에는 보이지 않고 화면 낭독기에만 읽힌다. */
@@ -134,9 +145,8 @@ main[tabindex="-1"]:focus-visible {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    animation: none !important;
+    transition: none !important;
     scroll-behavior: auto !important;
   }
 }

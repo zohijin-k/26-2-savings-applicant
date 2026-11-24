@@ -121,7 +121,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-.calendar-date__months button[aria-pressed="true"] { background: var(--jb-blue-5); color: var(--color-primary); font-weight: var(--fw-bold); }
+.calendar-date__months button[aria-pressed="true"] { background: var(--brand-5); color: var(--color-primary); font-weight: var(--fw-bold); }
 
 .calendar-date__years {
   min-height: 0;
@@ -142,7 +142,7 @@
   text-align: left;
 }
 
-.calendar-date__years button[aria-current="date"] { background: var(--jb-blue-5); color: var(--color-primary); font-weight: var(--fw-bold); }
+.calendar-date__years button[aria-current="date"] { background: var(--brand-5); color: var(--color-primary); font-weight: var(--fw-bold); }
 
 .calendar-date__footer {
   display: flex;

@@ -1,4 +1,8 @@
-/* 대화상자. .flow 바깥(body 바로 아래)에 그려지므로 필요한 모양은 모두 여기와 components.css에 있다. */
+/*
+ * 대화상자. .flow 바깥(body 바로 아래)에 그려지므로 필요한 모양은 모두 여기와 components.css에 있다.
+ * 크기 · 여백 · 모서리 · 바닥 줄은 공용 규칙(shared-design-rules.md)의 대화상자 값과 같다.
+ * 청년정책의 .dialog(공용 components.css)와 같은 값을 쓰므로, 둘 중 하나를 바꾸면 다른 쪽도 맞춘다.
+ */
 
 .modal-overlay {
   position: fixed;
@@ -7,7 +11,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--sp-5);
+  padding: var(--sp-4);
   background: var(--color-dim);
   animation: modal-fade var(--ease);
 }
@@ -17,11 +21,13 @@
   flex-direction: column;
   width: 100%;
   max-width: 560px;
-  max-height: min(720px, 90dvh);
+  max-height: calc(100dvh - var(--sp-8));
   border-radius: var(--radius-12);
   background: var(--color-surface);
   color: var(--color-text);
   box-shadow: var(--shadow-3);
+  font-size: var(--fs-16);
+  line-height: var(--lh-base);
   animation: modal-pop var(--ease);
 }
 
@@ -34,13 +40,13 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--sp-3);
-  padding: var(--sp-6) var(--sp-6) 0;
+  padding: var(--sp-6) var(--sp-6) var(--sp-3);
 }
 
 .modal__title {
   min-width: 0;
   margin: 0;
-  padding-top: 6px;
+  padding-top: var(--sp-2);
   font-size: var(--fs-19);
   font-weight: var(--fw-bold);
   line-height: var(--lh-tight);
@@ -52,7 +58,7 @@
   place-items: center;
   width: var(--control-sm);
   height: var(--control-sm);
-  margin: -2px -8px 0 0;
+  margin: 0 calc(var(--sp-2) * -1) 0 0;
   padding: 0;
   border: 0;
   border-radius: var(--radius-6);
@@ -65,22 +71,24 @@
 .modal__close:hover { background: var(--gray-5); color: var(--color-text); }
 
 .modal__body {
+  min-height: 0;
   overflow-y: auto;
-  padding: var(--sp-3) var(--sp-6) var(--sp-6);
-  font-size: var(--fs-16);
+  padding: 0 var(--sp-6) var(--sp-6);
 }
 
 .modal__body > :first-child { margin-top: 0; }
 .modal__body > :last-child { margin-bottom: 0; }
 .modal__body p { margin: 0 0 var(--sp-3); }
-.modal__description { color: var(--color-text-subtle); }
+.modal__description { margin: 0 0 var(--sp-4); color: var(--color-text-subtle); }
 
+/* 버튼은 동사로. 취소는 왼쪽, 실행은 오른쪽. 폰에서는 실행이 위로 오고 폭을 채운다. */
 .modal__foot {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: var(--sp-2);
-  padding: 0 var(--sp-6) var(--sp-6);
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-6);
+  border-top: 1px solid var(--color-divider);
 }
 
 @keyframes modal-fade {
@@ -92,10 +100,9 @@
 }
 
 @media (max-width: 600px) {
-  .modal-overlay { padding: var(--sp-4); }
-  .modal__head { padding: var(--sp-5) var(--sp-5) 0; }
-  .modal__body { padding: var(--sp-3) var(--sp-5) var(--sp-5); }
-  .modal__foot { flex-direction: column-reverse; padding: 0 var(--sp-5) var(--sp-5); }
+  .modal__head { padding: var(--sp-5) var(--sp-4) var(--sp-3); }
+  .modal__body { padding: 0 var(--sp-4) var(--sp-5); }
+  .modal__foot { flex-direction: column-reverse; padding: var(--sp-4); }
   .modal__foot > .btn { width: 100%; }
 }
 

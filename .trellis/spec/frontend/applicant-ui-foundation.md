@@ -6,23 +6,26 @@ Header logo: `demo/frontend/src/assets/brand/jb-logo.png` — the same banner wi
 
 ## Files and import order
 
+The tokens, base rules, component classes and style rules are shared with `26-2-youth` and documented in [Shared Applicant Design Rules](./shared-design-rules.md). That document wins where this one disagrees. Only `styles/brand.css` (banner blue scale, stripe, tints, logo height) is specific to this repository.
+
 `src/main.tsx` imports, in this order: `styles/tokens.css` → `index.css` → `styles/base.css` → `styles/components.css` → `App`.
 
 | File | Owns |
 | --- | --- |
-| `styles/tokens.css` | Every colour, type size, space, radius, shadow, control size. The only chrome file with colour literals. |
+| `styles/tokens.css` | Shared. Imports `ui-tokens.css` and `brand.css`; every colour, type size, space, radius, shadow, control size. |
+| `styles/brand.css` | This business only: `--brand-*` scale from the banner, accents, `--brand-stripe`, tints, `--logo-h`. |
 | `index.css` | Legacy variables read by the PDF sheet only (`--text`, `--muted`, `--brand`, `--success`, `--border-strong`). Values are frozen. |
 | `styles/base.css` | Root font, body 16px, headings, the single `:focus-visible` rule, `.sr-only`, `.skip-link`, reduced-motion block, Pretendard GOV `@font-face` (400/500/700, `font-display: swap`, self-hosted). |
-| `styles/components.css` | `.btn`, `.field`, `.input`, `.select`, `.check`, `.radio`, `.notice`, `.badge`, `.status-badge`, `.card`, `.card__panel`, `.spinner`, `.progress`, `.link`, `.dl-inline`, `.flow__actions`, `.date-triple--ui`. |
+| `styles/components.css` | Shared with youth (copied by `scripts/sync-shared-styles.mjs`, do not edit here). `.btn`, `.field`, `.input`, `.select`, `.check`, `.radio`, `.notice`, `.badge`, `.status-badge`, `.card`, `.card__panel`, `.spinner`, `.progress`, `.link`, `.fact-list`, `.dl-inline`, `.flow__actions`, `.date-triple--ui`, `.dialog`, `.more`, `.segmented`. |
 | page CSS (`apply-flow.css`, `identity-check.css`, `my-page.css`, `document-upload.css`, chrome part of `pdf-forms-workspace.css`) | Layout only, built from tokens and the component classes. |
 
 ## Rules
 
-- Chrome CSS reads `var(--…)` tokens only. Colour literals are allowed in `tokens.css`, `index.css`, `form-sheet.css` and the `.pdf-form__*` sheet rules — nowhere else.
+- Chrome CSS reads `var(--…)` tokens only. Colour literals are allowed in `ui-tokens.css`, `tokens.css`, `brand.css`, `index.css`, `form-sheet.css` and the `.pdf-form__*` sheet rules — nowhere else. `node scripts/check-design-rules.mjs` checks this.
 - Type scale: 13 / 15 / 16 / 17 / 19 / 22 / 24 / 28px. Body is 16px; nothing below 13px. No half-pixel sizes.
 - Radii: 4 / 6 / 8 / 12px or pill. Breakpoints: `max-width: 900px` and `max-width: 600px` only (plus `print`, `prefers-reduced-motion`).
-- Primary colour is `--color-primary` (`#084090`, from the banner). `--jb-cyan` and `--jb-magenta` are decorative only: never text, never a state colour (magenta reads as an error).
-- Buttons: `.btn` is the secondary look; `.btn--primary` once per view; `.btn--quiet` for reset/cancel; `.btn--danger` for destructive confirms. Heights follow three sizes: `.btn--lg` 56px (step CTAs), default 48px, `.btn--small` 40px.
+- Primary colour is `--color-primary` → `--brand-60` (`#084090`, from the banner, in `brand.css`). `--brand-accent-1` (cyan) and `--brand-accent-2` (magenta) are decorative only: never text, never a state colour (magenta reads as an error). The old `--jb-*` names are gone.
+- Buttons: `.btn` is the secondary look; `.btn--primary` once per view; `.btn--quiet` for reset/cancel; `.btn--danger` for destructive confirms. Heights follow three sizes: `.btn--lg` 56px (step CTAs and the primary button in `.flow__actions`), default 48px, `.btn--small` 40px. Text inputs are 56px.
 - Never disable a primary action to signal missing input. Keep it enabled, and on press show what is missing and move focus there. `disabled` is for in-flight work only.
 - Focus: one global rule in `base.css` (`outline: 3px solid var(--color-focus); outline-offset: 2px`). Do not add per-component focus styles. PDF overlay inputs keep their own and set `outline-offset: 0`.
 - Icons: `<Icon name>` from `components/Icon.tsx` (inline SVG, `currentColor`). No Unicode glyph icons in chrome.

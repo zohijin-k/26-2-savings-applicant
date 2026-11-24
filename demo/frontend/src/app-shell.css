@@ -13,17 +13,12 @@
   background: var(--color-surface);
 }
 
-/* 맨 위 장식 띠: 배너의 파랑 · 청록 · 자홍. 뜻을 전하는 색이 아니다. */
+/* 맨 위 장식 띠(brand.css --brand-stripe: 배너의 파랑 · 청록 · 자홍). 뜻을 전하는 색이 아니다. */
 .shell::before {
   content: '';
   display: block;
   height: 4px;
-  background: linear-gradient(
-    90deg,
-    var(--jb-blue-60) 0 62%,
-    var(--jb-cyan) 62% 84%,
-    var(--jb-magenta) 84% 100%
-  );
+  background: var(--brand-stripe);
 }
 
 /* 아주 좁은 화면에서 신청번호·마이페이지가 한 줄에 안 들어가면 넘치지 않고 아랫줄로 내려간다. */
@@ -61,7 +56,7 @@
 .shell__logo {
   display: block;
   width: auto;
-  height: 36px;
+  height: var(--logo-h);
 }
 
 /* ApplyFlow가 신청번호와 마이페이지 버튼을 그려 넣는 자리. */
@@ -172,7 +167,7 @@
 @media (max-width: 600px) {
   .shell__inner { gap: var(--sp-2); }
   .shell__home { margin-left: calc(-1 * var(--sp-1)); padding: var(--sp-1); }
-  .shell__logo { height: 28px; }
+  .shell__logo { height: var(--logo-h-sm); }
   .shell__application-controls { gap: var(--sp-2); }
 
   /* 좁은 화면에서는 "신청번호"라는 글자를 숨기고 번호만 남긴다. */

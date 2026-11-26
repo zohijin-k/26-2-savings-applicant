@@ -126,7 +126,7 @@
 
 /* 업로드됨은 접수일 뿐 적합 판정이 아니라는 고정 안내 (#23). */
 .fcheck__note {
-  margin: 0;
+  margin: 0 0 var(--sp-3);
   color: var(--color-text-subtle);
   font-size: var(--fs-15);
 }

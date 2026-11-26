@@ -37,6 +37,7 @@ import MyPage from './MyPage.tsx'
 import PdfFormsWorkspace, { ApplicantFormsBulkMenu } from '../../forms/PdfFormsWorkspace.tsx'
 import { EMPTY_CONSENT, type ConsentValue } from '../../forms/consent-model.ts'
 import { CONSENT_OPTIONS } from '../../forms/consent-model.ts'
+import { savableEmail, withSavableEmail } from '../../forms/email.ts'
 import { EMPTY_FORM1, type Form1Value } from '../../forms/form1-model.ts'
 import { EMPTY_FORM5, SIGN_MODES, type Form5Value, type SignMode } from '../../forms/form5-model.ts'
 import type { SelfCheckAnswers } from '../../forms/form2-model.ts'
@@ -168,6 +169,8 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
   const [finalBusy, setFinalBusy] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<StepperProgress>({ completed: 0, total: 0 })
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
+  // 부분 저장에 실을 수 있는 마지막 이메일. 주소를 다 치기 전에는 이 값을 보낸다(withSavableEmail).
+  const savableEmailRef = useRef('')
   // 아직 끝나지 않은 저장 요청 수. 남아 있는 동안 탭을 떠나려 하면 이탈 확인을 띄운다.
   const pendingSaves = useRef(0)
   const [saving, setSaving] = useState(false)
@@ -212,7 +215,9 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
       setAppNo(application.application_no)
       const savedIdentity = application.identity_json
       setIdentity(savedIdentity?.name && savedIdentity.birth ? savedIdentity as Identity : null)
-      setForm1({ ...EMPTY_FORM1, ...application.form1_json } as Form1Value)
+      const restoredForm1 = { ...EMPTY_FORM1, ...application.form1_json } as Form1Value
+      setForm1(restoredForm1)
+      savableEmailRef.current = savableEmail(restoredForm1.email, '')
       setAnswers(application.self_check_json as SelfCheckAnswers)
       setForm5({ ...EMPTY_FORM5, ...application.form5_json } as Form5Value)
       setSignMode(application.form5_json.signatureScanUploaded ? SIGN_MODES[1] : SIGN_MODES[0])
@@ -449,7 +454,7 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
   const onForm1 = (next: Form1Value) => {
     const locked = lockIdentity(next, identity)
     setForm1(locked)
-    void save({ form1: locked }).catch(reportSaveError)
+    void save({ form1: withSavableEmail(locked, savableEmailRef) }).catch(reportSaveError)
   }
 
   const persistForms = async () => {
@@ -571,7 +576,7 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
               setIdentity(verified)
               const locked = lockIdentity({ ...form1, mobile }, verified)
               setForm1(locked)
-              void save({ form1: locked }).catch(reportSaveError)
+              void save({ form1: withSavableEmail(locked, savableEmailRef) }).catch(reportSaveError)
               setStage('forms')
               window.scrollTo({ top: 0 })
             }}

@@ -8,6 +8,19 @@ Applicant-only adapters share equivalent small contracts across the savings and 
 
 `SaveStatus` describes `idle | saving | saved | failed`, with dirty consent/signature state taking precedence over a previous success. Incremental PATCH acknowledgements do not prove that consent/signature metadata has been flushed. A full flush serializes behind pending edits and writes the current snapshot plus selected policy consents. One flush Promise is shared until settlement. Failed flushes keep the document and values mounted. Inputs are disabled during the full snapshot flush; ordinary incremental saves retain the existing editing model.
 
+### Draft fields the backend validates on every PATCH
+
+Incremental saves resend the whole `form1`, and `PATCH /api/applications/{id}` rejects a nonempty malformed `email` with 400 even for drafts (`_normalize_form_values`). An address that is only unfinished must not fail on every keystroke. Route every incremental `form1` payload (savings `ApplyFlow`; youth `ApplyFlow` and `GenericProgramFlow`) through `withSavableEmail(form1, savableEmailRef)` from `src/forms/email.ts`. It sends the last savable email (empty or valid) until the typed one is valid; seed the ref from the restored draft with `savableEmail(restored.email, '')`. Full flushes keep sending the typed form, so a malformed address is still rejected at the transition boundary, and the on-sheet hint remains the in-progress feedback.
+
+```typescript
+// Wrong: each keystroke of "hong@exa" PATCHes an email the backend rejects (400, save state failed)
+void save({ form1: locked })
+// Correct: the incremental save carries the last savable email; the full flush still sends form1 as typed
+void save({ form1: withSavableEmail(locked, savableEmailRef) })
+```
+
+`tests/email-save.test.ts` asserts that typed prefixes never yield a rejected email, that editing a saved address keeps the last valid value, and that clearing the field sends an empty email.
+
 ## SPA and browser navigation
 
 `useSaveBeforeLeave` registers current draft handlers in `lib/applicant-navigation.ts`. Shell history listeners MUST call `handleApplicantHistory(event)` before changing their React screen key. A listener installed by a child is insufficient: after a child remount, the older shell listener may run first and destroy the draft before the guard sees popstate. History entries carry a non-sensitive `applicantIndex`; restore the current entry, flush, then replay the intended back/forward direction. Failed saves stay on the current entry with values intact. The shell home action uses `requestApplicantLeave`. Native reload/close remains a separate beforeunload warning: it does not promise to finish saving.

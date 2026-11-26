@@ -399,7 +399,6 @@ PROGRAMS: dict[str, ProgramConfig] = {
         notes=[
             "선착순이 아니며, 신청기간 내 24시간 신청 가능",
             "서류 미비(누락·식별 불가) 시 보완 요청 없이 선발 제외",
-            "평가결과는 공개하지 않음",
         ],
         detail=DOUBLE_SAVINGS_DETAIL,
     ),

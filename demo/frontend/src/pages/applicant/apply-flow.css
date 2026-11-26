@@ -30,13 +30,13 @@
 .flow--message .notice { width: 100%; }
 
 /* ── flow__head ───────────────────────────────────────────────────────── */
-/* 제목과 단계 표시를 담은 흰 띠. 띠는 화면 양끝까지 이어지고 내용은 틀 폭에 맞춘다. */
+/* 단계 표시를 담은 흰 띠. 띠는 화면 양끝까지 이어지고 내용은 틀 폭에 맞춘다.
+   제목(h1)은 화면 읽기 프로그램용으로만 두고, 띠는 단계 표시만큼만 얇게 둔다. */
 .flow__head {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--sp-5);
-  margin-bottom: var(--sp-8);
-  padding: var(--sp-6) 0 var(--sp-5);
+  margin-bottom: var(--sp-6);
+  padding: var(--sp-4) 0;
   background: var(--color-surface);
   box-shadow: 0 0 0 100vmax var(--color-surface), 0 1px 0 100vmax var(--color-border);
   clip-path: inset(0 -100vmax -1px);
@@ -92,11 +92,11 @@
 }
 
 /* ── flow__stages ─────────────────────────────────────────────────────── */
-/* 이어진 선 위에 원형 표식 셋. 표식 아래에 "N단계 · 상태"와 단계 이름을 둔다. */
+/* 이어진 선 위에 원형 표식 넷. 표식 아래에 "N단계 · 상태"와 단계 이름을 둔다. */
 .flow__stages {
-  --marker: 32px;
+  --marker: 24px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 0;
   padding: 0;
   list-style: none;
@@ -127,10 +127,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--sp-1);
   max-width: 100%;
   margin: 0;
-  padding: 0 var(--sp-2) var(--sp-1);
+  padding: 0 var(--sp-2) 2px;
   border: 0;
   border-radius: var(--radius-8);
   background: transparent;
@@ -150,7 +150,7 @@ button.flow__stage:not([aria-disabled="true"]):hover .flow__stage-label {
 
 .flow__stage-copy {
   display: grid;
-  gap: 2px;
+  gap: 0;
   min-width: 0;
 }
 
@@ -173,10 +173,12 @@ button.flow__stage:not([aria-disabled="true"]):hover .flow__stage-label {
 }
 
 .flow__stage-label {
-  font-size: var(--fs-16);
+  font-size: var(--fs-15);
   font-weight: var(--fw-bold);
   line-height: var(--lh-tight);
 }
+
+.flow__stages .step-marker { font-size: var(--fs-13); }
 
 .flow__stages li.is-waiting .flow__stage-label { color: var(--color-text-subtle); }
 
@@ -276,17 +278,14 @@ button.flow__stage:not([aria-disabled="true"]):hover .flow__stage-label {
   .flow--message { padding-top: var(--sp-12); }
 
   .flow__head {
-    gap: var(--sp-4);
-    margin-bottom: var(--sp-5);
-    padding: var(--sp-4) 0;
+    margin-bottom: var(--sp-4);
+    padding: var(--sp-3) 0;
   }
 
-  .flow__head h1 { font-size: var(--fs-22); }
-
-  .flow__stages { --marker: 24px; }
-  .flow__stage { padding: 0 2px var(--sp-1); }
+  .flow__stages { --marker: 20px; }
+  .flow__stage { padding: 0 2px 2px; }
   .step-marker { font-size: var(--fs-13); }
-  .flow__stage-label { font-size: var(--fs-15); }
+  .flow__stage-label { font-size: var(--fs-13); }
 
   /* 진행 수치는 아래 줄로 내려 글자가 겹치지 않게 한다. */
   .flow__stage-caption > .flow__stage-count { flex-basis: 100%; }

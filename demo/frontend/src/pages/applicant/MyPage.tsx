@@ -30,11 +30,11 @@ const LOAD_ERROR_COPY = '신청 내용을 불러오지 못했습니다. 잠시 �
 
 type ProgressState = ApplicationStatus['progress'][number]['state']
 
-/** 진행 단계의 상태는 색과 함께 글자로도 알린다. */
+/** 진행 단계의 상태는 색과 함께 글자로도 알린다. 아직 오지 않은 단계는 글자 없이 번호만 둔다. */
 const PROGRESS_STATE: Record<ProgressState, { marker: 'complete' | 'current' | 'waiting'; text: string }> = {
   done: { marker: 'complete', text: '완료' },
   current: { marker: 'current', text: '진행 중' },
-  todo: { marker: 'waiting', text: '예정' },
+  todo: { marker: 'waiting', text: '' },
 }
 
 export default function MyPage({ applicationId }: { applicationId: number }) {
@@ -135,7 +135,7 @@ export default function MyPage({ applicationId }: { applicationId: number }) {
                     </span>
                     <span className="mpstep__copy">
                       <span className="mpstep__label">{step.label}</span>
-                      <span className="mpstep__state">{text}</span>
+                      {text && <span className="mpstep__state">{text}</span>}
                     </span>
                   </li>
                 )

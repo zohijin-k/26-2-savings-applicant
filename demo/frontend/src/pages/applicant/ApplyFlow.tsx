@@ -1,4 +1,4 @@
-/** 두배적금: 본인인증 → 서식 작성 → 서류 업로드 및 제출 → 마이페이지. */
+/** 두배적금: 본인인증 → 서식 작성 → 서류 업로드 → 확인 및 제출 → 마이페이지. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -31,6 +31,7 @@ import useDocumentTitle from '../../hooks/useDocumentTitle.ts'
 import { friendlyError } from '../../lib/error-copy.ts'
 import { formatDateTime } from '../../lib/format.ts'
 import DocumentUpload from './DocumentUpload.tsx'
+import FinalCheck from './FinalCheck.tsx'
 import IdentityCheck from './IdentityCheck.tsx'
 import MyPage from './MyPage.tsx'
 import PdfFormsWorkspace, { ApplicantFormsBulkMenu } from '../../forms/PdfFormsWorkspace.tsx'
@@ -46,15 +47,16 @@ type Stage =
   | 'identity'
   | 'forms'
   | 'upload'
+  | 'final'
   | 'complete'
   | 'mypage'
 
 function savedPage(): { appId: number; stage: Stage; previous: Stage } | null {
   const params = currentParams()
   const route = /^\/apply\/([a-z]+)\/?$/.exec(window.location.pathname)
-  const stage = (route?.[1] === 'final' ? 'upload' : route?.[1]) as Stage
-  const previous = (params.get('from') === 'final' ? 'upload' : params.get('from')) as Stage
-  const stages: Stage[] = ['identity', 'forms', 'upload', 'complete', 'mypage']
+  const stage = route?.[1] as Stage
+  const previous = params.get('from') as Stage
+  const stages: Stage[] = ['identity', 'forms', 'upload', 'final', 'complete', 'mypage']
   try {
     const savedId = window.sessionStorage.getItem(ACTIVE_APPLICATION_KEY)
     if (!savedId || !/^[1-9]\d*$/.test(savedId)) return null
@@ -66,19 +68,22 @@ function savedPage(): { appId: number; stage: Stage; previous: Stage } | null {
   }
 }
 
-type Step = { key: 'identity' | 'forms' | 'upload'; label: string }
+type Step = { key: 'identity' | 'forms' | 'upload' | 'final'; label: string }
 type StepperProgress = { completed: number; total: number }
 const APPLY_STEPS: Step[] = [
   { key: 'identity', label: '본인인증' },
   { key: 'forms', label: '서식 작성' },
-  { key: 'upload', label: '서류 업로드 및 제출' },
+  { key: 'upload', label: '서류 업로드' },
+  { key: 'final', label: '확인 및 제출' },
 ]
+const LAST_STEP = APPLY_STEPS.length - 1
 
 /** 단계마다 다른 문서 제목. `{단계명} | 전북청년 함께 두배적금 신청` */
 const STAGE_TITLES: Record<Stage, string> = {
   identity: '본인인증',
   forms: '서식 작성',
-  upload: '서류 업로드 및 제출',
+  upload: '서류 업로드',
+  final: '확인 및 제출',
   complete: '접수 완료',
   mypage: '마이페이지',
 }
@@ -160,6 +165,7 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
   const [formError, setFormError] = useState('')
   const [formProgress, setFormProgress] = useState<StepperProgress>({ completed: 0, total: 0 })
   const [uploadBusy, setUploadBusy] = useState(false)
+  const [finalBusy, setFinalBusy] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<StepperProgress>({ completed: 0, total: 0 })
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
   // 아직 끝나지 않은 저장 요청 수. 남아 있는 동안 탭을 떠나려 하면 이탈 확인을 띄운다.
@@ -224,9 +230,9 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
         })
       }
       const restoredStage = restored && initialPage ? initialPage.stage : 'identity'
-      setStage(restoredStage === 'complete' && status.status === 'draft' ? 'upload' : restoredStage)
+      setStage(restoredStage === 'complete' && status.status === 'draft' ? 'final' : restoredStage)
       const restoredPrevious = restored && initialPage ? initialPage.previous : 'identity'
-      setStageBeforeMypage(restoredPrevious === 'complete' && status.status === 'draft' ? 'upload' : restoredPrevious)
+      setStageBeforeMypage(restoredPrevious === 'complete' && status.status === 'draft' ? 'final' : restoredPrevious)
     }
     // Defer the work so StrictMode's first cleanup happens before initialization.
     initialization.current ??= Promise.resolve().then(initialize)
@@ -384,16 +390,17 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
   const uploadComplete = uploadProgress.total > 0 && uploadProgress.completed >= uploadProgress.total
   const viewedStage = stage === 'mypage' && !submittedDone ? stageBeforeMypage : stage
   // 제출을 마친 뒤에는 어느 화면을 보고 있든 마지막 단계(접수 완료)만 현재로 알린다.
-  const currentIndex = submittedDone ? 2
+  const currentIndex = submittedDone ? LAST_STEP
     : viewedStage === 'identity' ? 0
       : viewedStage === 'forms' ? 1
-        : 2
+        : viewedStage === 'upload' ? 2
+          : LAST_STEP
 
   // 주소를 직접 쳐서 본인인증 없이 뒤 단계에 온 경우, 1단계를 완료로 그리지 않는다.
   const identityMissing = identity === null && !submittedDone && currentIndex > 0
 
   const openMyPage = async () => {
-    if (formContinuing || uploadBusy || workspaceBusy) return
+    if (formContinuing || uploadBusy || workspaceBusy || finalBusy) return
     if (stage === 'forms') {
       setFormContinuing(true)
       setFormError('')
@@ -407,23 +414,25 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
     window.scrollTo({ top: 0 })
   }
 
-  /** 단계 표시의 상태 글자와 진행 수치. 색이 아니라 글자로 완료·현재·예정을 알린다. */
+  /** 단계 표시의 상태 글자와 진행 수치. 완료·현재만 글자로 알리고, 아직 오지 않은 단계는 번호만 둔다. */
   const stepStatus = (index: number): { state: string; count: string } => {
-    if (submittedDone) return { state: index === 2 ? '접수 완료' : '완료', count: '' }
+    if (submittedDone) return { state: index === LAST_STEP ? '접수 완료' : '완료', count: '' }
     if (index === 0 && identityMissing) return { state: '미완료', count: '' }
     const progress = index === 1 ? formProgress : index === 2 ? uploadProgress : null
     const count = progress && progress.total > 0
       ? `${index === 1 ? '서식' : '서류'} ${progress.completed} / ${progress.total}`
       : ''
     if (index < currentIndex) return { state: '완료', count: '' }
-    if (index > currentIndex) return { state: index === 2 && uploadComplete ? '완료' : '예정', count }
+    if (index > currentIndex) return { state: index === 2 && uploadComplete ? '완료' : '', count }
     return { state: '현재', count }
   }
 
+  /** 단계 표시에서 갈 수 있는 곳: 이미 거친 단계, 다녀간 서류 업로드, 서류를 다 올린 뒤의 확인 및 제출. */
+  const stepReachable = (index: number) => !submittedDone && stage !== 'mypage' && index !== 0 && index !== currentIndex &&
+    (index < currentIndex || (index === 2 && uploadProgress.total > 0) || (index === LAST_STEP && uploadComplete))
+
   const stepperNavigate = async (index: number) => {
-    const previouslyReachedUpload = index === 2 && uploadProgress.total > 0
-    if (submittedDone || stage === 'mypage' || index === 0 || formContinuing || uploadBusy || workspaceBusy) return
-    if (index >= currentIndex && !previouslyReachedUpload) return
+    if (!stepReachable(index) || formContinuing || uploadBusy || workspaceBusy || finalBusy) return
     if (stage === 'forms') {
       setFormContinuing(true)
       setFormError('')
@@ -432,7 +441,7 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
         return
       } finally { setFormContinuing(false) }
     }
-    setStage(index === 1 ? 'forms' : 'upload')
+    setStage(index === 1 ? 'forms' : index === 2 ? 'upload' : 'final')
     window.scrollTo({ top: 0 })
   }
 
@@ -484,14 +493,14 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
     return operation
   }
 
-  const leaveMyPage = () => setStage(stageBeforeMypage === 'complete' && !submittedDone ? 'upload' : stageBeforeMypage)
+  const leaveMyPage = () => setStage(stageBeforeMypage === 'complete' && !submittedDone ? 'final' : stageBeforeMypage)
 
   return (
     <div className={`flow${stage === 'upload' ? ' flow--fluid' : stage === 'forms' ? ' flow--forms' : ''}`}>
       {headerHost && appId !== null && createPortal(
         <div className="shell__application-controls">
           <span className="shell__application-number">신청번호 <strong>{appNo || '발급 중…'}</strong></span>
-          <button type="button" className="btn btn--small shell__mypage" onClick={() => void openMyPage()} disabled={stage === 'mypage' || formContinuing || uploadBusy}>마이페이지</button>
+          <button type="button" className="btn btn--small shell__mypage" onClick={() => void openMyPage()} disabled={stage === 'mypage' || formContinuing || uploadBusy || finalBusy}>마이페이지</button>
         </div>, headerHost,
       )}
       {footerHost && program.call_center && createPortal(
@@ -503,16 +512,16 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
       )}
 
       <div className="flow__head">
-        <h1>{program.name} 신청</h1>
+        {/* 화면에는 보이지 않는 제목. 화면 읽기 프로그램이 페이지 이름으로 읽는다. */}
+        <h1 className="sr-only">{program.name} 신청</h1>
         <ol className="flow__stages" aria-label="신청 단계">
           {APPLY_STEPS.map(({ key, label }, i) => {
             const complete = submittedDone || (i < currentIndex && !(i === 0 && identityMissing)) || (i === 2 && uploadComplete)
             const current = i === currentIndex
             // 제출을 마친 뒤의 마지막 단계는 현재이면서 완료다. 그 밖에는 현재 표시가 완료 표시보다 앞선다.
             const marker = submittedDone || (complete && !current) ? 'complete' : current ? 'current' : 'waiting'
-            const reachable = !submittedDone && stage !== 'mypage' && i !== 0 && !current &&
-              (i < currentIndex || (i === 2 && uploadProgress.total > 0))
-            const blocked = formContinuing || uploadBusy
+            const reachable = stepReachable(i)
+            const blocked = formContinuing || uploadBusy || finalBusy
             const { state, count } = stepStatus(i)
             const content = (
               <>
@@ -522,7 +531,7 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
                 <span className="flow__stage-copy">
                   <span className="flow__stage-caption">
                     <span>{i + 1}단계</span>
-                    <span className="flow__stage-status">{state}</span>
+                    {state && <span className="flow__stage-status">{state}</span>}
                     {count && <span className="flow__stage-count">{count}</span>}
                   </span>
                   <span className="flow__stage-label">{label}</span>
@@ -599,7 +608,7 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
           />
         )}
 
-        {/* ── 서류 업로드 및 제출 ── */}
+        {/* ── 서류 업로드 ── */}
         {stage === 'upload' && appId !== null && (
           <>
             {identity === null && (
@@ -616,14 +625,25 @@ export default function ApplyFlow({ headerHost, footerHost, onProgressChange }: 
               onProgress={reportUploadProgress}
               onBusyChange={reportUploadBusy}
               onForms={() => jumpTo('forms')}
-              onBeforeSubmit={async () => { await saveQueue.current }}
-              onSubmitted={(result) => {
-                setSubmitted(result)
-                setStage('complete')
-                window.scrollTo({ top: 0 })
-              }}
+              onNext={() => jumpTo('final')}
             />
           </>
+        )}
+
+        {/* ── 확인 및 제출 ── */}
+        {stage === 'final' && appId !== null && (
+          <FinalCheck
+            applicationId={appId}
+            onBack={() => jumpTo('upload')}
+            onForms={() => jumpTo('forms')}
+            onBusyChange={setFinalBusy}
+            onBeforeSubmit={async () => { await saveQueue.current }}
+            onSubmitted={(result) => {
+              setSubmitted(result)
+              setStage('complete')
+              window.scrollTo({ top: 0 })
+            }}
+          />
         )}
 
         {/* ── 접수 완료 (접수증) ── */}

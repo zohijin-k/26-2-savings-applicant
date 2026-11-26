@@ -829,7 +829,7 @@ def submit(application_id: int) -> dict[str, Any]:
         "notice": (
             "선착순 사업입니다. 접수 순서대로 심사하며 예산 소진 시 조기 마감됩니다."
             if program.is_first_come
-            else "평가결과(심사 점수)는 공개하지 않습니다. 최종 선정 여부만 결과발표 시 안내됩니다."
+            else "최종 선정 여부만 결과발표 시 확인할 수 있습니다."
         ),
     }
 
@@ -887,8 +887,7 @@ def status(application_id: int) -> dict[str, Any]:
             "선착순 사업입니다. 접수 순서대로 심사하며 예산 소진 시 조기 마감되고, "
             "선정 결과는 문자·전화로 개별 안내됩니다."
             if program.is_first_come
-            else "평가결과는 공개하지 않습니다. 심사 점수는 안내되지 않으며, "
-            "최종 선정 여부만 결과발표 시 확인할 수 있습니다."
+            else "최종 선정 여부만 결과발표 시 확인할 수 있습니다."
         ),
         # 선착순 순번과 보완 기한. 두배적금은 둘 다 None이다(점수제·보완 불가).
         "first_come": _first_come(app, program),

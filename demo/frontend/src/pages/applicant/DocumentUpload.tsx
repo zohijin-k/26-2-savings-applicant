@@ -1,5 +1,5 @@
 /**
- * 3단계 서류 업로드 및 제출.
+ * 3단계 서류 업로드. 제출은 4단계 "확인 및 제출"(FinalCheck.tsx)에서 한다.
  *
  * 두배적금은 보완 요청이 없는 사업이다. 제출한 뒤에 미비를 알려 주면 이미 늦다.
  * 그래서 이 화면은 "올리는 순간, 그 칸에서 알려 준다"에 걸려 있다.
@@ -26,7 +26,6 @@ import {
   type DocContext,
   type DocRequirementRow,
   type UploadedDocument,
-  type SubmitResult,
   type FinalCheck,
   type Blocker,
 } from '../../api.ts'
@@ -53,13 +52,12 @@ import { estimateSeconds, rememberObservation, slowThresholdSec, type Observatio
 import { issuerLink, reuploadFindings, REUPLOAD_GUIDANCE } from './reupload-guidance.ts'
 import { isActive, nextRunnable, queueReducer, slotItem, transferPercentage, type QueueItem } from './upload-queue.ts'
 import { mutationError, slotChange } from '../../lib/applicant-mutation.ts'
-import useApplicantSubmission from '../../hooks/useApplicantSubmission.ts'
 import './document-upload.css'
 
 const WORKPLACE_COUNTS = ['1개', '2개', '3개'] as const
 
 const UPLOAD_FAILED_COPY = '파일을 올리지 못했습니다. 잠시 후 다시 시도해 주세요.'
-const SUBMIT_FAILED_COPY = '신청을 제출하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+const READINESS_FAILED_COPY = '제출 준비 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.'
 const LOAD_FAILED_COPY = '서류 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
 const CONTEXT_FAILED_COPY = '선택을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.'
 const REMOVE_FAILED_COPY = '삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.'
@@ -714,13 +712,13 @@ function omit<T>(record: Record<string, T>, key: string): Record<string, T> {
   return rest
 }
 
-export default function DocumentUpload({ applicationId, onProgress, onBusyChange, onForms, onBeforeSubmit, onSubmitted, callCenter }: {
+export default function DocumentUpload({ applicationId, onProgress, onBusyChange, onForms, onNext, callCenter }: {
   applicationId: number
   onProgress: (uploaded: number, total: number) => void
   onBusyChange: (busy: boolean) => void
   onForms: () => void
-  onBeforeSubmit: () => Promise<void>
-  onSubmitted: (result: SubmitResult) => void
+  /** 모든 항목이 채워졌을 때 4단계 "확인 및 제출"로 넘어간다. */
+  onNext: () => void
   /** 사업 문의 전화. 자동 확인 결과가 잘못됐다고 느낄 때 연락할 곳으로 안내한다. */
   callCenter?: string
 }) {
@@ -729,7 +727,6 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
   const [loadError, setLoadError] = useState('')
   const [readinessFailed, setReadinessFailed] = useState(false)
   const [submitError, setSubmitError] = useState('')
-  const submission = useApplicantSubmission(applicationId, onSubmitted)
   const [recoveryNotice, setRecoveryNotice] = useState('')
   const [retryConfirm, setRetryConfirm] = useState<QueueItem | null>(null)
   const [foundBlockers, setFoundBlockers] = useState(false)
@@ -737,7 +734,6 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
   const [leftoverError, setLeftoverError] = useState('')
   /** 화면 전체를 잠그는 작업(근로유형 변경 · 남은 쪽 삭제 · 접수 상태와 제출 준비 다시 확인)의 이름. */
   const [busyScope, setBusyScope] = useState('')
-  const [submitting, setSubmitting] = useState(false)
 
   const [queue, dispatch] = useReducer(queueReducer, [])
   const [checking, setChecking] = useState<Record<string, PendingPick>>({})
@@ -749,7 +745,6 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
 
   const [pendingContext, setPendingContext] = useState<Partial<DocContext> | null>(null)
   const [contextConfirm, setContextConfirm] = useState<{ patch: Partial<DocContext>; docs: UploadedDocument[] } | null>(null)
-  const [confirmingSubmit, setConfirmingSubmit] = useState(false)
   const [reuploadOpen, setReuploadOpen] = useState(false)
 
   const latestRequest = useRef(0)
@@ -837,7 +832,7 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
   useEffect(() => { saveDeclared(applicationId, declared) }, [applicationId, declared])
 
   const queueBusy = isActive(queue) || Object.keys(checking).length > 0
-  const locked = !!busyScope || submitting
+  const locked = !!busyScope
   useBeforeUnload(queueBusy || queue.some((item) => item.status === 'failed'))
 
   useEffect(() => {
@@ -1064,7 +1059,7 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
 
   const recheck = () => {
     setSubmitError('')
-    void runMutation('readiness', async () => {}, setSubmitError, SUBMIT_FAILED_COPY)
+    void runMutation('readiness', async () => {}, setSubmitError, READINESS_FAILED_COPY)
   }
 
   // ── 파일 고르기 ──
@@ -1146,19 +1141,10 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
     control?.focus({ preventScroll: true })
   }
 
-  // ── 제출 ──
-  const submit = async () => {
-    if (mutation.current || running.current || queueBusy || submission.busy || !readiness?.can_submit) return
-    mutation.current = true; setSubmitting(true); setSubmitError('')
-    try { await onBeforeSubmit(); if (active.current) await submission.submit() }
-    catch (problem: unknown) { if (active.current) setSubmitError(mutationError(problem, SUBMIT_FAILED_COPY)) }
-    finally { mutation.current = false; if (active.current) setSubmitting(false) }
-  }
-
   if (loadError && !checklist) {
     return (
       <div className="dupload">
-        <h2 className="dupload__title" tabIndex={-1}>서류 업로드 및 제출</h2>
+        <h2 className="dupload__title" tabIndex={-1}>서류 업로드</h2>
         <Notice tone="danger" role="alert" title="서류 목록을 불러오지 못했습니다">
           <p>{loadError}</p>
           <div className="dslot__notice-actions">
@@ -1172,7 +1158,7 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
   if (!checklist) {
     return (
       <div className="dupload">
-        <h2 className="dupload__title" tabIndex={-1}>서류 업로드 및 제출</h2>
+        <h2 className="dupload__title" tabIndex={-1}>서류 업로드</h2>
         {showChecklistSkeleton && (
           <Skeleton className="dupload__skeleton" label="서류 목록을 불러오는 중">
             {Array.from({ length: 4 }, (_, index) => (
@@ -1194,7 +1180,7 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
   const formBlockers = blockers.filter((blocker) => blocker.goto !== 'upload')
   const uploadBlockers = blockers.filter((blocker) => blocker.goto === 'upload')
   const contextLocked = queueBusy || busyScope === 'work-context'
-  const submitBlocked = !readiness?.can_submit || pageBusy || !!submitError || readinessFailed || submission.unknown
+  const nextBlocked = !(readiness?.can_submit || readiness?.already_submitted) || pageBusy || !!submitError || readinessFailed
 
   const blockerRows = (rows: Blocker[]) => (
     <ul className="dupload__blocker-list">
@@ -1216,7 +1202,7 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
       onDragOver={(event) => { if (event.dataTransfer.types.includes('Files')) event.preventDefault() }}
       onDrop={(event) => { if (event.dataTransfer.types.includes('Files')) event.preventDefault() }}
     >
-      <h2 className="dupload__title" tabIndex={-1}>서류 업로드 및 제출</h2>
+      <h2 className="dupload__title" tabIndex={-1}>서류 업로드</h2>
 
       <div className="dupload__work" inert={locked}>
         <Notice tone="info" title="올리기 전에 확인해 주세요">
@@ -1389,8 +1375,8 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
       )}
 
       <section className="card dupload__submission" aria-labelledby="submission-heading">
-        <h3 id="submission-heading">신청 제출</h3>
-        <p className="dupload__lead">제출 후에는 신청 내용을 수정할 수 없습니다. 작성한 내용과 올린 파일을 확인해 주세요.</p>
+        <h3 id="submission-heading">제출 준비</h3>
+        <p className="dupload__lead">모든 서류가 확인되면 다음 단계에서 작성한 서식과 올린 서류를 한 번 더 확인하고 제출합니다.</p>
 
         {blockers.length > 0 && (
           <div className="dupload__blockers">
@@ -1410,19 +1396,19 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
           </div>
         )}
 
-        {queueBusy && <p className="dupload__status"><Spinner small label="서류 확인이 끝나면 제출할 수 있습니다." /></p>}
+        {queueBusy && <p className="dupload__status"><Spinner small label="서류 확인이 끝나면 다음 단계로 넘어갈 수 있습니다." /></p>}
         {!readiness && !pageBusy && !submitError && !readinessFailed && (
-          <p className="dupload__status"><Spinner small label="제출에 필요한 항목을 확인하고 있습니다. 확인이 끝나면 제출할 수 있습니다." /></p>
+          <p className="dupload__status"><Spinner small label="제출에 필요한 항목을 확인하고 있습니다." /></p>
         )}
         {foundBlockers && blockers.length > 0 && (
           <Notice tone="warning" role="alert">제출 전에 채워야 할 항목이 있습니다. 위 목록을 확인해 주세요.</Notice>
         )}
-        {(submitError || submission.error || readinessFailed) && (
-          <Notice tone="danger" role="alert" title={submitError ? '신청을 제출하지 못했습니다' : '제출 준비 상태를 확인하지 못했습니다'}>
-            <p>{submission.error || submitError || '잠시 후 다시 확인해 주세요.'}</p>
+        {(submitError || readinessFailed) && (
+          <Notice tone="danger" role="alert" title="제출 준비 상태를 확인하지 못했습니다">
+            <p>{submitError || '잠시 후 다시 확인해 주세요.'}</p>
             <div className="dslot__notice-actions">
-              <button type="button" className="btn btn--small" disabled={pageBusy} onClick={() => { void submission.check(); recheck() }}>
-                <Icon name="refresh" size={18} />접수 상태와 제출 준비 다시 확인
+              <button type="button" className="btn btn--small" disabled={pageBusy} onClick={recheck}>
+                <Icon name="refresh" size={18} />제출 준비 다시 확인
               </button>
             </div>
           </Notice>
@@ -1432,13 +1418,13 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
           <button type="button" className="btn" disabled={pageBusy} onClick={onForms}>서식 수정</button>
           <button
             type="button"
-            id="submit-application"
-            className={submitting ? 'btn btn--primary btn--lg btn--busy' : 'btn btn--primary btn--lg'}
-            disabled={submitBlocked}
-            onClick={() => setConfirmingSubmit(true)}
+            id="go-final-check"
+            className="btn btn--primary btn--lg"
+            disabled={nextBlocked}
+            onClick={onNext}
           >
-            {submitting && <span className="spinner" aria-hidden="true" />}
-            {submitting ? '제출하는 중' : readiness?.already_submitted ? '이미 제출된 신청입니다' : '신청 제출'}
+            다음: 확인 및 제출
+            <Icon name="chevronRight" size={18} />
           </button>
         </div>
       </section>
@@ -1452,24 +1438,6 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
         const row = checklist?.items.find((item) => item.slot_key === failed.slotKey)
         if (row) startReplace(row)
       }}>다른 파일 선택</button></ConfirmDialog>}
-      {confirmingSubmit && (
-        <ConfirmDialog
-          size="md"
-          title="신청을 제출하시겠습니까?"
-          description="제출한 뒤에는 서식과 서류를 수정할 수 없습니다."
-          confirmLabel="제출하기"
-          cancelLabel="돌아가기"
-          returnFocus={() => document.getElementById('submit-application')}
-          onCancel={() => setConfirmingSubmit(false)}
-          onConfirm={() => { setConfirmingSubmit(false); void submit() }}
-        >
-          <dl className="dupload__confirm">
-            <div><dt>서식</dt><dd>작성 완료</dd></div>
-            <div><dt>서류</dt><dd>{doneCount}종 업로드 완료</dd></div>
-          </dl>
-        </ConfirmDialog>
-      )}
-
       {contextConfirm && (
         <ConfirmDialog
           title="선택을 바꾸시겠습니까?"

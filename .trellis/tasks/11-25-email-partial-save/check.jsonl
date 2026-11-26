@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/applicant-ux-contract.md", "reason": "Verify flush still validates the typed email"}
+{"file": ".trellis/spec/frontend/applicant-ui-foundation.md", "reason": "Node test list and copy rules"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Cross-layer check: backend email rule unchanged"}

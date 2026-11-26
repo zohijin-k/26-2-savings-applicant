@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/applicant-ux-contract.md", "reason": "Incremental save vs full flush contract"}
+{"file": ".trellis/spec/frontend/pdf-form-workspace.md", "reason": "Workspace save transitions and flush boundary"}
+{"file": ".trellis/spec/frontend/applicant-ui-foundation.md", "reason": "Error copy rules and Node test conventions"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guides"}

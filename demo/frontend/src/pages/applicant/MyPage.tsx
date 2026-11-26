@@ -20,6 +20,7 @@ import Icon from '../../components/Icon.tsx'
 import Notice from '../../components/Notice.tsx'
 import PhoneLink from '../../components/PhoneLink.tsx'
 import StatusBadge from '../../components/StatusBadge.tsx'
+import { UPLOADED_REVIEW_NOTE } from '../../lib/document-status.ts'
 import { Skeleton, SkeletonLine } from '../../components/Skeleton.tsx'
 import useDelayedFlag from '../../hooks/useDelayedFlag.ts'
 import { friendlyError } from '../../lib/error-copy.ts'
@@ -170,6 +171,7 @@ export default function MyPage({ applicationId }: { applicationId: number }) {
 
           <section className="card mypage__section" aria-labelledby="mypage-docs-title">
             <h3 id="mypage-docs-title">{draft ? '올린 서류' : '제출한 서류'}</h3>
+            {data.documents.length > 0 && <p className="mypage__note">{UPLOADED_REVIEW_NOTE}</p>}
             {data.documents.length === 0 ? (
               <p className="mypage__empty">아직 올린 서류가 없습니다.</p>
             ) : (
@@ -179,7 +181,7 @@ export default function MyPage({ applicationId }: { applicationId: number }) {
                     <th scope="col">파일</th>
                     <th scope="col">서류 종류</th>
                     <th scope="col">상태</th>
-                    <th scope="col">확인된 내용</th>
+                    <th scope="col">자동으로 읽은 내용</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -194,7 +196,7 @@ export default function MyPage({ applicationId }: { applicationId: number }) {
                         <td data-label="상태">
                           <StatusBadge status={doc.status ?? 'UPLOADED'} />
                         </td>
-                        <td data-label="확인된 내용">
+                        <td data-label="자동으로 읽은 내용">
                           {extracted.length > 0 ? (
                             <dl className="dl-inline">
                               {extracted.map(([term, value]) => (

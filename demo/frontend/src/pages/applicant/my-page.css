@@ -33,6 +33,13 @@
   color: var(--color-text-subtle);
 }
 
+/* 업로드됨은 접수일 뿐 적합 판정이 아니라는 고정 안내 (#23). */
+.mypage__note {
+  margin: 0 0 var(--sp-3);
+  color: var(--color-text-subtle);
+  font-size: var(--fs-15);
+}
+
 .mypage__none { color: var(--color-text-muted); }
 
 .mypage__skeleton,

@@ -24,6 +24,7 @@ import Notice from '../../components/Notice.tsx'
 import { Skeleton, SkeletonCard, SkeletonLine } from '../../components/Skeleton.tsx'
 import Spinner from '../../components/Spinner.tsx'
 import StatusBadge from '../../components/StatusBadge.tsx'
+import { UPLOADED_REVIEW_NOTE } from '../../lib/document-status.ts'
 import useApplicantSubmission from '../../hooks/useApplicantSubmission.ts'
 import useBeforeUnload from '../../hooks/useBeforeUnload.ts'
 import useDelayedFlag from '../../hooks/useDelayedFlag.ts'
@@ -193,6 +194,7 @@ export default function FinalCheck({ applicationId, onBack, onForms, onBeforeSub
           <h3 id="fcheck-docs-title">제출 서류</h3>
           <span className="fcheck__count">{uploaded.length}건</span>
         </div>
+        {uploaded.length > 0 && <p className="fcheck__note">{UPLOADED_REVIEW_NOTE}</p>}
         {uploaded.length > 0 ? (
           <ul className="fcheck__list">
             {uploaded.map(({ item, doc }) => (

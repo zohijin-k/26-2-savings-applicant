@@ -51,7 +51,9 @@ Nine viewport checks and actual chrome.tabs.setZoom at 200/400% are separate fro
 
 ## Policy adapters and moving baselines
 
-Savings public document states are UPLOADED/REUPLOAD_REQUIRED; youth retains PASS/FAIL/NEEDS_REVIEW. UI contracts must map these without changing backend strings. SQLite document IDs can be reused after slot replacement/deletion. An unchanged ID is never proof that a timed-out request did not commit. A changed ID is not proof of the local file identity. Native reupload tests compare the stored PDF hash rather than requiring a new integer ID.
+Savings public document states are UPLOADED/REUPLOAD_REQUIRED; youth retains PASS/FAIL/NEEDS_REVIEW. UI contracts must map these without changing backend strings.
+
+Savings `UPLOADED` contains both automatic PASS and NEEDS_REVIEW, so the UI cannot tell them apart (#23, 11-27). `src/lib/document-status.ts` owns the presentation: `UPLOADED` is a neutral "업로드됨" (file icon, base gray `.status-badge`, neutral `.dslot--uploaded` card), never success colour, a check mark or "완료"; progress counts read "N종 업로드됨". Upload, final-check (step 4) and MyPage show the fixed `UPLOADED_REVIEW_NOTE` (same sentence for every uploaded document, no per-document verdict). `REUPLOAD_REQUIRED` keeps its danger badge, guidance and submit blocking. The shared `.status-badge--uploaded` rule stays in `components.css` for compatibility but savings no longer uses it. `tests/document-status.test.ts` guards these rules. SQLite document IDs can be reused after slot replacement/deletion. An unchanged ID is never proof that a timed-out request did not commit. A changed ID is not proof of the local file identity. Native reupload tests compare the stored PDF hash rather than requiring a new integer ID.
 
 When a status recheck temporarily makes its card inert, a later confirmation dialog cannot rely on the current activeElement for focus return: specify the actual retry trigger explicitly. Test forward and reverse Tab, Escape and focus return after both successful and unsuccessful rechecks.
 

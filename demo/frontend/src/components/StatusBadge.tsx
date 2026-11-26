@@ -1,10 +1,7 @@
 import type { DocStatus } from '../api.ts'
-import Icon, { type IconName } from './Icon.tsx'
+import { APPLICANT_DOCUMENT_STATUS } from '../lib/document-status.ts'
+import Icon from './Icon.tsx'
 
-export const APPLICANT_DOCUMENT_STATUS = {
-  UPLOADED: { label: '업로드 완료', icon: 'checkCircle' },
-  REUPLOAD_REQUIRED: { label: '다시 올려 주세요', icon: 'refresh' },
-} satisfies Record<DocStatus, { label: string; icon: IconName }>
 
 export default function StatusBadge({
   status,
@@ -13,7 +10,7 @@ export default function StatusBadge({
 }) {
   const presentation = APPLICANT_DOCUMENT_STATUS[status]
   return (
-    <span className={`status-badge status-badge--${status.toLowerCase()}`}>
+    <span className={presentation.className}>
       <Icon name={presentation.icon} size={16} />
       <span>{presentation.label}</span>
     </span>

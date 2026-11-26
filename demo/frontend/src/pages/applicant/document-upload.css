@@ -158,10 +158,11 @@
   scroll-margin-top: 112px;
 }
 
-/* 확인 결과가 나온 칸은 카드 전체를 초록(완료) · 빨강(다시 올리기)으로 칠해 목록에서 바로 갈리게 한다. */
+/* 다시 올려야 하는 칸만 빨강으로 칠해 목록에서 바로 갈리게 한다.
+   업로드됨 칸은 파일이 접수됐다는 뜻일 뿐 적합 판정이 아니므로 성공색(초록)을 쓰지 않는다(#23). */
 .dslot--uploaded {
-  border-color: var(--success-50);
-  background: var(--success-5);
+  border-color: var(--color-border);
+  background: var(--color-surface);
 }
 
 .dslot--reupload {

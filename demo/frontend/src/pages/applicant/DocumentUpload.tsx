@@ -40,6 +40,7 @@ import ProgressBar from '../../components/ProgressBar.tsx'
 import { Skeleton, SkeletonCard, SkeletonLine } from '../../components/Skeleton.tsx'
 import Spinner from '../../components/Spinner.tsx'
 import StatusBadge from '../../components/StatusBadge.tsx'
+import { UPLOADED_REVIEW_NOTE, uploadAnnouncement } from '../../lib/document-status.ts'
 import { DateTriple } from '../../forms/FormSheet.tsx'
 import { EMPTY_YMD, isCompleteYMD, ymdToISO, type YMD } from '../../forms/ymd.ts'
 import useBeforeUnload from '../../hooks/useBeforeUnload.ts'
@@ -914,9 +915,7 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
       setDeclared((current) => omit(current, next.slotKey))
       setPickErrors((current) => omit(current, next.slotKey))
       dispatch({ type: 'succeed', id: next.id })
-      announce(next.slotKey, doc.status === 'REUPLOAD_REQUIRED'
-        ? `${label} 다시 올려야 합니다. 안내를 확인해 주세요.`
-        : `${label} 업로드 완료`)
+      announce(next.slotKey, uploadAnnouncement(label, doc.status))
     })()
   }, [queue, locked, applicationId, announce])
 
@@ -938,7 +937,7 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
   const totalCount = uploadItems.length
   const hasChecklist = checklist !== null
 
-  // 단계 표시의 숫자도 "업로드 완료"만 센다.
+  // 단계 표시의 숫자는 재업로드가 필요 없는 "업로드됨" 서류만 센다. 적합 판정 수가 아니다(#23).
   useEffect(() => {
     if (hasChecklist) onProgress(doneCount, totalCount)
   }, [hasChecklist, doneCount, totalCount, onProgress])
@@ -1271,12 +1270,13 @@ export default function DocumentUpload({ applicationId, onProgress, onBusyChange
           <div className="dupload__summary-row">
             <h3 className="dupload__summary-title">제출 서류</h3>
             <p className="dupload__summary-text">
-              <span><strong>{doneCount}종 완료</strong> · 전체 {totalCount}종</span>
+              <span><strong>{doneCount}종 업로드됨</strong> · 전체 {totalCount}종</span>
               {reuploadCount > 0 && <span className="dupload__summary-issue"><Icon name="alertCircle" size={18} />다시 올릴 서류 {reuploadCount}종</span>}
               {workingCount > 0 && <span className="dupload__summary-working"><Spinner small />확인 중 {workingCount}종</span>}
             </p>
           </div>
-          <ProgressBar value={doneCount} max={totalCount || 1} label="제출 서류" valueText={`전체 ${totalCount}종 중 ${doneCount}종 완료`} />
+          <ProgressBar value={doneCount} max={totalCount || 1} label="제출 서류" valueText={`전체 ${totalCount}종 중 ${doneCount}종 업로드됨`} />
+          {doneCount > 0 && <p className="field__hint dupload__review-note">{UPLOADED_REVIEW_NOTE}</p>}
           {checklist.program.asks_work_category && !shownContext.work_category && (
             <p className="field__hint">근로유형을 고르면 서류가 1종 추가됩니다.</p>
           )}

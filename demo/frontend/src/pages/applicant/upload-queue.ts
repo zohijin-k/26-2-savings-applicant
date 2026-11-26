@@ -7,7 +7,7 @@
  *   queued(대기) → sending(보내는 중) → reading(서버가 읽고 확인하는 중) → 끝나면 목록에서 빠진다
  *                                                            ↘ failed(요청 실패) → retry → queued
  *
- * 칸 하나에는 항목이 하나만 있다. 결과(업로드 완료 · 다시 올려 주세요)는 대기열이 아니라 체크리스트에 담긴다.
+ * 칸 하나에는 항목이 하나만 있다. 결과(업로드됨 · 다시 올려 주세요)는 대기열이 아니라 체크리스트에 담긴다.
  */
 import type { FileKind } from '../../lib/file-precheck.ts'
 
